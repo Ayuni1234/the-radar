@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="The Radar — Global Football Scouting Platform. Live sessions, scouting, and Pi-powered payments.">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="The Radar">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>The Radar — Global Football Scouting Platform</title>
+  <link rel="manifest" href="manifest.json">
+
+  <!-- Pi Network SDK: must be loaded before the Flutter app boots. -->
+  <script src="https://sdk.minepi.com/pi-sdk.js"></script>
+  <script>
+    // Expose a flag the Dart bridge can read to detect a working Pi environment.
+    window.addEventListener('error', function (e) {
+      if (window.__radarJsErrors && e && e.message) {
+        window.__radarJsErrors.push(String(e.message));
+      }
+    });
+    if (!window.__radarJsErrors) {
+      window.__radarJsErrors = [];
+    }
+    // Light bootstrap theme so the page background matches the app while loading.
+    document.documentElement.style.backgroundColor = '#0A0E1A';
+  </script>
+</head>
+<body>
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>

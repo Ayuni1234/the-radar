@@ -1,0 +1,26 @@
+name: the_radar
+description: "The Radar — Global Football Scouting Platform (Flutter Web)."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.13.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  flutter_riverpod: ^3.4.3
+  intl: ^0.20.3
+  supabase_flutter: ^2.17.2
+  gotrue: ^2.27.2
+  functions_client: ^2.7.1
+  realtime_client: ^2.13.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
