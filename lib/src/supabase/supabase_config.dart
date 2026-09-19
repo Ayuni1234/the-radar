@@ -80,11 +80,27 @@ class SupabaseConfig {
       throw const PiSessionException('Supabase is not configured.');
     }
 
-    final res = await functions
-        .invoke('pi-session', body: {'accessToken': accessToken});
-    final data = res.data;
-    if (data is! Map || data['ok'] != true) {
-      throw const PiSessionException('Session provisioning failed.');
+    Object? data;
+    try {
+      final res =
+          await functions.invoke('pi-session', body: {'accessToken': accessToken});
+      data = res.data;
+    } on FunctionException catch (e) {
+      // Surface the real failure (status + payload) instead of a generic
+      // message — a CORS-rejected preflight or a 4xx from the function
+      // should be distinguishable in the login UI.
+      final details = e.details is Map && e.details['error'] != null
+          ? ' (${e.details['error']})'
+          : '';
+      throw PiSessionException(
+          'Session function failed (${e.status}$details).');
+    }
+    if (data is! Map) {
+      throw const PiSessionException('Session provisioning failed: invalid response.');
+    }
+    if (data['ok'] != true) {
+      throw PiSessionException(
+          'Session provisioning failed: ${data['error'] ?? 'unknown error'}.');
     }
 
     final user = data['user'];
