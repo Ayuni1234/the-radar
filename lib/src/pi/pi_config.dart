@@ -1,8 +1,8 @@
 /// Runtime configuration for the Pi Network integration.
 ///
-/// `PiConfig.local` is the default so that `flutter run` in a plain browser
-/// never fires real Pi dialogs; flip to `PiConfig.mainnet` when deploying
-/// behind the Pi Browser, or `PiConfig.sandbox` for sandbox testing.
+/// Sandbox/testnet is the default: `Pi.init({ version: '2.0', sandbox: true })`
+/// runs against sandbox.minepi.com so test transactions never touch real Pi.
+/// Override per build with `--dart-define=PI_SANDBOX=false` for mainnet.
 class PiConfig {
   const PiConfig({
     required this.sdkVersion,
@@ -46,12 +46,21 @@ class PiConfig {
   );
 
   /// Plain-browser development: Pi SDK absent, demo mode available.
+  /// (Kept for explicitness; runtime detection makes it equivalent to the
+  /// sandbox preset outside the Pi Browser.)
   static const PiConfig local = PiConfig(
     sdkVersion: '2.0',
-    sandbox: false,
+    sandbox: true,
     enabled: false,
   );
 
-  /// Environment chosen at startup.
-  static PiConfig current = PiConfig.local;
+  /// Compile-time environment switch, e.g.
+  /// `--dart-define=PI_SANDBOX=true` (testnet, default) or
+  /// `--dart-define=PI_SANDBOX=false` (mainnet, Pi Browser production).
+  static const bool _kEnvSandbox =
+      bool.fromEnvironment('PI_SANDBOX', defaultValue: true);
+
+  /// Environment resolved at startup. Defaults to sandbox/testnet; plain
+  /// browsers (no Pi Browser) still fall back to demo mode at runtime.
+  static PiConfig current = _kEnvSandbox ? sandboxEnv : prod;
 }

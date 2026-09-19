@@ -5,7 +5,12 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 const PI_API_KEY = Deno.env.get("PI_API_KEY")!;
-const PI_API_BASE = "https://api.minepi.com/v2";
+// Single Platform API base for both networks (per pi-platform-docs).
+// Sandbox vs mainnet is chosen client-side via Pi.init({ sandbox }) and is
+// visible here in PaymentDTO.network ("PiTestnet" | "PiMainnet"). The
+// PI_API_BASE override exists only as an ops escape hatch (e.g. a proxy).
+const PI_API_BASE =
+  Deno.env.get("PI_API_BASE") ?? "https://api.minepi.com/v2";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {

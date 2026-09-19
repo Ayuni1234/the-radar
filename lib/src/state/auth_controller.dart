@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/radar_repository.dart';
 import '../models/enums.dart';
 import '../models/user_profile.dart';
-import '../pi/pi_config.dart';
 import '../pi/pi_service.dart';
 import '../supabase/supabase_config.dart';
 
@@ -93,8 +92,8 @@ class AuthController extends AsyncNotifier<AuthState> {
   @override
   Future<AuthState> build() async {
     await SupabaseConfig.initialize();
-    PiConfig.current =
-        PiConfig.prod; // switch to PiConfig.sandboxEnv for sandbox testing
+    // PiConfig.current resolves sandbox (testnet) vs mainnet from the
+    // `PI_SANDBOX` dart-define (default: true = sandbox).
     _pi = PiService(onIncompletePayment: _handleIncompletePayment);
     await _pi!.init();
     if (_pi!.isSdkAvailable) {
