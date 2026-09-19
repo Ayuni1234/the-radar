@@ -14,7 +14,7 @@ jobs:
           channel: stable
       - run: flutter pub get
       - run: flutter analyze
-      - run: flutter build web --release --wasm --base-href "/the-radar/" --dart-define=SUPABASE_URL=https://wmadurjharulfyyzzyes.supabase.co --dart-define=SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndtYWR1cmpoYXJ1bGZ5eXp6eWVzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk3NjAyODIsImV4cCI6MjEwNTMzNjI4Mn0.4YH34yOmSftElGBTcBLk2D2kmwqsYjJAkWHttjPcIGE
+      - run: flutter build web --release --wasm --base-href "/the-radar/" --dart-define=PI_SANDBOX=true --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }} --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
       - uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
