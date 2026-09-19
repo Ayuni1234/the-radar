@@ -23,6 +23,7 @@ lib/
 supabase/
 ├── schema.sql                    # tables, RLS, realtime, minor-safety trigger
 └── functions/
+    ├── pi-session/               # server-side token exchange + session minting
     ├── pi-payment-approve/       # server-side approval webhook
     └── pi-payment-complete/      # server-side completion + entitlements
 ```
@@ -35,10 +36,13 @@ supabase/
   official v2.0 standard (no sandbox parameter).
 - `Pi.authenticate(['username','payments'], onIncompletePaymentFound)` captures
   the access token (browser-side uid/username are display-only).
-- The token is then **exchanged with App Studio**
-  (`POST …/pi/auth/v1/login`), which verifies it against the Pi Platform;
-  the returned uid/username are the only identity the app trusts, and the
-  session token marks a verified sign-in. No Pi API key is needed for this.
+- The token is exchanged **server-side** by the `pi-session` edge function:
+  it calls App Studio (`POST …/pi/auth/v1/login`), which verifies it against
+  the Pi Platform, then provisions a Supabase auth user whose
+  `app_metadata.pi_uid` IS the verified uid and returns a one-time token.
+  The client finishes with `verifyOTP(...)` → a real Supabase session.
+  All RLS policies key on `auth.uid()` / `verified_pi_uid()` — identity is
+  never taken from the browser. No Pi API key is needed for the exchange.
 - Incomplete payments found at sign-in are routed to the completion webhook for
   server-side recovery.
 
@@ -102,6 +106,7 @@ flutter build web --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY
 1. Run `supabase/schema.sql` in the Supabase SQL editor.
 2. Deploy the edge functions:
    ```bash
+   supabase functions deploy pi-session
    supabase functions deploy pi-payment-approve
    supabase functions deploy pi-payment-complete
    supabase secrets set PI_API_KEY=your-pi-server-api-key
@@ -126,7 +131,10 @@ flutter build web --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY
 ## Security model
 
 - **Client never trusts client**: the access token from `Pi.authenticate` is
-  display-only; identity is verified server-side via the Platform API `/me`.
+  display-only; identity is verified server-side — the `pi-session` function
+  exchanges it with App Studio and provisions the Supabase session, so
+  `auth.uid()`/`app_metadata.pi_uid` always reflect the App Studio-verified
+  identity. RLS enforces this on every row.
 - **Server API key stays server-side** — only edge functions hold `PI_API_KEY`.
 - **Minors**: approximate location enforced by a Postgres trigger *and* the UI;
   exact venue names are stripped at the database level even if a client is

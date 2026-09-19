@@ -11,7 +11,6 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../supabase/supabase_config.dart';
-import 'pi_app_studio_client.dart';
 import 'pi_config.dart';
 import 'pi_sdk_api.dart';
 import 'pi_sdk_bridge.dart' show piSdk;
@@ -28,27 +27,30 @@ class PiBridgeException implements Exception {
 
 /// Outcome of `Pi.authenticate`.
 @immutable
-class PiAuthOutcome {
-  const PiAuthOutcome({
-    required this.uid,
+class AuthSessionOutcome {
+  const AuthSessionOutcome({
+    required this.piUid,
     required this.username,
     required this.accessToken,
     required this.sessionToken,
+    required this.supabaseUserId,
     required this.kycVerified,
   });
 
-  /// App-scoped Pi user identifier.
-  final String uid;
+  /// App Studio-verified Pi uid (the only trusted identity).
+  final String piUid;
 
-  /// Pi username (requires the `username` scope).
+  /// App Studio-verified username.
   final String username;
 
   /// Raw browser-side access token (display/diagnostics only).
   final String accessToken;
 
-  /// App Studio session token — proof that this identity was verified
-  /// server-side during sign-in.
+  /// App Studio session token from the server-side exchange.
   final String sessionToken;
+
+  /// Supabase auth user id (deterministic UUID of [piUid]).
+  final String supabaseUserId;
 
   /// True when the Pi account is KYC-verified (when the SDK exposes it).
   final bool kycVerified;
@@ -165,15 +167,11 @@ class PiPaymentState {
 
 /// Dart-facing facade for the Pi SDK.
 class PiService {
-  PiService({this.onIncompletePayment, PiSdkApi? sdk, PiAppStudioClient? appStudio})
-      : _sdkOverride = sdk,
-        _appStudio = appStudio ?? PiAppStudioClient();
+  PiService({this.onIncompletePayment, PiSdkApi? sdk})
+      : _sdkOverride = sdk;
 
   /// Optional injection point (tests / alternative implementations).
   final PiSdkApi? _sdkOverride;
-
-  /// App Studio token-exchange client (server-verified identity).
-  final PiAppStudioClient _appStudio;
 
   /// Called when `authenticate` (or a new payment) surfaces an unfinished
   /// payment. The default implementation forwards it to the backend for
@@ -181,10 +179,10 @@ class PiService {
   final void Function(PiPaymentRecord payment)? onIncompletePayment;
 
   bool _initialized = false;
-  PiAuthOutcome? _lastAuth;
+  AuthSessionOutcome? _lastAuth;
 
   bool get isSdkAvailable => _resolveSdk().isAvailable();
-  PiAuthOutcome? get lastAuth => _lastAuth;
+  AuthSessionOutcome? get lastAuth => _lastAuth;
 
   PiSdkApi _resolveSdk() => _sdkOverride ?? piSdk;
 
@@ -198,15 +196,16 @@ class PiService {
     return ok;
   }
 
-  /// Runs the native Pi authentication flow, then exchanges the access token
-  /// with App Studio so the returned identity is server-verified.
+  /// Runs the native Pi authentication flow, then hands the access token to
+  /// the server-side session flow.
   ///
   /// STEP 1 — `Pi.authenticate(scopes, onIncompletePaymentFound)`: browser
   /// side; the uid/username it returns are display-only.
-  /// STEP 2 — POST `{ accessToken }` to App Studio: the verified uid/username
-  /// and `sessionToken` from that response are the only trusted identity.
-  /// Exactly one exchange per sign-in.
-  Future<PiAuthOutcome> authenticate() async {
+  /// STEP 2 — the `pi-session` edge function exchanges the token with App
+  /// Studio server-side (exactly one exchange per sign-in — the guide
+  /// forbids performing it in the browser too) and provisions a Supabase
+  /// auth session keyed on the VERIFIED identity.
+  Future<AuthSessionOutcome> authenticate() async {
     if (!isSdkAvailable) {
       throw PiBridgeException(
           'Pi SDK unavailable. Open The Radar inside the Pi Browser.');
@@ -227,25 +226,27 @@ class PiService {
         },
       );
 
-      // STEP 2 — App Studio exchange. Browser-side uid/username are never
-      // used for authorisation; the verified pair below is authoritative.
-      final verified = await _appStudio.exchangeToken(result.accessToken);
+      // STEP 2 (server-side): establish the Supabase session from the
+      // App Studio-verified identity. Never trust browser-side values.
+      final supabaseSession =
+          await SupabaseConfig.signInWithPiToken(result.accessToken);
 
-      final outcome = PiAuthOutcome(
-        uid: verified.uid,
-        username: verified.username,
+      final outcome = AuthSessionOutcome(
+        piUid: supabaseSession.piUid,
+        username: supabaseSession.username,
         accessToken: result.accessToken,
-        sessionToken: verified.sessionToken,
+        sessionToken: supabaseSession.sessionToken,
+        supabaseUserId: supabaseSession.userId,
         kycVerified: result.kycApproved ?? false,
       );
       _lastAuth = outcome;
       return outcome;
-    } on PiAuthExchangeException catch (e) {
+    } on PiSessionException catch (e) {
       throw PiBridgeException(e.message, cause: e);
     } on PiBridgeException {
       rethrow;
     } catch (e) {
-      throw PiBridgeException('Pi.authenticate failed', cause: e);
+      throw PiBridgeException('Pi sign-in failed', cause: PiBridgeException('$e'));
     }
   }
 

@@ -96,34 +96,68 @@ create table if not exists public.entitlements (
 );
 create index if not exists entitlements_user_idx on public.entitlements (user_uid);
 
+-- ------------------------------------------------------------
+-- pi_sessions: audit of App Studio-verified sign-ins (service-role only).
+-- One row per successful server-side token exchange.
+-- ------------------------------------------------------------
+create table if not exists public.pi_sessions (
+  id            uuid primary key default gen_random_uuid(),
+  pi_uid        text not null,
+  username      text,
+  session_token text,
+  created_at    timestamptz not null default now()
+);
+create index if not exists pi_sessions_uid_idx on public.pi_sessions (pi_uid);
+
 -- ============================================================
 -- Row Level Security
+--
+-- Identity model: Pi users are provisioned by the `pi-session` edge
+-- function with a Supabase auth user whose id is a deterministic UUID of
+-- the App Studio-verified pi_uid, and whose app_metadata.pi_uid carries
+-- that verified uid. RLS therefore keys on auth.uid() / verified_pi_uid()
+-- — never on values supplied by the client.
 -- ============================================================
 alter table public.profiles     enable row level security;
 alter table public.radar_events enable row level security;
 alter table public.pi_payments  enable row level security;
 alter table public.entitlements enable row level security;
+alter table public.pi_sessions  enable row level security;
 
--- Public read of profiles, but minors' exact locations are never stored
+-- The verified Pi uid, taken from the minted session's app_metadata.
+create or replace function public.verified_pi_uid()
+returns text language sql stable as
+$$ select nullif(auth.jwt() -> 'app_metadata' ->> 'pi_uid', '') $$;
+
+-- Public read of profiles; minors' exact locations are never stored
 -- client-side anyway; geohash_area is the only location column exposed.
 create policy "profiles are readable" on public.profiles
   for select using (true);
+-- Users manage only the profile provisioned for their verified identity:
+-- profile id == auth.uid() AND pi_uid matches the verified claim.
 create policy "users update own profile" on public.profiles
-  for update using (auth.jwt() ->> 'sub' = pi_uid);
+  for update using (
+    id = auth.uid() and pi_uid = public.verified_pi_uid()
+  );
 create policy "users insert own profile" on public.profiles
-  for insert with check (auth.jwt() ->> 'sub' = pi_uid);
+  for insert with check (
+    id = auth.uid() and pi_uid = public.verified_pi_uid()
+  );
 
 -- Events are publicly readable (approximate data for minor-protected rows).
 create policy "events are readable" on public.radar_events
   for select using (true);
+-- Hosts manage their own events: host profile id == auth.uid().
 create policy "hosts manage own events" on public.radar_events
-  for all using (auth.jwt() ->> 'sub' = host_profile_id::text);
+  for all using (host_profile_id = auth.uid());
 
--- Payments/entitlements: service role (edge functions) only.
+-- Payments: service role (edge functions) only.
 create policy "payments service only" on public.pi_payments
   for select using (false);
+-- Entitlements readable only by the verified owner.
 create policy "entitlements readable by owner" on public.entitlements
-  for select using (auth.jwt() ->> 'sub' = user_uid);
+  for select using (user_uid = public.verified_pi_uid());
+-- pi_sessions: audit table — no policies, service role only.
 
 -- ============================================================
 -- Realtime

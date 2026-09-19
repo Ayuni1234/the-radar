@@ -19,6 +19,7 @@ class RadarSession {
     required this.isDemo,
     this.profileId,
     this.accessToken,
+    this.sessionToken,
     this.role = UserRole.player,
   });
 
@@ -33,6 +34,10 @@ class RadarSession {
   /// Supabase `profiles.id` once a profile row exists/loaded.
   final String? profileId;
   final String? accessToken;
+
+  /// App Studio session token from the server-side exchange — proof the
+  /// identity was verified server-side before this session existed.
+  final String? sessionToken;
   final UserRole role;
 
   RadarSession copyWith({
@@ -42,6 +47,7 @@ class RadarSession {
     bool? isDemo,
     String? profileId,
     String? accessToken,
+    String? sessionToken,
     UserRole? role,
   }) =>
       RadarSession(
@@ -51,6 +57,7 @@ class RadarSession {
         isDemo: isDemo ?? this.isDemo,
         profileId: profileId ?? this.profileId,
         accessToken: accessToken ?? this.accessToken,
+        sessionToken: sessionToken ?? this.sessionToken,
         role: role ?? this.role,
       );
 }
@@ -131,11 +138,12 @@ class AuthController extends AsyncNotifier<AuthState> {
   Future<void> signInDemo() async {
     state = const AsyncData(AuthLoading());
     await Future<void>.delayed(const Duration(milliseconds: 400));
-    const outcome = PiAuthOutcome(
-      uid: 'demo-uid-0001',
+    const outcome = AuthSessionOutcome(
+      piUid: 'demo-uid-0001',
       username: 'demo_scout',
       accessToken: 'demo-token',
       sessionToken: 'demo-session-token',
+      supabaseUserId: 'demo-supabase-user',
       kycVerified: true,
     );
     final session = await _persistSession(outcome);
@@ -145,10 +153,11 @@ class AuthController extends AsyncNotifier<AuthState> {
   /// Builds/loads the Supabase profile row for the authenticated Pi user and
   /// derives the signed-in [RadarSession].
   ///
-  /// [outcome] carries the App Studio-verified identity (uid/username from
-  /// the exchange, never the raw browser-side values), so profile lookup and
-  /// creation are keyed on a server-trusted uid.
-  Future<RadarSession> _persistSession(PiAuthOutcome outcome) async {
+  /// [outcome] carries the server-verified identity (App Studio values that
+  /// arrived via the `pi-session` edge function — never the raw browser-side
+  /// uid/username), so profile lookup and creation are keyed on a trusted
+  /// uid and a real Supabase session (auth.uid() == profiles.id).
+  Future<RadarSession> _persistSession(AuthSessionOutcome outcome) async {
     UserProfile? profile;
     final repo = RadarRepository.instance;
 
@@ -157,14 +166,16 @@ class AuthController extends AsyncNotifier<AuthState> {
         final rows = await SupabaseConfig.client
             .from('profiles')
             .select()
-            .eq('pi_uid', outcome.uid)
+            .eq('pi_uid', outcome.piUid)
             .limit(1);
         if (rows.isNotEmpty) {
           profile = UserProfile.fromJson(rows.first);
         } else {
+          // profiles.id == supabase auth uid for Pi users, so the insert
+          // satisfies the RLS check (id = auth.uid(), pi_uid = verified).
           final newProfile = UserProfile(
-            id: outcome.uid, // profiles.id == pi uid for 1:1 mapping
-            piUid: outcome.uid,
+            id: outcome.supabaseUserId,
+            piUid: outcome.piUid,
             username: outcome.username,
             role: UserRole.player,
             credibilityScore: 10,
@@ -180,15 +191,16 @@ class AuthController extends AsyncNotifier<AuthState> {
     }
 
     // Pick an existing demo profile if running offline.
-    profile ??= DemoFallback.profileForUid(outcome.uid, outcome.username);
+    profile ??= DemoFallback.profileForUid(outcome.piUid, outcome.username);
 
     return RadarSession(
-      piUid: outcome.uid,
+      piUid: outcome.piUid,
       username: outcome.username,
       kycVerified: profile.kycVerified,
       isDemo: !SupabaseConfig.available,
       profileId: profile.id,
       accessToken: outcome.accessToken,
+      sessionToken: outcome.sessionToken,
       role: profile.role,
     );
   }
