@@ -129,41 +129,64 @@ create or replace function public.verified_pi_uid()
 returns text language sql stable as
 $$ select nullif(auth.jwt() -> 'app_metadata' ->> 'pi_uid', '') $$;
 
--- Public read of profiles; minors' exact locations are never stored
--- client-side anyway; geohash_area is the only location column exposed.
+-- Policies are dropped first so the whole file is safely re-runnable
+-- (Postgres has no CREATE POLICY IF NOT EXISTS).
+drop policy if exists "profiles are readable" on public.profiles;
 create policy "profiles are readable" on public.profiles
   for select using (true);
 -- Users manage only the profile provisioned for their verified identity:
 -- profile id == auth.uid() AND pi_uid matches the verified claim.
-create policy "users update own profile" on public.profiles
-  for update using (
-    id = auth.uid() and pi_uid = public.verified_pi_uid()
-  );
+drop policy if exists "users insert own profile" on public.profiles;
 create policy "users insert own profile" on public.profiles
   for insert with check (
     id = auth.uid() and pi_uid = public.verified_pi_uid()
   );
+drop policy if exists "users update own profile" on public.profiles;
+create policy "users update own profile" on public.profiles
+  for update using (
+    id = auth.uid() and pi_uid = public.verified_pi_uid()
+  );
 
 -- Events are publicly readable (approximate data for minor-protected rows).
+drop policy if exists "events are readable" on public.radar_events;
 create policy "events are readable" on public.radar_events
   for select using (true);
 -- Hosts manage their own events: host profile id == auth.uid().
+drop policy if exists "hosts manage own events" on public.radar_events;
 create policy "hosts manage own events" on public.radar_events
   for all using (host_profile_id = auth.uid());
 
 -- Payments: service role (edge functions) only.
+drop policy if exists "payments service only" on public.pi_payments;
 create policy "payments service only" on public.pi_payments
   for select using (false);
 -- Entitlements readable only by the verified owner.
+drop policy if exists "entitlements readable by owner" on public.entitlements;
 create policy "entitlements readable by owner" on public.entitlements
   for select using (user_uid = public.verified_pi_uid());
 -- pi_sessions: audit table — no policies, service role only.
 
 -- ============================================================
--- Realtime
+-- Realtime (guarded so re-runs don't error on existing members)
 -- ============================================================
-alter publication supabase_realtime add table public.radar_events;
-alter publication supabase_realtime add table public.profiles;
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public'
+      and tablename = 'radar_events'
+  ) then
+    alter publication supabase_realtime add table public.radar_events;
+  end if;
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public'
+      and tablename = 'profiles'
+  ) then
+    alter publication supabase_realtime add table public.profiles;
+  end if;
+end
+$$;
 
 -- ============================================================
 -- Minor-safety guard: force approximate precision for minor-protected rows
