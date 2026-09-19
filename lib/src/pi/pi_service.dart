@@ -179,17 +179,13 @@ class PiService {
 
   PiSdkApi _resolveSdk() => _sdkOverride ?? piSdk;
 
-  /// `Pi.init({ version, sandbox })` — idempotent and failure-tolerant.
+  /// `Pi.init({ version: '2.0' })` — idempotent and failure-tolerant.
   Future<bool> init() async {
     if (_initialized) return true;
-    final ok = _resolveSdk().init(
-      version: PiConfig.current.sdkVersion,
-      sandbox: PiConfig.current.sandbox,
-    );
+    final ok = _resolveSdk().init(version: PiConfig.current.sdkVersion);
     _initialized = ok;
     debugPrint('[Pi] init ${ok ? 'ok' : 'unavailable'} '
-        '(version=${PiConfig.current.sdkVersion}, '
-        'sandbox=${PiConfig.current.sandbox})');
+        '(version=${PiConfig.current.sdkVersion})');
     return ok;
   }
 

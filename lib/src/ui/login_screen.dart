@@ -205,7 +205,7 @@ class _EnvFootnote extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final pi = ref.read(authProvider.notifier).pi;
-    final env = PiConfig.current.sandbox ? 'sandbox' : 'mainnet';
+    final env = 'Pi SDK v${PiConfig.current.sdkVersion}';
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [

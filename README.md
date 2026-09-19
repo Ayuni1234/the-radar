@@ -11,7 +11,7 @@ lib/
     ├── pi/
     │   ├── pi_sdk_js.dart        # dart:js_interop bindings for window.Pi
     │   ├── pi_service.dart       # init / authenticate / createPayment facade
-    │   └── pi_config.dart        # mainnet · sandbox · local presets
+    │   └── pi_config.dart        # Pi environment config (v2.0 standard)
     ├── supabase/
     │   └── supabase_config.dart  # Supabase bootstrap + availability flag
     ├── models/                   # UserProfile, RadarEvent, PiPayment, enums
@@ -31,8 +31,8 @@ supabase/
 
 ### 1. Pi Network Authentication Bridge
 - `window.Pi` is initialised from `pi-sdk.js` (loaded in `web/index.html`) via
-  typed `dart:js_interop` bindings — `Pi.init({ version: '2.0', sandbox: true })`
-  by default (**sandbox/testnet**); flip with `--dart-define=PI_SANDBOX=false`.
+  typed `dart:js_interop` bindings — `Pi.init({ version: '2.0' })`, the
+  official v2.0 standard (no sandbox parameter).
 - `Pi.authenticate(['username','payments'], onIncompletePaymentFound)` captures
   **Pi UID, username** and probes **KYC status** (`kyc_approved` when the host
   browser exposes it). The access token is used for display logic only; the
@@ -104,22 +104,19 @@ flutter build web --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY
    supabase functions deploy pi-payment-complete
    supabase secrets set PI_API_KEY=your-pi-server-api-key
    ```
-3. Sandbox testing (default): the app initialises `Pi.init({ version: '2.0',
-   sandbox: true })` out of the box — test payments run on Pi Testnet. Host the
-   app on a dev URL registered in the Pi Developer Portal (`sandbox.minepi.com`).
-   The Platform API base is the same for both networks (`api.minepi.com/v2`);
-   testnet payments are identified by `PaymentDTO.network = "PiTestnet"`.
-4. Mainnet (Pi Browser production): rebuild with
-   `--dart-define=PI_SANDBOX=false`. No server-side change is needed — approve
-   and complete calls always go to `api.minepi.com/v2`.
+3. Environment: `Pi.init({ version: '2.0' })` — the official v2.0 standard,
+   with no sandbox parameter. Sandbox vs production is decided by which URL is
+   registered in the Pi Developer Portal (open `develop.pi` in the Pi Browser);
+   testnet payments are identified by `PaymentDTO.network = "PiTestnet"`. The
+   Platform API base is the same for both networks (`api.minepi.com/v2`).
 
 ### Pi environment matrix
 
-| Build target                | PiConfig / flag                     | Behaviour                                     |
-|-----------------------------|-------------------------------------|-----------------------------------------------|
-| `flutter run` (Chrome)      | default (`sandboxEnv`)              | SDK absent → demo login, no real payments     |
-| Pi Browser, sandbox URL     | default (`PI_SANDBOX=true`)         | **Testnet** payments against sandbox.minepi.com |
-| Pi Browser, production URL  | `--dart-define=PI_SANDBOX=false`    | Mainnet authentication & U2A payments         |
+| Build target                | Environment                        | Behaviour                                      |
+|-----------------------------|-------------------------------------|------------------------------------------------|
+| `flutter run` (Chrome)      | plain browser (no `window.Pi`)     | SDK absent → demo login, no real payments      |
+| Pi Browser, sandbox URL     | Developer Portal dev URL           | **Testnet** payments (`network: "PiTestnet"`)  |
+| Pi Browser, production URL  | Developer Portal production URL    | Mainnet authentication & U2A payments          |
 
 > Outside the Pi Browser `window.Pi` does not exist; the login screen detects
 > this and explains the demo fallback instead of failing.

@@ -92,8 +92,8 @@ class AuthController extends AsyncNotifier<AuthState> {
   @override
   Future<AuthState> build() async {
     await SupabaseConfig.initialize();
-    // PiConfig.current resolves sandbox (testnet) vs mainnet from the
-    // `PI_SANDBOX` dart-define (default: true = sandbox).
+    // PiConfig.current follows the official v2.0 standard: init with version
+    // only — the SDK/Developer Portal decides the environment.
     _pi = PiService(onIncompletePayment: _handleIncompletePayment);
     await _pi!.init();
     if (_pi!.isSdkAvailable) {

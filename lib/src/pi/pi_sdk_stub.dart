@@ -17,7 +17,7 @@ class PiSdkStub implements PiSdkApi {
   bool isAvailable() => false;
 
   @override
-  bool init({required String version, required bool sandbox}) => false;
+  bool init({required String version}) => false;
 
   @override
   Future<PiAuthData> authenticate({
