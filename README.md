@@ -34,9 +34,11 @@ supabase/
   typed `dart:js_interop` bindings — `Pi.init({ version: '2.0' })`, the
   official v2.0 standard (no sandbox parameter).
 - `Pi.authenticate(['username','payments'], onIncompletePaymentFound)` captures
-  **Pi UID, username** and probes **KYC status** (`kyc_approved` when the host
-  browser exposes it). The access token is used for display logic only; the
-  backend must verify via `GET https://api.minepi.com/v2/me`.
+  the access token (browser-side uid/username are display-only).
+- The token is then **exchanged with App Studio**
+  (`POST …/pi/auth/v1/login`), which verifies it against the Pi Platform;
+  the returned uid/username are the only identity the app trusts, and the
+  session token marks a verified sign-in. No Pi API key is needed for this.
 - Incomplete payments found at sign-in are routed to the completion webhook for
   server-side recovery.
 

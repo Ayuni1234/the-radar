@@ -11,6 +11,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../supabase/supabase_config.dart';
+import 'pi_app_studio_client.dart';
 import 'pi_config.dart';
 import 'pi_sdk_api.dart';
 import 'pi_sdk_bridge.dart' show piSdk;
@@ -32,6 +33,7 @@ class PiAuthOutcome {
     required this.uid,
     required this.username,
     required this.accessToken,
+    required this.sessionToken,
     required this.kycVerified,
   });
 
@@ -41,9 +43,12 @@ class PiAuthOutcome {
   /// Pi username (requires the `username` scope).
   final String username;
 
-  /// Access token — for display logic only; the backend must verify via
-  /// `GET https://api.minepi.com/v2/me` before trusting identity claims.
+  /// Raw browser-side access token (display/diagnostics only).
   final String accessToken;
+
+  /// App Studio session token — proof that this identity was verified
+  /// server-side during sign-in.
+  final String sessionToken;
 
   /// True when the Pi account is KYC-verified (when the SDK exposes it).
   final bool kycVerified;
@@ -160,11 +165,15 @@ class PiPaymentState {
 
 /// Dart-facing facade for the Pi SDK.
 class PiService {
-  PiService({this.onIncompletePayment, PiSdkApi? sdk})
-      : _sdkOverride = sdk;
+  PiService({this.onIncompletePayment, PiSdkApi? sdk, PiAppStudioClient? appStudio})
+      : _sdkOverride = sdk,
+        _appStudio = appStudio ?? PiAppStudioClient();
 
   /// Optional injection point (tests / alternative implementations).
   final PiSdkApi? _sdkOverride;
+
+  /// App Studio token-exchange client (server-verified identity).
+  final PiAppStudioClient _appStudio;
 
   /// Called when `authenticate` (or a new payment) surfaces an unfinished
   /// payment. The default implementation forwards it to the backend for
@@ -189,7 +198,14 @@ class PiService {
     return ok;
   }
 
-  /// Runs the native Pi authentication flow.
+  /// Runs the native Pi authentication flow, then exchanges the access token
+  /// with App Studio so the returned identity is server-verified.
+  ///
+  /// STEP 1 — `Pi.authenticate(scopes, onIncompletePaymentFound)`: browser
+  /// side; the uid/username it returns are display-only.
+  /// STEP 2 — POST `{ accessToken }` to App Studio: the verified uid/username
+  /// and `sessionToken` from that response are the only trusted identity.
+  /// Exactly one exchange per sign-in.
   Future<PiAuthOutcome> authenticate() async {
     if (!isSdkAvailable) {
       throw PiBridgeException(
@@ -210,14 +226,22 @@ class PiService {
           handler(record);
         },
       );
+
+      // STEP 2 — App Studio exchange. Browser-side uid/username are never
+      // used for authorisation; the verified pair below is authoritative.
+      final verified = await _appStudio.exchangeToken(result.accessToken);
+
       final outcome = PiAuthOutcome(
-        uid: result.uid,
-        username: result.username,
+        uid: verified.uid,
+        username: verified.username,
         accessToken: result.accessToken,
+        sessionToken: verified.sessionToken,
         kycVerified: result.kycApproved ?? false,
       );
       _lastAuth = outcome;
       return outcome;
+    } on PiAuthExchangeException catch (e) {
+      throw PiBridgeException(e.message, cause: e);
     } on PiBridgeException {
       rethrow;
     } catch (e) {

@@ -16,6 +16,7 @@ dependencies:
   gotrue: ^2.27.2
   functions_client: ^2.7.1
   realtime_client: ^2.13.0
+  http: ^1.6.0
 
 dev_dependencies:
   flutter_test:

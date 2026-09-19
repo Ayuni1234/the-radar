@@ -135,6 +135,7 @@ class AuthController extends AsyncNotifier<AuthState> {
       uid: 'demo-uid-0001',
       username: 'demo_scout',
       accessToken: 'demo-token',
+      sessionToken: 'demo-session-token',
       kycVerified: true,
     );
     final session = await _persistSession(outcome);
@@ -143,6 +144,10 @@ class AuthController extends AsyncNotifier<AuthState> {
 
   /// Builds/loads the Supabase profile row for the authenticated Pi user and
   /// derives the signed-in [RadarSession].
+  ///
+  /// [outcome] carries the App Studio-verified identity (uid/username from
+  /// the exchange, never the raw browser-side values), so profile lookup and
+  /// creation are keyed on a server-trusted uid.
   Future<RadarSession> _persistSession(PiAuthOutcome outcome) async {
     UserProfile? profile;
     final repo = RadarRepository.instance;
