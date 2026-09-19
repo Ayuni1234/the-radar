@@ -684,7 +684,7 @@ class CompiledApp {
       },
       rG: (x0,x1) => x0.getElementsByClassName(x1),
       rH: (a, l) => a.length = l,
-      rI: (x0,x1) => ({version: x0,sandbox: x1}),
+      rI: x0 => ({version: x0}),
       rJ: (x0,x1) => x0.getContext(x1),
       s: () => ({}),
       sB: o => {

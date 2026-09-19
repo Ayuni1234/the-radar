@@ -95136,11 +95136,11 @@ try{s=v.G.Pi
 if(s==null||!t.m.b(s))return null
 r=A.ec(s)
 return r}catch(q){return null}},
-au1(a,b){var s,r
+au1(a){var s,r
 if(this.a)return!0
 s=this.jY()
 if(s==null)return!1
-try{s.init(t.ln.a({version:b,sandbox:!0}))
+try{s.init(t.ln.a({version:a}))
 this.a=!0
 return!0}catch(r){return!1}},
 Ax(a,b){return this.aoI(a,b)},
@@ -95281,8 +95281,8 @@ var $async$Cd=A.K(function(a,b){if(a===1)return A.G(b,r)
 for(;;)switch(s){case 0:if(p.c){q=!0
 s=1
 break}o=$.mY()
-n=p.c=o.au1(!0,"2.0")
-A.ed().$1("[Pi] init "+(n?"ok":"unavailable")+" (version=2.0, sandbox=true)")
+n=p.c=o.au1("2.0")
+A.ed().$1("[Pi] init "+(n?"ok":"unavailable")+" (version=2.0)")
 q=n
 s=1
 break
@@ -95765,13 +95765,13 @@ A.GQ.prototype={
 I(a){var s=null,r=B.cJ.cC(0.08),q=A.cx(10),p=A.l8(B.cJ.cC(0.4))
 return A.cL(s,A.cd(A.b([B.IS,B.bw,A.e_(A.bj(this.c,s,s,s,B.V5,s,s),1)],t.p),B.C,B.t,B.A,0),B.o,s,new A.bW(r,s,p,q,s,s,B.a_),s,s,s,B.cM,s,s,s)}}
 A.VX.prototype={
-iA(a,b){var s,r,q=null,p=b.i9($.u4().gmt(),t.nT).x,o=p==null
-if(o)s=q
+iA(a,b){var s,r,q=null,p=b.i9($.u4().gmt(),t.nT).x==null
+if(p)s=q
 else{s=$.mY()
 s=s.jY()!=null}r=A.cL(q,q,B.o,q,new A.bW(s===!0?B.I:B.ar,q,q,q,q,q,B.cH),q,7,q,q,q,q,7)
-if(o)o=q
-else{o=$.mY()
-o=o.jY()!=null}return A.cd(A.b([r,B.mu,A.bj(o===!0?"Pi SDK ready \xb7 sandbox":"Pi SDK absent \xb7 demo environment",q,q,q,B.fR,q,q)],t.p),B.C,B.e3,B.A,0)}}
+if(p)p=q
+else{p=$.mY()
+p=p.jY()!=null}return A.cd(A.b([r,B.mu,A.bj(p===!0?"Pi SDK ready \xb7 Pi SDK v2.0":"Pi SDK absent \xb7 demo environment",q,q,q,B.fR,q,q)],t.p),B.C,B.e3,B.A,0)}}
 A.Q_.prototype={
 iA(a,b){var s,r,q,p,o=null,n=b.hK($.a2S(),t.pp),m=A.a2A(A.bv(a,B.ce,t.w).w.a.a)!==B.fW,l=t.p,k=A.cd(A.b([B.ID,B.bw,B.Z7],l),B.C,B.t,B.A,0),j=A.b([],l),i=n.a
 if(i!==B.im){s=this.ajR(i)
