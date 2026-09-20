@@ -5,9 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../models/connection_request.dart';
 import '../models/enums.dart';
 import '../models/radar_event.dart';
+import '../models/user_profile.dart';
 import '../state/radar_providers.dart';
+import 'profiles_screen.dart';
 import 'radar_theme.dart';
 import 'shell.dart';
 
@@ -682,13 +685,42 @@ class _EventCard extends StatelessWidget {
 }
 
 /// Detail sheet shared by mobile tap & desktop selection.
-class EventDetailsSheet extends StatelessWidget {
+class EventDetailsSheet extends ConsumerWidget {
   const EventDetailsSheet({super.key, required this.event});
 
   final RadarEvent event;
 
+  void _openHostProfile(BuildContext context, WidgetRef ref, UserProfile host) {
+    final size = windowSizeFor(MediaQuery.sizeOf(context).width);
+    if (size == WindowSize.compact) {
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: RadarTheme.panel,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+        ),
+        builder: (_) => SizedBox(
+          height: MediaQuery.sizeOf(context).height * 0.82,
+          child: ProfileDetailSheet(profile: host),
+        ),
+      );
+    } else {
+      showDialog<void>(
+        context: context,
+        builder: (_) => Dialog(
+          backgroundColor: RadarTheme.panel,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 560, maxHeight: 640),
+            child: ProfileDetailSheet(profile: host),
+          ),
+        ),
+      );
+    }
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final df = DateFormat('EEEE d MMMM · HH:mm');
     return SafeArea(
       child: Padding(
@@ -759,14 +791,48 @@ class EventDetailsSheet extends StatelessWidget {
               children: [
                 Expanded(
                   child: FilledButton.icon(
-                    onPressed: () {},
+                    onPressed: () {
+                      final host = (ref.read(profilesProvider).value ?? const <UserProfile>[])
+                          .where((p) => p.id == event.hostProfileId)
+                          .firstOrNull;
+                      if (host == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                              content: Text('Host profile is not available.')),
+                        );
+                        return;
+                      }
+                      requestConnection(
+                        context,
+                        ref,
+                        host,
+                        event: event,
+                        initialType: event.type == RadarEventType.trial
+                            ? ConnectionType.trialApplication
+                            : ConnectionType.contact,
+                      );
+                    },
                     icon: const Icon(Icons.how_to_reg, size: 17),
-                    label: const Text('Request attendance'),
+                    label: Text(event.type == RadarEventType.trial
+                        ? 'Apply to trial'
+                        : 'Request attendance'),
                   ),
                 ),
                 const SizedBox(width: 10),
                 OutlinedButton.icon(
-                  onPressed: () {},
+                  onPressed: () {
+                    final host = (ref.read(profilesProvider).value ?? const <UserProfile>[])
+                        .where((p) => p.id == event.hostProfileId)
+                        .firstOrNull;
+                    if (host == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content: Text('Host profile is not available.')),
+                      );
+                      return;
+                    }
+                    _openHostProfile(context, ref, host);
+                  },
                   icon: const Icon(Icons.open_in_new, size: 16),
                   label: const Text('Host profile'),
                 ),

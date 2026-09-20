@@ -6,6 +6,7 @@ import '../data/radar_repository.dart';
 import '../models/connection_request.dart';
 import '../models/enums.dart';
 import '../models/guardian_link.dart';
+import '../models/radar_event.dart';
 import '../models/user_profile.dart';
 import '../state/auth_controller.dart';
 import '../state/radar_providers.dart';
@@ -587,12 +588,16 @@ class ProfileDetailSheet extends ConsumerWidget {
 }
 
 /// Opens the P2P connection request sheet (Module 4): contact request,
-/// trial invite or trial application, with a short message.
+/// trial invite or trial application, with a short message. When [event]
+/// is set, the sheet is event-scoped — organizers invite the player to
+/// that event, players apply to it.
 Future<void> requestConnection(
   BuildContext context,
   WidgetRef ref,
-  UserProfile target,
-) async {
+  UserProfile target, {
+  RadarEvent? event,
+  ConnectionType? initialType,
+}) async {
   final session = ref.read(sessionProvider);
   final me = session?.profileId;
   if (me == null || me == target.id) return;
@@ -612,6 +617,15 @@ Future<void> requestConnection(
     builder: (sheetCtx) => _ConnectionSheet(
       targetName: target.bestName,
       canInvite: isOrganizer && target.role == UserRole.player,
+      event: event,
+      initialType: initialType ??
+          (event != null
+              ? (isOrganizer && target.role == UserRole.player
+                  ? ConnectionType.trialInvite
+                  : event.type == RadarEventType.trial
+                      ? ConnectionType.trialApplication
+                      : ConnectionType.contact)
+              : ConnectionType.contact),
     ),
   );
   if (result == null || !context.mounted) return;
@@ -646,6 +660,7 @@ Future<void> requestConnection(
       type: result.type,
       status: ConnectionStatus.pending,
       message: result.message,
+      eventId: result.eventId,
     ),
   );
   if (!context.mounted) return;
@@ -653,7 +668,7 @@ Future<void> requestConnection(
     SnackBar(
       content: Text(
         ok
-            ? 'Request sent to ${target.bestName}.'
+            ? 'Request sent to ${target.bestName} — track it in the Inbox.'
             : 'Could not send the request — try again.',
       ),
     ),
@@ -732,25 +747,33 @@ class _ConsentWallDialog extends StatelessWidget {
 // --------------------------------------------------------- connection sheet
 /// What the user chose in the connection sheet.
 class _ConnectionDraft {
-  const _ConnectionDraft(this.type, this.message);
+  const _ConnectionDraft(this.type, this.message, [this.eventId]);
 
   final ConnectionType type;
   final String? message;
+  final String? eventId;
 }
 
 /// Bottom sheet for composing a connection request (Module 4).
 class _ConnectionSheet extends StatefulWidget {
-  const _ConnectionSheet({required this.targetName, required this.canInvite});
+  const _ConnectionSheet({
+    required this.targetName,
+    required this.canInvite,
+    this.event,
+    this.initialType = ConnectionType.contact,
+  });
 
   final String targetName;
   final bool canInvite;
+  final RadarEvent? event;
+  final ConnectionType initialType;
 
   @override
   State<_ConnectionSheet> createState() => _ConnectionSheetState();
 }
 
 class _ConnectionSheetState extends State<_ConnectionSheet> {
-  ConnectionType _type = ConnectionType.contact;
+  late ConnectionType _type = widget.initialType;
   final _messageCtrl = TextEditingController();
 
   @override
@@ -784,17 +807,30 @@ class _ConnectionSheetState extends State<_ConnectionSheet> {
               runSpacing: 8,
               children: [
                 ChoiceChip(
-                  label: const Text('Contact request'),
+                  label: Text(widget.event == null
+                      ? 'Contact request'
+                      : 'Contact ${widget.event!.hostName}'),
                   selected: _type == ConnectionType.contact,
                   onSelected: (_) =>
                       setState(() => _type = ConnectionType.contact),
                 ),
                 if (widget.canInvite)
                   ChoiceChip(
-                    label: const Text('Trial invite'),
+                    label: Text(widget.event == null
+                        ? 'Trial invite'
+                        : "Invite to '${widget.event!.title}'"),
                     selected: _type == ConnectionType.trialInvite,
                     onSelected: (_) =>
                         setState(() => _type = ConnectionType.trialInvite),
+                  ),
+                if (widget.event != null && !widget.canInvite)
+                  ChoiceChip(
+                    label: Text(widget.event!.type == RadarEventType.trial
+                        ? "Apply to '${widget.event!.title}'"
+                        : "Request attendance"),
+                    selected: _type == ConnectionType.trialApplication,
+                    onSelected: (_) => setState(
+                        () => _type = ConnectionType.trialApplication),
                   ),
               ],
             ),
@@ -821,6 +857,12 @@ class _ConnectionSheetState extends State<_ConnectionSheet> {
                   _messageCtrl.text.trim().isEmpty
                       ? null
                       : _messageCtrl.text.trim(),
+                  // Attach the event for event-scoped requests.
+                  widget.event != null &&
+                          (_type == ConnectionType.trialInvite ||
+                              _type == ConnectionType.trialApplication)
+                      ? widget.event!.id
+                      : null,
                 ),
               ),
               icon: const Icon(Icons.send_outlined, size: 17),

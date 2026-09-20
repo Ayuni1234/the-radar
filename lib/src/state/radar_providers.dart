@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show RealtimeChannel;
 
 import '../data/radar_repository.dart';
+import '../models/connection_request.dart';
 import '../models/enums.dart';
 import '../models/guardian_link.dart';
 import '../models/pi_payment.dart';
@@ -277,6 +278,43 @@ final filteredEventsProvider = Provider<List<RadarEvent>>((ref) {
       return a.startsAt.compareTo(b.startsAt);
     });
 });
+
+/// Connection requests involving the signed-in user (sent + received).
+final connectionsProvider =
+    AsyncNotifierProvider<ConnectionsController, List<ConnectionRequest>>(
+        ConnectionsController.new);
+
+class ConnectionsController extends AsyncNotifier<List<ConnectionRequest>> {
+  @override
+  Future<List<ConnectionRequest>> build() async {
+    final session = ref.watch(sessionProvider);
+    final profileId = session?.profileId;
+    if (profileId == null) return const [];
+    return RadarRepository.instance.fetchConnections(profileId);
+  }
+
+  Future<void> refresh() async {
+    final session = ref.read(sessionProvider);
+    final profileId = session?.profileId;
+    if (profileId == null) return;
+    final list =
+        await RadarRepository.instance.fetchConnections(profileId);
+    state = AsyncData(list);
+  }
+
+  /// Accept / decline a received request, or withdraw a sent one.
+  Future<bool> respond(String requestId, ConnectionStatus status) async {
+    final ok =
+        await RadarRepository.instance.respondToConnection(requestId, status);
+    if (ok) await refresh();
+    return ok;
+  }
+
+  /// Whether [fromProfile] already has a pending request to [toProfile].
+  Future<bool> hasPending(String fromProfile, String toProfile) {
+    return RadarRepository.instance.hasPendingRequest(fromProfile, toProfile);
+  }
+}
 
 /// Guardian links for the signed-in user (as minor and/or as guardian).
 /// Refreshed after every action and when the session changes.
