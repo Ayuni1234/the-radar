@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../analytics/tracking_session.dart';
 import '../models/connection_request.dart';
 import '../models/enums.dart';
 import '../models/feed_post.dart';
@@ -556,6 +557,43 @@ class RadarRepository {
   }
 
   // ---------------------------------------------------------- stream bounties
+
+  /// The AI-tracking session bound to a bounty broadcast. Live deployments
+  /// would stream engine frames from the streamer's phone; today the
+  /// binding resolves to a deterministic synthetic session (demo) or null
+  /// until the streamer's tracker has published telemetry.
+  Future<TrackingSession?> fetchTrackingSession(String bountyId) async {
+    if (!_live) return DemoSeed.trackingSessions[bountyId];
+    try {
+      final res = await SupabaseConfig.client
+          .from('tracking_sessions')
+          .select()
+          .eq('bounty_id', bountyId)
+          .limit(1)
+          .maybeSingle();
+      if (res == null) return null;
+      final frames = res['samples_json'] is List
+          ? List<Map<String, Object?>>.from(
+              (res['samples_json'] as List).cast<Map<String, Object?>>())
+          : const <Map<String, Object?>>[];
+      return TrackingSession(
+        id: (res['id'] ?? '').toString(),
+        bountyId: bountyId,
+        playerLabel: (res['player_label'] ?? 'Locked player').toString(),
+        startedAt: DateTime.tryParse(res['started_at']?.toString() ?? '')
+                ?.toLocal() ??
+            DateTime.now(),
+        durationMin: (res['duration_min'] as num?)?.toInt() ?? 90,
+        lockConfidence: (res['lock_confidence'] as num?)?.toDouble() ?? 0.9,
+        samples: frames
+            .map(TrackSampleJson.fromJson)
+            .toList(growable: false),
+      );
+    } catch (e) {
+      debugPrint('[RadarRepo] fetchTrackingSession failed: $e');
+      return null;
+    }
+  }
 
   /// All visible stream bounties (gig board), newest first.
   Future<List<StreamBounty>> fetchStreamBounties() async {

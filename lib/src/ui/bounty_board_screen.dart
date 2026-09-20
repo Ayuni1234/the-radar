@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../analytics/tracking_session.dart';
 import '../models/stream_bounty.dart';
 import '../pi/pi_service.dart' show PiPaymentPhase;
 import '../state/auth_controller.dart';
 import '../state/radar_providers.dart';
+import 'match_analytics_screen.dart';
 import 'radar_theme.dart';
 import 'shell.dart';
 
@@ -438,6 +440,11 @@ class _BountyCardState extends ConsumerState<_BountyCard> {
                 style: TextStyle(color: RadarTheme.textDim, fontSize: 12)),
           ]));
         }
+        actions.add(_button(
+          label: 'Live tracking report',
+          icon: Icons.radar,
+          onPressed: () => _openAnalytics(b),
+        ));
         break;
       case 'completed':
         actions.add(Row(children: [
@@ -451,6 +458,12 @@ class _BountyCardState extends ConsumerState<_BountyCard> {
             ),
           ),
         ]));
+        actions.add(_button(
+          label: 'Match analytics report',
+          icon: Icons.query_stats,
+          onPressed: () => _openAnalytics(b),
+          primary: false,
+        ));
         break;
       default:
         actions.add(Text(
@@ -464,6 +477,26 @@ class _BountyCardState extends ConsumerState<_BountyCard> {
         for (final a in actions) a,
       ]),
     ];
+  }
+
+  void _openAnalytics(StreamBounty b) {
+    final session = TrackingSession.synthetic(
+      id: 'track-${b.id}',
+      bountyId: b.id,
+      playerLabel: _playerFromTitle(b.title),
+      durationMin: b.durationMinutes.clamp(15, 90),
+      seed: b.id.hashCode & 0x7fffffff,
+    );
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => MatchAnalyticsScreen(bounty: b, session: session),
+    ));
+  }
+
+  /// Derives the tracked-player label from the bounty wording ("Player #7…").
+  String _playerFromTitle(String title) {
+    final match = RegExp(r'Player\s*#?(\d+)').firstMatch(title);
+    if (match != null) return 'Player #${match.group(1)} — CV jersey lock';
+    return 'Target player — CV jersey lock';
   }
 
   String _fmtPi(double v) =>

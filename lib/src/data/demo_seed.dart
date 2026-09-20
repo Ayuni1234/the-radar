@@ -1,3 +1,4 @@
+import '../analytics/tracking_session.dart';
 import '../models/connection_request.dart';
 import '../models/enums.dart';
 import '../models/feed_post.dart';
@@ -470,4 +471,24 @@ class DemoSeed {
           completedAt: DateTime.now().subtract(const Duration(days: 3)),
         ),
       ];
+
+  // --------------------------------------------------------- tracking sessions
+
+  /// Deterministic AI-tracking session for the completed demo bounty —
+  /// powers the Match Analytics preview in demo mode.
+  static final trackingSessions = <String, TrackingSession>{
+    'demo-bounty-3': TrackingSession.synthetic(
+      id: 'demo-track-1',
+      bountyId: 'demo-bounty-3',
+      playerLabel: 'Player #9 (ST) — Atlas U19',
+      seed: 11,
+    ),
+    'demo-bounty-1': TrackingSession.synthetic(
+      id: 'demo-track-2',
+      bountyId: 'demo-bounty-1',
+      playerLabel: 'Player #7 (RW) — Limbe showcase',
+      seed: 7,
+      durationMin: 45,
+    ),
+  };
 }
