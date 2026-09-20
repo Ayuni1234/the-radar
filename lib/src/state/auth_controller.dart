@@ -1,9 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/demo_seed.dart';
 import '../data/radar_repository.dart';
+import '../models/connection_request.dart';
 import '../models/enums.dart';
 import '../models/user_profile.dart';
 import '../pi/pi_service.dart';
@@ -281,6 +284,162 @@ class AuthController extends AsyncNotifier<AuthState> {
     );
     state = AsyncData(AuthSignedIn(next));
     return next;
+  }
+
+  /// Account settings — role, region and visibility updates.
+  /// Returns null on success, or a user-facing error message.
+  Future<String?> updateAccount({
+    UserRole? role,
+    String? country,
+    String? city,
+    bool? isPublic,
+  }) async {
+    final auth = state.value;
+    if (auth is! AuthSignedIn) return 'Not signed in.';
+    final session = auth.session;
+    final profileId = session.profileId;
+    if (profileId == null) return 'Profile not provisioned yet.';
+
+    final repo = RadarRepository.instance;
+    UserProfile profile;
+    try {
+      List<Map<String, Object?>> rows = const [];
+      if (SupabaseConfig.available) {
+        final res = await SupabaseConfig.client
+            .from('profiles')
+            .select()
+            .eq('id', profileId)
+            .limit(1);
+        rows = res.cast<Map<String, Object?>>();
+      }
+      profile = rows.isNotEmpty
+          ? UserProfile.fromJson(rows.first)
+          : DemoFallback.profileForUid(session.piUid, session.username);
+    } catch (e) {
+      profile = DemoFallback.profileForUid(session.piUid, session.username);
+    }
+
+    final updated = profile.copyWith(
+      id: profileId,
+      piUid: session.piUid,
+      role: role,
+      country: (country?.trim().isNotEmpty ?? false)
+          ? country!.trim()
+          : profile.country,
+      city:
+          (city?.trim().isNotEmpty ?? false) ? city!.trim() : profile.city,
+      isPublic: isPublic,
+      updatedAt: DateTime.now(),
+    );
+    final ok = await repo.upsertProfile(updated);
+    if (!ok) return 'Could not save settings — check your connection.';
+
+    // Keep the offline dataset in sync so demo mode reflects the change.
+    if (!SupabaseConfig.available) {
+      final idx = DemoSeed.profiles.indexWhere((p) => p.id == profileId);
+      if (idx >= 0) DemoSeed.profiles[idx] = updated;
+    }
+
+    final next = session.copyWith(role: updated.role);
+    state = AsyncData(AuthSignedIn(next));
+    return null;
+  }
+
+  /// Exports everything the platform stores about this account as
+  /// pretty-printed JSON (GDPR-style data portability).
+  Future<String> exportAccountData() async {
+    final auth = state.value;
+    if (auth is! AuthSignedIn) return '{}';
+    final session = auth.session;
+    final profileId = session.profileId ?? '';
+    final repo = RadarRepository.instance;
+
+    UserProfile? profile;
+    try {
+      List<Map<String, Object?>> rows = const [];
+      if (SupabaseConfig.available && profileId.isNotEmpty) {
+        final res = await SupabaseConfig.client
+            .from('profiles')
+            .select()
+            .eq('id', profileId)
+            .limit(1);
+        rows = res.cast<Map<String, Object?>>();
+      }
+      if (rows.isNotEmpty) profile = UserProfile.fromJson(rows.first);
+    } catch (_) {}
+    profile ??= DemoFallback.profileForUid(session.piUid, session.username);
+
+    final events = await repo.fetchEvents();
+    final myEvents =
+        events.where((e) => e.hostProfileId == profileId).toList();
+    final requests = profileId.isEmpty
+        ? const <ConnectionRequest>[]
+        : await repo.fetchConnections(profileId);
+
+    return const JsonEncoder.withIndent('  ').convert({
+      'exported_at': DateTime.now().toIso8601String(),
+      'profile': profile.toJson(),
+      'hosted_events': [for (final e in myEvents) e.toJson()],
+      'connection_requests': [
+        for (final r in requests)
+          {
+            'id': r.id,
+            'type': r.type.name,
+            'status': r.status.name,
+            'created_at': r.createdAt?.toIso8601String(),
+          },
+      ],
+      'note': 'Guardian links and consent history are retained by the '
+          'platform for safeguarding compliance and are not part of this '
+          'export.',
+    });
+  }
+
+  /// Secure account termination: deletes the profile row (RLS-scoped to
+  /// the verified identity; dependent rows cascade server-side).
+  /// Requires the user to type DELETE as confirmation.
+  Future<String?> deleteAccount(String confirmation) async {
+    if (confirmation.trim().toUpperCase() != 'DELETE') {
+      return 'Type DELETE to confirm account termination.';
+    }
+    final auth = state.value;
+    if (auth is! AuthSignedIn) return 'Not signed in.';
+    final profileId = auth.session.profileId;
+    if (profileId == null) return 'No profile to delete.';
+
+    if (SupabaseConfig.available) {
+      try {
+        await SupabaseConfig.client
+            .from('profiles')
+            .delete()
+            .eq('id', profileId);
+      } catch (e) {
+        debugPrint('[Auth] deleteAccount failed: $e');
+        return 'Deletion failed — contact support if this persists.';
+      }
+    }
+    await signOut();
+    return null;
+  }
+
+  /// Refreshes the Supabase auth token backing the active session.
+  Future<String?> refreshSessionToken() async {
+    final auth = state.value;
+    if (auth is! AuthSignedIn) return 'Not signed in.';
+    if (!SupabaseConfig.available) {
+      return 'Demo mode — no live session token to refresh.';
+    }
+    try {
+      final res = await SupabaseConfig.client.auth.refreshSession();
+      final s = res.session;
+      if (s == null) return 'Refresh failed — sign in again with Pi.';
+      final next = auth.session.copyWith(accessToken: s.accessToken);
+      state = AsyncData(AuthSignedIn(next));
+      return null;
+    } catch (e) {
+      debugPrint('[Auth] token refresh failed: $e');
+      return 'Token refresh failed — re-authenticate with Pi.';
+    }
   }
 
   void _handleIncompletePayment(PiPaymentRecord payment) {

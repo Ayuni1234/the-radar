@@ -27,6 +27,7 @@ class UserProfile {
     this.avatarUrl,
     this.updatedAt,
     this.onboardedAt,
+    this.isPublic = true,
   });
 
   final String id;
@@ -72,6 +73,11 @@ class UserProfile {
   /// When the guided onboarding (role → region → profile) was completed.
   /// Null means the user has not been onboarded yet.
   final DateTime? onboardedAt;
+
+  /// Whether the profile appears in the public directory and search.
+  /// Private profiles stay functional for their owner but are hidden from
+  /// other users' listings.
+  final bool isPublic;
 
   bool get needsOnboarding => onboardedAt == null;
 
@@ -122,6 +128,7 @@ class UserProfile {
       avatarUrl: json['avatar_url']?.toString(),
       updatedAt: DateTime.tryParse((json['updated_at'] ?? '').toString())?.toLocal(),
       onboardedAt: DateTime.tryParse((json['onboarded_at'] ?? '').toString())?.toLocal(),
+      isPublic: json['is_public'] as bool? ?? true,
     );
   }
 
@@ -148,6 +155,7 @@ class UserProfile {
         'rating': rating,
         if (avatarUrl != null) 'avatar_url': avatarUrl,
         if (onboardedAt != null) 'onboarded_at': onboardedAt!.toIso8601String(),
+        'is_public': isPublic,
         'updated_at': (updatedAt ?? DateTime.now()).toIso8601String(),
       };
 
@@ -176,6 +184,7 @@ class UserProfile {
     String? avatarUrl,
     DateTime? updatedAt,
     DateTime? onboardedAt,
+    bool? isPublic,
   }) =>
       UserProfile(
         id: id ?? this.id,
@@ -202,5 +211,6 @@ class UserProfile {
         avatarUrl: avatarUrl ?? this.avatarUrl,
         updatedAt: updatedAt ?? this.updatedAt,
         onboardedAt: onboardedAt ?? this.onboardedAt,
+        isPublic: isPublic ?? this.isPublic,
       );
 }

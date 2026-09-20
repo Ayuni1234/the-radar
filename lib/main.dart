@@ -11,6 +11,7 @@ import 'src/ui/profiles_screen.dart';
 import 'src/ui/radar_map_screen.dart';
 import 'src/ui/radar_theme.dart';
 import 'src/ui/safeguarding_screen.dart';
+import 'src/ui/settings_screen.dart';
 import 'src/ui/shell.dart';
 
 /// Main navigation destinations (shared by the rail and bottom bar).
@@ -207,13 +208,19 @@ class _SideRail extends ConsumerWidget {
             ),
           const Spacer(),
           if (session != null)
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: RadarTheme.panelHigh,
-                borderRadius: BorderRadius.circular(12),
+            InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                    builder: (_) => const SettingsScreen()),
               ),
-              child: Row(
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: RadarTheme.panelHigh,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
                 children: [
                   CircleAvatar(
                     radius: 16,
@@ -248,6 +255,7 @@ class _SideRail extends ConsumerWidget {
                     ),
                   ),
                 ],
+                ),
               ),
             ),
         ],

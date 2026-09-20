@@ -66,6 +66,8 @@ alter table public.profiles add column if not exists rating              numeric
 alter table public.profiles add column if not exists avatar_url          text;
 alter table public.profiles add column if not exists onboarded_at        timestamptz;
 alter table public.profiles add column if not exists updated_at          timestamptz not null default now();
+-- Account settings: public-directory visibility (default on).
+alter table public.profiles add column if not exists is_public           boolean not null default true;
 
 -- ------------------------------------------------------------
 -- radar_events: live training sessions, matches, trials, tournaments
@@ -194,7 +196,7 @@ $$ select nullif(auth.jwt() -> 'app_metadata' ->> 'pi_uid', '') $$;
 -- (Postgres has no CREATE POLICY IF NOT EXISTS).
 drop policy if exists "profiles are readable" on public.profiles;
 create policy "profiles are readable" on public.profiles
-  for select using (true);
+  for select using (is_public or id = auth.uid());
 -- Users manage only the profile provisioned for their verified identity:
 -- profile id == auth.uid() AND pi_uid matches the verified claim.
 drop policy if exists "users insert own profile" on public.profiles;
@@ -205,6 +207,11 @@ create policy "users insert own profile" on public.profiles
 drop policy if exists "users update own profile" on public.profiles;
 create policy "users update own profile" on public.profiles
   for update using (
+    id = auth.uid() and pi_uid = public.verified_pi_uid()
+  );
+drop policy if exists "users delete own profile" on public.profiles;
+create policy "users delete own profile" on public.profiles
+  for delete using (
     id = auth.uid() and pi_uid = public.verified_pi_uid()
   );
 
