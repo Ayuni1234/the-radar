@@ -21,6 +21,9 @@ create table if not exists public.profiles (
   country           text,
   city              text,
   positions         text[] not null default '{}',
+  dominant_foot     text check (dominant_foot in ('left','right')),
+  birth_year        integer,
+  height_cm         integer,
   football_cv       text,
   video_showcase_urls text[] not null default '{}',
   club_affiliation  text,
@@ -64,6 +67,9 @@ create table if not exists public.radar_events (
 );
 create index if not exists radar_events_starts_idx on public.radar_events (starts_at);
 create index if not exists radar_events_type_idx  on public.radar_events (event_type);
+
+-- Position requirements a host asks for (e.g. '{ST,CM}' on a trial).
+alter table public.radar_events add column if not exists positions_required text[] not null default '{}';
 
 -- ------------------------------------------------------------
 -- pi_payments: mirror of Pi Platform payments (webhook-maintained)
@@ -110,6 +116,28 @@ create table if not exists public.pi_sessions (
 );
 create index if not exists pi_sessions_uid_idx on public.pi_sessions (pi_uid);
 
+-- ------------------------------------------------------------
+-- connection_requests: P2P scouting connections (Module 4)
+-- from_profile/to_profile reference profiles.id; direction + type tell the
+-- story: scouts request player contact, players apply to events, organizers
+-- invite players to trials.
+-- ------------------------------------------------------------
+create table if not exists public.connection_requests (
+  id            uuid primary key default gen_random_uuid(),
+  from_profile  uuid not null references public.profiles(id) on delete cascade,
+  to_profile    uuid not null references public.profiles(id) on delete cascade,
+  request_type  text not null default 'contact'
+                check (request_type in ('contact','trial_invite','trial_application')),
+  event_id      uuid references public.radar_events(id) on delete set null,
+  message       text,
+  status        text not null default 'pending'
+                check (status in ('pending','accepted','declined','withdrawn')),
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now()
+);
+create index if not exists connection_requests_to_idx on public.connection_requests (to_profile);
+create index if not exists connection_requests_from_idx on public.connection_requests (from_profile);
+
 -- ============================================================
 -- Row Level Security
 --
@@ -124,6 +152,7 @@ alter table public.radar_events enable row level security;
 alter table public.pi_payments  enable row level security;
 alter table public.entitlements enable row level security;
 alter table public.pi_sessions  enable row level security;
+alter table public.connection_requests enable row level security;
 
 -- The verified Pi uid, taken from the minted session's app_metadata.
 create or replace function public.verified_pi_uid()
@@ -166,6 +195,18 @@ drop policy if exists "entitlements readable by owner" on public.entitlements;
 create policy "entitlements readable by owner" on public.entitlements
   for select using (user_uid = public.verified_pi_uid());
 -- pi_sessions: audit table — no policies, service role only.
+
+-- Connections: both parties see requests involving them; sender may withdraw
+-- (update to 'withdrawn'), recipient may accept/decline.
+drop policy if exists "connections visible to participants" on public.connection_requests;
+create policy "connections visible to participants" on public.connection_requests
+  for select using (from_profile = auth.uid() or to_profile = auth.uid());
+drop policy if exists "connections created by sender" on public.connection_requests;
+create policy "connections created by sender" on public.connection_requests
+  for insert with check (from_profile = auth.uid());
+drop policy if exists "connections updated by participants" on public.connection_requests;
+create policy "connections updated by participants" on public.connection_requests
+  for update using (from_profile = auth.uid() or to_profile = auth.uid());
 
 -- ============================================================
 -- Realtime (guarded so re-runs don't error on existing members)

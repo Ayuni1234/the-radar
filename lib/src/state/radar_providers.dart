@@ -135,6 +135,9 @@ class RadarFilter {
     this.onlyBoosted = false,
     this.showMinorProtected = true,
     this.query = '',
+    this.ageBracket,
+    this.position,
+    this.verifiedHostsOnly = false,
   });
 
   final Set<RadarEventType> types;
@@ -142,19 +145,59 @@ class RadarFilter {
   final bool showMinorProtected;
   final String query;
 
+  /// Age bracket the event must overlap (e.g. U15 = 12..15).
+  final AgeBracket? ageBracket;
+
+  /// Position the event is recruiting (matches positions_required).
+  final String? position;
+
+  /// Only events hosted by verified profiles (scout/club/academy + KYC or
+  /// high credibility — same rule as the badge in the directory).
+  final bool verifiedHostsOnly;
+
   RadarFilter copyWith({
     Set<RadarEventType>? types,
     bool clearTypes = false,
     bool? onlyBoosted,
     bool? showMinorProtected,
     String? query,
+    AgeBracket? ageBracket,
+    bool clearAgeBracket = false,
+    String? position,
+    bool clearPosition = false,
+    bool? verifiedHostsOnly,
   }) =>
       RadarFilter(
         types: clearTypes ? const {} : (types ?? this.types),
         onlyBoosted: onlyBoosted ?? this.onlyBoosted,
         showMinorProtected: showMinorProtected ?? this.showMinorProtected,
         query: query ?? this.query,
+        ageBracket:
+            clearAgeBracket ? null : (ageBracket ?? this.ageBracket),
+        position: clearPosition ? null : (position ?? this.position),
+        verifiedHostsOnly: verifiedHostsOnly ?? this.verifiedHostsOnly,
       );
+}
+
+/// Age brackets used across the platform (mirrors safeguarding bands).
+enum AgeBracket {
+  u13('U13', 6, 13),
+  u15('U15', 13, 15),
+  u17('U17', 15, 17),
+  u20('U20', 17, 20),
+  open('Open age', 18, 99);
+
+  const AgeBracket(this.label, this.min, this.max);
+  final String label;
+  final int min;
+  final int max;
+
+  /// True when an event's [min,max] age window overlaps this bracket.
+  bool matches(int? eventMin, int? eventMax) {
+    final lo = eventMin ?? 0;
+    final hi = eventMax ?? 99;
+    return lo <= max && hi >= min;
+  }
 }
 
 final radarFilterProvider =
@@ -177,15 +220,46 @@ class RadarFilterController extends Notifier<RadarFilter> {
       state = state.copyWith(showMinorProtected: v);
 
   void setQuery(String q) => state = state.copyWith(query: q);
+
+  void setAgeBracket(AgeBracket? b) =>
+      state = state.copyWith(ageBracket: b, clearAgeBracket: true);
+
+  void setPosition(String? p) =>
+      state = state.copyWith(position: p, clearPosition: true);
+
+  void setVerifiedHostsOnly(bool v) =>
+      state = state.copyWith(verifiedHostsOnly: v);
 }
 
 final filteredEventsProvider = Provider<List<RadarEvent>>((ref) {
   final events = ref.watch(radarEventsProvider).value ?? const [];
   final filter = ref.watch(radarFilterProvider);
+  final profiles = ref.watch(profilesProvider).value ?? const <UserProfile>[];
+
+  // Verified-host set, resolved once per emission: scouts/clubs/academies
+  // whose KYC is done or whose credibility is high.
+  final verifiedHostIds = <String>{
+    for (final p in profiles)
+      if (p.isVerifiedRole && (p.kycVerified || p.credibilityScore >= 40)) p.id,
+  };
+
   return events.where((e) {
     if (filter.types.isNotEmpty && !filter.types.contains(e.type)) return false;
     if (filter.onlyBoosted && !e.isBoosted) return false;
     if (!filter.showMinorProtected && e.isMinorProtected) return false;
+    if (filter.ageBracket != null &&
+        !filter.ageBracket!.matches(e.minAge, e.maxAge)) {
+      return false;
+    }
+    if (filter.position != null && filter.position!.isNotEmpty) {
+      if (!e.positionsRequired
+          .any((p) => p.toLowerCase() == filter.position!.toLowerCase())) {
+        return false;
+      }
+    }
+    if (filter.verifiedHostsOnly && !verifiedHostIds.contains(e.hostProfileId)) {
+      return false;
+    }
     if (filter.query.isNotEmpty) {
       final q = filter.query.toLowerCase();
       final hay = '${e.title} ${e.hostName} ${e.areaName ?? ''} '

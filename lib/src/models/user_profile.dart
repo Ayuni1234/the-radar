@@ -15,6 +15,9 @@ class UserProfile {
     this.country,
     this.city,
     this.positions = const [],
+    this.dominantFoot,
+    this.birthYear,
+    this.heightCm,
     this.footballCv,
     this.videoShowcaseUrls = const [],
     this.clubAffiliation,
@@ -42,6 +45,11 @@ class UserProfile {
   /// Playing positions (players): GK, CB, LB, RB, CM, DM, AM, LW, RW, ST.
   final List<String> positions;
 
+  /// Player vitals: preferred foot, birth year (age band derivable), height.
+  final String? dominantFoot; // 'left' | 'right'
+  final int? birthYear;
+  final int? heightCm;
+
   /// Free-text football CV / career history.
   final String? footballCv;
 
@@ -66,6 +74,14 @@ class UserProfile {
   final DateTime? onboardedAt;
 
   bool get needsOnboarding => onboardedAt == null;
+
+  /// Approximate age from birth year (privacy-friendly: no full DOB stored).
+  int? get age {
+    final y = birthYear;
+    return y == null || y <= 1900 || y > DateTime.now().year
+        ? null
+        : DateTime.now().year - y;
+  }
 
   bool get isScout => role == UserRole.scout;
   bool get isVerifiedRole =>
@@ -94,6 +110,9 @@ class UserProfile {
       country: json['country']?.toString(),
       city: json['city']?.toString(),
       positions: stringList(json['positions']),
+      dominantFoot: json['dominant_foot']?.toString(),
+      birthYear: json['birth_year'] as int?,
+      heightCm: json['height_cm'] as int?,
       footballCv: json['football_cv']?.toString(),
       videoShowcaseUrls: stringList(json['video_showcase_urls']),
       clubAffiliation: json['club_affiliation']?.toString(),
@@ -118,6 +137,9 @@ class UserProfile {
         if (country != null) 'country': country,
         if (city != null) 'city': city,
         'positions': positions,
+        if (dominantFoot != null) 'dominant_foot': dominantFoot,
+        if (birthYear != null) 'birth_year': birthYear,
+        if (heightCm != null) 'height_cm': heightCm,
         if (footballCv != null) 'football_cv': footballCv,
         'video_showcase_urls': videoShowcaseUrls,
         if (clubAffiliation != null) 'club_affiliation': clubAffiliation,
@@ -142,6 +164,9 @@ class UserProfile {
     String? country,
     String? city,
     List<String>? positions,
+    String? dominantFoot,
+    int? birthYear,
+    int? heightCm,
     String? footballCv,
     List<String>? videoShowcaseUrls,
     String? clubAffiliation,
@@ -165,6 +190,9 @@ class UserProfile {
         country: country ?? this.country,
         city: city ?? this.city,
         positions: positions ?? this.positions,
+        dominantFoot: dominantFoot ?? this.dominantFoot,
+        birthYear: birthYear ?? this.birthYear,
+        heightCm: heightCm ?? this.heightCm,
         footballCv: footballCv ?? this.footballCv,
         videoShowcaseUrls: videoShowcaseUrls ?? this.videoShowcaseUrls,
         clubAffiliation: clubAffiliation ?? this.clubAffiliation,

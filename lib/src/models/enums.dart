@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 
+/// Standard football positions used by player CVs and event requirements.
+const List<String> kFootballPositions = <String>[
+  'GK', 'CB', 'LB', 'RB', 'DM', 'CM', 'AM', 'LW', 'RW', 'ST',
+];
+
 /// Platform roles supported by The Radar.
 enum UserRole {
   player('Player'),

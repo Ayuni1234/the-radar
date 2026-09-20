@@ -21,6 +21,7 @@ class RadarEvent {
     this.attendingCount = 0,
     this.minAge,
     this.maxAge,
+    this.positionsRequired = const [],
     this.isMinorProtected = false,
     this.boostedUntil,
     this.bountyPi,
@@ -50,6 +51,9 @@ class RadarEvent {
   final int attendingCount;
   final int? minAge;
   final int? maxAge;
+
+  /// Positions the host is looking for (empty = open to all).
+  final List<String> positionsRequired;
   final bool isMinorProtected;
   final DateTime? boostedUntil;
   final double? bountyPi;
@@ -82,6 +86,10 @@ class RadarEvent {
   factory RadarEvent.fromJson(Map<String, Object?> json) {
     DateTime? date(Object? v) =>
         v == null ? null : DateTime.tryParse(v.toString())?.toLocal();
+    List<String> stringList(Object? v) {
+      if (v is List) return v.map((e) => e.toString()).toList();
+      return const [];
+    }
 
     return RadarEvent(
       id: (json['id'] ?? '').toString(),
@@ -103,6 +111,7 @@ class RadarEvent {
       attendingCount: (json['attending_count'] as num?)?.toInt() ?? 0,
       minAge: json['min_age'] as int?,
       maxAge: json['max_age'] as int?,
+      positionsRequired: stringList(json['positions_required']),
       isMinorProtected:
           json['is_minor_protected'] as bool? ?? false,
       boostedUntil: date(json['boosted_until']),
@@ -129,6 +138,7 @@ class RadarEvent {
         'attending_count': attendingCount,
         'min_age': minAge,
         'max_age': maxAge,
+        'positions_required': positionsRequired,
         'is_minor_protected': isMinorProtected,
         if (boostedUntil != null) 'boosted_until': boostedUntil!.toIso8601String(),
         if (bountyPi != null) 'bounty_pi': bountyPi,
@@ -154,6 +164,7 @@ class RadarEvent {
     int? attendingCount,
     int? minAge,
     int? maxAge,
+    List<String>? positionsRequired,
     bool? isMinorProtected,
     DateTime? boostedUntil,
     double? bountyPi,
@@ -178,6 +189,7 @@ class RadarEvent {
         attendingCount: attendingCount ?? this.attendingCount,
         minAge: minAge ?? this.minAge,
         maxAge: maxAge ?? this.maxAge,
+        positionsRequired: positionsRequired ?? this.positionsRequired,
         isMinorProtected: isMinorProtected ?? this.isMinorProtected,
         boostedUntil: boostedUntil ?? this.boostedUntil,
         bountyPi: bountyPi ?? this.bountyPi,

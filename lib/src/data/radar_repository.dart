@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../models/connection_request.dart';
 import '../models/enums.dart';
 import '../models/radar_event.dart';
 import '../models/user_profile.dart';
@@ -99,6 +100,91 @@ class RadarRepository {
     } catch (e) {
       debugPrint('[RadarRepo] searchProfiles failed: $e');
       return const [];
+    }
+  }
+
+  // --------------------------------------------------------- connections
+
+  /// Creates a connection request (contact / trial invite / application).
+  Future<bool> createConnectionRequest(ConnectionRequest request) async {
+    if (!_live) {
+      debugPrint('[RadarRepo] demo mode: connection stored locally only');
+      return true;
+    }
+    try {
+      await SupabaseConfig.client
+          .from('connection_requests')
+          .insert(request.toJson());
+      return true;
+    } catch (e) {
+      debugPrint('[RadarRepo] createConnectionRequest failed: $e');
+      return false;
+    }
+  }
+
+  /// All requests involving [profileId] (sent or received), newest first.
+  Future<List<ConnectionRequest>> fetchConnections(String profileId) async {
+    if (!_live) return const [];
+    try {
+      final res = await SupabaseConfig.client
+          .from('connection_requests')
+          .select('*')
+          .or('from_profile.eq.$profileId,to_profile.eq.$profileId')
+          .order('created_at', ascending: false);
+      return res
+          .map<ConnectionRequest>((e) => ConnectionRequest.fromJson(e))
+          .toList();
+    } catch (e) {
+      debugPrint('[RadarRepo] fetchConnections failed: $e');
+      return const [];
+    }
+  }
+
+  /// Pending requests received by [profileId] (the inbox).
+  Future<List<ConnectionRequest>> fetchPendingInbox(String profileId) async {
+    final all = await fetchConnections(profileId);
+    return all
+        .where((r) => r.isPending && r.toProfile == profileId)
+        .toList();
+  }
+
+  /// Accepts or declines a received request (RLS: recipient only).
+  Future<bool> respondToConnection(
+      String requestId, ConnectionStatus status) async {
+    if (!_live) return true;
+    try {
+      await SupabaseConfig.client.from('connection_requests').update({
+        'status': status.name,
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', requestId);
+      return true;
+    } catch (e) {
+      debugPrint('[RadarRepo] respondToConnection failed: $e');
+      return false;
+    }
+  }
+
+  /// Sender withdraws a pending request.
+  Future<bool> withdrawConnection(String requestId) async {
+    return respondToConnection(requestId, ConnectionStatus.withdrawn);
+  }
+
+  /// Whether [fromProfile] already has a pending request to [toProfile].
+  Future<bool> hasPendingRequest(
+      String fromProfile, String toProfile) async {
+    if (!_live) return false;
+    try {
+      final res = await SupabaseConfig.client
+          .from('connection_requests')
+          .select('id')
+          .eq('from_profile', fromProfile)
+          .eq('to_profile', toProfile)
+          .eq('status', 'pending')
+          .limit(1);
+      return res.isNotEmpty;
+    } catch (e) {
+      debugPrint('[RadarRepo] hasPendingRequest failed: $e');
+      return false;
     }
   }
 

@@ -393,6 +393,78 @@ class _FilterChips extends ConsumerWidget {
           onSelected: ctrl.setOnlyBoosted,
           avatar: const Icon(Icons.bolt, size: 15, color: RadarTheme.gold),
         ),
+        // Age-bracket picker (spec: instant sorting by age bracket).
+        PopupMenuButton<AgeBracket>(
+          tooltip: 'Filter by age bracket',
+          onSelected: (b) => ctrl.setAgeBracket(
+              filter.ageBracket == b ? null : b),
+          itemBuilder: (_) => [
+            for (final b in AgeBracket.values)
+              PopupMenuItem(
+                value: b,
+                child: Row(
+                  children: [
+                    Icon(
+                      filter.ageBracket == b
+                          ? Icons.check_box
+                          : Icons.check_box_outline_blank,
+                      size: 16,
+                      color: RadarTheme.pi,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(b.label),
+                  ],
+                ),
+              ),
+          ],
+          child: FilterChip(
+            label: Text(filter.ageBracket?.label ?? 'Age'),
+            selected: filter.ageBracket != null,
+            onSelected: (_) {}, // opens the menu via the popup wrapper
+            avatar: const Icon(Icons.cake_outlined,
+                size: 15, color: RadarTheme.info),
+          ),
+        ),
+        // Position requirement picker (spec: position requirements).
+        PopupMenuButton<String>(
+          tooltip: 'Filter by position needed',
+          onSelected: (p) => ctrl.setPosition(
+              filter.position == p ? null : p),
+          itemBuilder: (_) => [
+            for (final p in kFootballPositions)
+              PopupMenuItem(
+                value: p,
+                child: Row(
+                  children: [
+                    Icon(
+                      filter.position == p
+                          ? Icons.check_box
+                          : Icons.check_box_outline_blank,
+                      size: 16,
+                      color: RadarTheme.pi,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(p),
+                  ],
+                ),
+              ),
+          ],
+          child: FilterChip(
+            label: Text(filter.position ?? 'Position'),
+            selected: filter.position != null,
+            onSelected: (_) {},
+            avatar: const Icon(Icons.sports_soccer,
+                size: 15, color: RadarTheme.radar),
+          ),
+        ),
+        // Verified hosts only (spec: verification status filtering).
+        FilterChip(
+          label: const Text('Verified hosts'),
+          selected: filter.verifiedHostsOnly,
+          onSelected: ctrl.setVerifiedHostsOnly,
+          avatar: const Icon(Icons.verified_outlined,
+              size: 15, color: RadarTheme.radar),
+        ),
       ],
     );
   }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'src/state/auth_controller.dart';
+import 'src/ui/cv_editor_screen.dart';
 import 'src/ui/login_screen.dart';
 import 'src/ui/onboarding_screen.dart';
 import 'src/ui/payments_screen.dart';
@@ -14,6 +15,7 @@ import 'src/ui/shell.dart';
 final List<(String, IconData, Widget)> _destinations = [
   ('Radar', Icons.radar, const RadarMapScreen()),
   ('Players', Icons.groups, const ProfilesScreen()),
+  ('My CV', Icons.badge_outlined, const CvEditorScreen()),
   ('Pi Wallet', Icons.account_balance_wallet, const PaymentsScreen()),
 ];
 

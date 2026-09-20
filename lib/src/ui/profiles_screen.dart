@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../data/radar_repository.dart';
+import '../models/connection_request.dart';
 import '../models/enums.dart';
 import '../models/user_profile.dart';
+import '../state/auth_controller.dart';
 import '../state/radar_providers.dart';
 import 'radar_theme.dart';
 import 'shell.dart';
@@ -77,11 +80,13 @@ class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
                 const SizedBox(width: 8),
                 for (final role in UserRole.values) ...[
                   ChoiceChip(
-                    avatar: Icon(role.icon,
-                        size: 15,
-                        color: filter.role == role
-                            ? RadarTheme.radar
-                            : RadarTheme.textDim),
+                    avatar: Icon(
+                      role.icon,
+                      size: 15,
+                      color: filter.role == role
+                          ? RadarTheme.radar
+                          : RadarTheme.textDim,
+                    ),
                     label: Text(role.label),
                     selected: filter.role == role,
                     onSelected: (_) => ctrl.setRole(role),
@@ -95,12 +100,13 @@ class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
             child: profilesAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(
-                child: Text('Failed to load profiles: $e',
-                    style: const TextStyle(color: RadarTheme.textDim)),
+                child: Text(
+                  'Failed to load profiles: $e',
+                  style: const TextStyle(color: RadarTheme.textDim),
+                ),
               ),
               data: (profiles) => RefreshIndicator(
-                onRefresh: () async =>
-                    ref.invalidate(filteredProfilesProvider),
+                onRefresh: () async => ref.invalidate(filteredProfilesProvider),
                 child: GridView.builder(
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
@@ -195,18 +201,26 @@ class ProfileCard extends StatelessWidget {
                             p.bestName,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                                fontWeight: FontWeight.w700, fontSize: 14.5),
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14.5,
+                            ),
                           ),
                         ),
                         if (p.kycVerified) ...[
                           const SizedBox(width: 6),
-                          const Icon(Icons.verified,
-                              size: 15, color: RadarTheme.radar),
+                          const Icon(
+                            Icons.verified,
+                            size: 15,
+                            color: RadarTheme.radar,
+                          ),
                         ],
                         if (p.isMinor) ...[
                           const SizedBox(width: 6),
-                          const Icon(Icons.shield,
-                              size: 15, color: RadarTheme.gold),
+                          const Icon(
+                            Icons.shield,
+                            size: 15,
+                            color: RadarTheme.gold,
+                          ),
                         ],
                       ],
                     ),
@@ -220,7 +234,9 @@ class ProfileCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                          fontSize: 12, color: RadarTheme.textDim),
+                        fontSize: 12,
+                        color: RadarTheme.textDim,
+                      ),
                     ),
                     const SizedBox(height: 5),
                     Row(
@@ -228,11 +244,18 @@ class ProfileCard extends StatelessWidget {
                         CredibilityBar(score: p.credibilityScore),
                         if (p.videoShowcaseUrls.isNotEmpty) ...[
                           const SizedBox(width: 10),
-                          const Icon(Icons.play_circle_outline,
-                              size: 15, color: RadarTheme.info),
-                          Text(' ${p.videoShowcaseUrls.length}',
-                              style: const TextStyle(
-                                  fontSize: 11, color: RadarTheme.info)),
+                          const Icon(
+                            Icons.play_circle_outline,
+                            size: 15,
+                            color: RadarTheme.info,
+                          ),
+                          Text(
+                            ' ${p.videoShowcaseUrls.length}',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: RadarTheme.info,
+                            ),
+                          ),
                         ],
                       ],
                     ),
@@ -259,8 +282,8 @@ class CredibilityBar extends StatelessWidget {
     final color = clamped >= 75
         ? RadarTheme.radar
         : clamped >= 45
-            ? RadarTheme.gold
-            : RadarTheme.alert;
+        ? RadarTheme.gold
+        : RadarTheme.alert;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -278,22 +301,27 @@ class CredibilityBar extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 6),
-        Text(clamped.toStringAsFixed(0),
-            style: TextStyle(
-                fontSize: 10.5, color: color, fontWeight: FontWeight.w700)),
+        Text(
+          clamped.toStringAsFixed(0),
+          style: TextStyle(
+            fontSize: 10.5,
+            color: color,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
       ],
     );
   }
 }
 
 /// Full profile detail: role, CV, positions, videos, KYC & safety.
-class ProfileDetailSheet extends StatelessWidget {
+class ProfileDetailSheet extends ConsumerWidget {
   const ProfileDetailSheet({super.key, required this.profile});
 
   final UserProfile profile;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final p = profile;
     final df = DateFormat('MMM yyyy');
     return Padding(
@@ -320,22 +348,32 @@ class ProfileDetailSheet extends StatelessWidget {
                     Row(
                       children: [
                         Flexible(
-                          child: Text(p.bestName,
-                              style: const TextStyle(
-                                  fontSize: 18, fontWeight: FontWeight.w800)),
+                          child: Text(
+                            p.bestName,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
                         ),
                         if (p.kycVerified) ...[
                           const SizedBox(width: 6),
-                          const Icon(Icons.verified,
-                              size: 17, color: RadarTheme.radar),
+                          const Icon(
+                            Icons.verified,
+                            size: 17,
+                            color: RadarTheme.radar,
+                          ),
                         ],
                       ],
                     ),
                     Text(
-                        '${p.role.label}'
-                        '${p.clubAffiliation != null ? ' · ${p.clubAffiliation}' : ''}',
-                        style: const TextStyle(
-                            fontSize: 12.5, color: RadarTheme.textDim)),
+                      '${p.role.label}'
+                      '${p.clubAffiliation != null ? ' · ${p.clubAffiliation}' : ''}',
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        color: RadarTheme.textDim,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -357,27 +395,31 @@ class ProfileDetailSheet extends StatelessWidget {
                     children: [
                       InfoPill(
                         icon: Icons.speed,
-                        label: 'Credibility ${p.credibilityScore.toStringAsFixed(0)}/100',
+                        label:
+                            'Credibility ${p.credibilityScore.toStringAsFixed(0)}/100',
                         color: p.credibilityScore >= 75
                             ? RadarTheme.radar
                             : RadarTheme.gold,
                       ),
                       if (p.kycVerified)
                         const InfoPill(
-                            icon: Icons.verified_user_outlined,
-                            label: 'KYC verified',
-                            color: RadarTheme.radar)
+                          icon: Icons.verified_user_outlined,
+                          label: 'KYC verified',
+                          color: RadarTheme.radar,
+                        )
                       else
                         const InfoPill(
-                            icon: Icons.gpp_maybe_outlined,
-                            label: 'KYC pending',
-                            color: RadarTheme.gold),
+                          icon: Icons.gpp_maybe_outlined,
+                          label: 'KYC pending',
+                          color: RadarTheme.gold,
+                        ),
                       if (p.country != null)
                         InfoPill(icon: Icons.public, label: p.country!),
                       if (p.rating > 0)
                         InfoPill(
-                            icon: Icons.star_outline,
-                            label: p.rating.toStringAsFixed(1)),
+                          icon: Icons.star_outline,
+                          label: p.rating.toStringAsFixed(1),
+                        ),
                     ],
                   ),
                   // Safety notice for minors.
@@ -389,20 +431,23 @@ class ProfileDetailSheet extends StatelessWidget {
                         color: RadarTheme.gold.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
-                            color: RadarTheme.gold.withValues(alpha: 0.4)),
+                          color: RadarTheme.gold.withValues(alpha: 0.4),
+                        ),
                       ),
                       child: const Row(
                         children: [
-                          Icon(Icons.shield_outlined,
-                              size: 17, color: RadarTheme.gold),
+                          Icon(
+                            Icons.shield_outlined,
+                            size: 17,
+                            color: RadarTheme.gold,
+                          ),
                           SizedBox(width: 10),
                           Expanded(
                             child: Text(
                               'This profile belongs to a player under 18. '
                               'Location details are approximated and contact '
                               'is moderated.',
-                              style: TextStyle(
-                                  fontSize: 12.5, height: 1.4),
+                              style: TextStyle(fontSize: 12.5, height: 1.4),
                             ),
                           ),
                         ],
@@ -427,9 +472,14 @@ class ProfileDetailSheet extends StatelessWidget {
                   if (p.bio != null && p.bio!.isNotEmpty) ...[
                     const SizedBox(height: 16),
                     const SectionHeader('About'),
-                    Text(p.bio!,
-                        style: const TextStyle(
-                            fontSize: 13.5, height: 1.5, color: RadarTheme.textPrimary)),
+                    Text(
+                      p.bio!,
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        height: 1.5,
+                        color: RadarTheme.textPrimary,
+                      ),
+                    ),
                   ],
                   if (p.footballCv != null && p.footballCv!.isNotEmpty) ...[
                     const SizedBox(height: 16),
@@ -441,18 +491,24 @@ class ProfileDetailSheet extends StatelessWidget {
                         color: RadarTheme.panelHigh,
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Text(p.footballCv!,
-                          style: const TextStyle(
-                              fontSize: 13, height: 1.55)),
+                      child: Text(
+                        p.footballCv!,
+                        style: const TextStyle(fontSize: 13, height: 1.55),
+                      ),
                     ),
                   ],
                   if (p.videoShowcaseUrls.isNotEmpty) ...[
                     const SizedBox(height: 16),
-                    SectionHeader('Video showcase',
-                        trailing: Text('${p.videoShowcaseUrls.length} clips',
-                            style: const TextStyle(
-                                fontSize: 11.5,
-                                color: RadarTheme.textDim))),
+                    SectionHeader(
+                      'Video showcase',
+                      trailing: Text(
+                        '${p.videoShowcaseUrls.length} clips',
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          color: RadarTheme.textDim,
+                        ),
+                      ),
+                    ),
                     for (final url in p.videoShowcaseUrls)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 8),
@@ -468,8 +524,11 @@ class ProfileDetailSheet extends StatelessWidget {
                             ),
                             child: Row(
                               children: [
-                                const Icon(Icons.play_circle_outline,
-                                    color: RadarTheme.info, size: 22),
+                                const Icon(
+                                  Icons.play_circle_outline,
+                                  color: RadarTheme.info,
+                                  size: 22,
+                                ),
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: Text(
@@ -478,8 +537,11 @@ class ProfileDetailSheet extends StatelessWidget {
                                     style: const TextStyle(fontSize: 12.5),
                                   ),
                                 ),
-                                const Icon(Icons.open_in_new,
-                                    size: 14, color: RadarTheme.textDim),
+                                const Icon(
+                                  Icons.open_in_new,
+                                  size: 14,
+                                  color: RadarTheme.textDim,
+                                ),
                               ],
                             ),
                           ),
@@ -491,7 +553,9 @@ class ProfileDetailSheet extends StatelessWidget {
                     'On The Radar since ${df.format(p.createdAt)}'
                     '${p.geohashArea != null && !p.isMinor ? ' · ${p.geohashArea}' : ''}',
                     style: const TextStyle(
-                        fontSize: 11.5, color: RadarTheme.textDim),
+                      fontSize: 11.5,
+                      color: RadarTheme.textDim,
+                    ),
                   ),
                 ],
               ),
@@ -502,7 +566,7 @@ class ProfileDetailSheet extends StatelessWidget {
             children: [
               Expanded(
                 child: FilledButton.icon(
-                  onPressed: () {},
+                  onPressed: () => requestConnection(context, ref, profile),
                   icon: const Icon(Icons.connect_without_contact, size: 17),
                   label: const Text('Request contact'),
                 ),
@@ -516,6 +580,162 @@ class ProfileDetailSheet extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Opens the P2P connection request sheet (Module 4): contact request,
+/// trial invite or trial application, with a short message.
+Future<void> requestConnection(
+  BuildContext context,
+  WidgetRef ref,
+  UserProfile target,
+) async {
+  final session = ref.read(sessionProvider);
+  final me = session?.profileId;
+  if (me == null || me == target.id) return;
+
+  // Scout/club/agent can invite; players apply; everyone can request contact.
+  final isOrganizer =
+      session?.role == UserRole.scout ||
+      session?.role == UserRole.club ||
+      session?.role == UserRole.academy;
+
+  final result = await showModalBottomSheet<_ConnectionDraft>(
+    context: context,
+    backgroundColor: RadarTheme.panel,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+    ),
+    builder: (sheetCtx) => _ConnectionSheet(
+      targetName: target.bestName,
+      canInvite: isOrganizer && target.role == UserRole.player,
+    ),
+  );
+  if (result == null || !context.mounted) return;
+
+  final ok = await RadarRepository.instance.createConnectionRequest(
+    ConnectionRequest(
+      id: '',
+      fromProfile: me,
+      toProfile: target.id,
+      type: result.type,
+      status: ConnectionStatus.pending,
+      message: result.message,
+    ),
+  );
+  if (!context.mounted) return;
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(
+        ok
+            ? 'Request sent to ${target.bestName}.'
+            : 'Could not send the request — try again.',
+      ),
+    ),
+  );
+}
+
+// --------------------------------------------------------- connection sheet
+/// What the user chose in the connection sheet.
+class _ConnectionDraft {
+  const _ConnectionDraft(this.type, this.message);
+
+  final ConnectionType type;
+  final String? message;
+}
+
+/// Bottom sheet for composing a connection request (Module 4).
+class _ConnectionSheet extends StatefulWidget {
+  const _ConnectionSheet({required this.targetName, required this.canInvite});
+
+  final String targetName;
+  final bool canInvite;
+
+  @override
+  State<_ConnectionSheet> createState() => _ConnectionSheetState();
+}
+
+class _ConnectionSheetState extends State<_ConnectionSheet> {
+  ConnectionType _type = ConnectionType.contact;
+  final _messageCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _messageCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Connect with ${widget.targetName}',
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Your message goes to their inbox. Contact details stay '
+              'private until they accept.',
+              style: TextStyle(fontSize: 12.5, color: RadarTheme.textDim),
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                ChoiceChip(
+                  label: const Text('Contact request'),
+                  selected: _type == ConnectionType.contact,
+                  onSelected: (_) =>
+                      setState(() => _type = ConnectionType.contact),
+                ),
+                if (widget.canInvite)
+                  ChoiceChip(
+                    label: const Text('Trial invite'),
+                    selected: _type == ConnectionType.trialInvite,
+                    onSelected: (_) =>
+                        setState(() => _type = ConnectionType.trialInvite),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _messageCtrl,
+              maxLines: 3,
+              maxLength: 300,
+              decoration: const InputDecoration(
+                hintText: 'Introduce yourself — who you are, why you are reaching out…',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 14),
+            FilledButton.icon(
+              style: FilledButton.styleFrom(
+                backgroundColor: RadarTheme.pi,
+                foregroundColor: Colors.white,
+                minimumSize: const Size.fromHeight(46),
+              ),
+              onPressed: () => Navigator.of(context).pop(
+                _ConnectionDraft(
+                  _type,
+                  _messageCtrl.text.trim().isEmpty
+                      ? null
+                      : _messageCtrl.text.trim(),
+                ),
+              ),
+              icon: const Icon(Icons.send_outlined, size: 17),
+              label: const Text('Send request'),
+            ),
+          ],
+        ),
       ),
     );
   }
