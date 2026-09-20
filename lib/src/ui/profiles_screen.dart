@@ -10,6 +10,7 @@ import '../models/radar_event.dart';
 import '../models/user_profile.dart';
 import '../state/auth_controller.dart';
 import '../state/radar_providers.dart';
+import 'player_cv_screen.dart';
 import 'radar_theme.dart';
 import 'shell.dart';
 
@@ -424,6 +425,22 @@ class ProfileDetailSheet extends ConsumerWidget {
                         ),
                     ],
                   ),
+                  if (p.role == UserRole.player) ...[
+                    const SizedBox(height: 14),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.tonalIcon(
+                        key: const ValueKey('view-full-cv'),
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => PlayerCvScreen(profile: p),
+                          ),
+                        ),
+                        icon: const Icon(Icons.badge_outlined, size: 17),
+                        label: const Text('Full CV & portfolio'),
+                      ),
+                    ),
+                  ],
                   // Safety notice for minors.
                   if (p.isMinor) ...[
                     const SizedBox(height: 14),
