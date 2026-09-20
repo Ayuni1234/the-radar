@@ -252,7 +252,36 @@ class PiService {
 
   /// Starts a U2A payment. Returns a [Stream] of [PiPaymentState] updates
   /// mirroring the SDK callbacks.
+  ///
+  /// `Pi.init(...)` is awaited before the underlying `Pi.createPayment(...)`
+  /// call (official SDK contract), and the `payments` scope must have been
+  /// requested at authentication time (see [PiConfig.defaultScopes]).
   Stream<PiPaymentState> createPayment({
+    required double amount,
+    required String memo,
+    required Map<String, Object?> metadata,
+  }) async* {
+    if (!isSdkAvailable) {
+      yield const PiPaymentState(
+        phase: PiPaymentPhase.error,
+        error: 'Pi SDK unavailable — payments require the Pi Browser.',
+      );
+      return;
+    }
+    if (!_initialized) {
+      final ok = await init();
+      if (!ok) {
+        yield const PiPaymentState(
+          phase: PiPaymentPhase.error,
+          error: 'Pi.init() failed — payment not started.',
+        );
+        return;
+      }
+    }
+    yield* _startPayment(amount: amount, memo: memo, metadata: metadata);
+  }
+
+  Stream<PiPaymentState> _startPayment({
     required double amount,
     required String memo,
     required Map<String, Object?> metadata,

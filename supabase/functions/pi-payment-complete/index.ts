@@ -4,28 +4,68 @@
 // Grants the purchased entitlement once the txid is verified by Pi.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
-const PI_API_KEY = Deno.env.get("PI_API_KEY")!;
+const PI_API_KEY = Deno.env.get("PI_API_KEY") ?? Deno.env.get("PI_NETWORK_API_KEY");
 // Single Platform API base for both networks (per pi-platform-docs).
-// Sandbox vs mainnet is chosen client-side via Pi.init({ sandbox }) and is
-// visible here in PaymentDTO.network ("PiTestnet" | "PiMainnet"). The
-// PI_API_BASE override exists only as an ops escape hatch (e.g. a proxy).
 const PI_API_BASE =
   Deno.env.get("PI_API_BASE") ?? "https://api.minepi.com/v2";
 
+// Same CORS rule as pi-session / pi-payment-approve: allow every header the
+// Supabase clients send or browsers reject the preflight silently.
+const CORS_HEADERS: Record<string, string> = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response("ok", {
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Headers": "authorization, content-type",
-      },
-    });
+    return new Response("ok", { headers: CORS_HEADERS });
   }
 
   try {
     const { paymentId, txid, incomplete } = await req.json();
-    if (!paymentId || !txid) {
-      return json({ error: "paymentId and txid are required" }, 400);
+    if (!paymentId) {
+      return json({ error: "paymentId is required" }, 400);
+    }
+    if (!PI_API_KEY) {
+      return json(
+        { error: "server_not_configured", detail: "PI_API_KEY secret is not set (supabase secrets set PI_API_KEY=...)" },
+        500,
+      );
+    }
+
+    // Incomplete-payment recovery (onIncompletePaymentFound): the client may
+    // not know the txid yet — look it up from the Platform API instead of
+    // rejecting, so an interrupted payment is always completed, never lost.
+    let finalTxid = txid;
+    if (!finalTxid && incomplete) {
+      const lookup = await fetch(`${PI_API_BASE}/payments/${paymentId}`, {
+        headers: { Authorization: `Key ${PI_API_KEY}` },
+      });
+      if (!lookup.ok) {
+        return json({ error: "payment_lookup_failed", detail: await lookup.text() }, 502);
+      }
+      const dto = await lookup.json();
+      finalTxid = dto?.transaction?.txid;
+      if (!finalTxid) {
+        // No on-chain transaction yet: mirror as created and wait — the SDK
+        // will re-fire completion once the user's tx lands.
+        const admin = createAdminClient();
+        await admin.from("pi_payments").upsert({
+          identifier: dto.identifier,
+          user_uid: dto.user_uid,
+          amount: dto.amount,
+          memo: dto.memo,
+          metadata: dto.metadata ?? {},
+          status: dto.status?.cancelled ? "cancelled" : "created",
+          network: dto.network,
+        });
+        return json({ ok: true, payment: dto, note: "no txid yet; payment mirrored as pending" });
+      }
+    }
+    if (!finalTxid) {
+      return json({ error: "txid is required" }, 400);
     }
 
     // 1. Verify with Pi Platform API.
@@ -35,7 +75,7 @@ Deno.serve(async (req) => {
         Authorization: `Key ${PI_API_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ txid }),
+      body: JSON.stringify({ txid: finalTxid }),
     });
     const payment = await res.json();
     if (!res.ok) {
@@ -51,7 +91,7 @@ Deno.serve(async (req) => {
       memo: payment.memo,
       metadata: payment.metadata ?? {},
       status: payment.status?.cancelled ? "cancelled" : "completed",
-      txid,
+      txid: finalTxid,
       network: payment.network,
       completed_at: new Date().toISOString(),
     });
@@ -95,7 +135,7 @@ function expiryFor(product: string): string | null {
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...CORS_HEADERS },
   });
 }
 
