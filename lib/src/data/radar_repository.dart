@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/connection_request.dart';
 import '../models/enums.dart';
+import '../models/feed_post.dart';
 import '../models/guardian_link.dart';
 import '../models/pi_payment.dart';
 import '../models/radar_event.dart';
@@ -495,6 +496,61 @@ class RadarRepository {
     } catch (e) {
       debugPrint('[RadarRepo] fetchEvents failed: $e');
       return List.of(DemoSeed.events);
+    }
+  }
+
+  // ------------------------------------------------------------------ feed
+
+  /// Latest social-feed posts (highlights, drills, tactical sessions).
+  Future<List<FeedPost>> fetchFeedPosts({int limit = 60}) async {
+    if (!_live) return List.of(DemoSeed.feedPosts);
+    try {
+      final res = await SupabaseConfig.client
+          .from('feed_posts')
+          .select()
+          .order('created_at', ascending: false)
+          .limit(limit);
+      return res.map<FeedPost>((p) => FeedPost.fromJson(p)).toList();
+    } catch (e) {
+      debugPrint('[RadarRepo] fetchFeedPosts failed: $e');
+      return List.of(DemoSeed.feedPosts);
+    }
+  }
+
+  /// Publishes a feed post. The `enforce_feed_post_privacy` trigger fences
+  /// minor-posters at the database level (coordinates nulled, coarse area
+  /// only, media stripped).
+  Future<bool> createFeedPost(FeedPost post) async {
+    if (!_live) {
+      DemoSeed.feedPosts.insert(0, post);
+      return true;
+    }
+    try {
+      await SupabaseConfig.client.from('feed_posts').insert(post.toJson());
+      return true;
+    } catch (e) {
+      debugPrint('[RadarRepo] createFeedPost failed: $e');
+      Diagnostics.instance.log(
+          'sync', 'feed post failed — queued: ${post.kind.label}: $e');
+      SyncBridge.instance.onWriteFailed(
+          'feed_post', 'Publish ${post.kind.label.toLowerCase()}',
+          e.toString());
+      return false;
+    }
+  }
+
+  /// Deletes one of the viewer's own feed posts.
+  Future<bool> deleteFeedPost(String postId) async {
+    if (!_live) {
+      DemoSeed.feedPosts.removeWhere((p) => p.id == postId);
+      return true;
+    }
+    try {
+      await SupabaseConfig.client.from('feed_posts').delete().eq('id', postId);
+      return true;
+    } catch (e) {
+      debugPrint('[RadarRepo] deleteFeedPost failed: $e');
+      return false;
     }
   }
 

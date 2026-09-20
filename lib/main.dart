@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'src/state/auth_controller.dart';
 import 'src/ui/connections_screen.dart';
 import 'src/ui/cv_editor_screen.dart';
+import 'src/ui/feed_screen.dart';
 import 'src/ui/login_screen.dart';
 import 'src/ui/onboarding_screen.dart';
 import 'src/ui/payments_screen.dart';
@@ -17,6 +18,7 @@ import 'src/ui/shell.dart';
 /// Main navigation destinations (shared by the rail and bottom bar).
 final List<(String, IconData, Widget)> _destinations = [
   ('Radar', Icons.radar, const RadarMapScreen()),
+  ('Feed', Icons.dynamic_feed, const FeedScreen()),
   ('Players', Icons.groups, const ProfilesScreen()),
   ('Inbox', Icons.connect_without_contact, const ConnectionsScreen()),
   ('My CV', Icons.badge_outlined, const CvEditorScreen()),

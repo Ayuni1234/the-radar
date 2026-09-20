@@ -1,5 +1,6 @@
 import '../models/connection_request.dart';
 import '../models/enums.dart';
+import '../models/feed_post.dart';
 import '../models/radar_event.dart';
 import '../models/user_profile.dart';
 
@@ -312,6 +313,9 @@ class DemoSeed {
   static void resetDemoStores() {
     _demoRequestsFor = null;
     _demoRequests.clear();
+    feedPosts
+      ..clear()
+      ..addAll(_seedFeedPosts());
   }
 
   /// Applies a status change to a demo request in place; true if found.
@@ -338,4 +342,66 @@ class DemoSeed {
     }
     return false;
   }
+
+  // ------------------------------------------------------------- feed posts
+
+  static final List<FeedPost> feedPosts = _seedFeedPosts();
+
+  static List<FeedPost> _seedFeedPosts() => <FeedPost>[
+        FeedPost(
+          id: 'demo-feed-1',
+          authorProfileId: 'demo-academy-1',
+          authorName: 'Golden Coast Academy',
+          authorRole: 'academy',
+          kind: FeedPostKind.highlight,
+          body:
+              'Match highlights from last weekend\'s 4-1 win — full reel on our channel. Watch the #7 solo goal at 03:12.',
+          mediaUrl: 'https://youtube.com/watch?v=demo-academy-reel',
+          mediaPlatform: 'YouTube',
+          areaName: 'Accra — Cantonments',
+          latitude: 5.6210,
+          longitude: -0.1730,
+          createdAt: DateTime.now().subtract(const Duration(hours: 5)),
+        ),
+        FeedPost(
+          id: 'demo-feed-2',
+          authorProfileId: 'demo-player-1',
+          authorName: 'leftboot_lucas',
+          authorRole: 'player',
+          kind: FeedPostKind.drill,
+          body:
+              'Sunday drilling session open to visitors — wall passes, first-touch ladders and 30 mins of small-sided games. Bring a ball.',
+          areaName: 'Valencia — Turia river beds',
+          latitude: 39.4699,
+          longitude: -0.3763,
+          createdAt: DateTime.now().subtract(const Duration(hours: 19)),
+        ),
+        FeedPost(
+          id: 'demo-feed-3',
+          authorProfileId: 'demo-club-1',
+          authorName: 'FC Atlas',
+          authorRole: 'club',
+          kind: FeedPostKind.tactical,
+          body:
+              'Open tactical session on Thursday: pressing traps in a 4-4-2 diamond, followed by an 11v11. Scouts welcome pitch-side.',
+          mediaUrl: 'https://vimeo.com/demo-atlas-tactics',
+          mediaPlatform: 'Vimeo',
+          areaName: 'Casablanca — Maarif',
+          latitude: 33.5936,
+          longitude: -7.6323,
+          createdAt: DateTime.now().subtract(const Duration(days: 2)),
+        ),
+        FeedPost(
+          id: 'demo-feed-4',
+          authorProfileId: 'demo-player-minor',
+          authorName: 'Z. Okafor (U14)',
+          authorRole: 'player',
+          kind: FeedPostKind.general,
+          body:
+              'Trained with the district keeper coach today — six penalty saves in the shootout drill. Looking forward to the next fixture.',
+          areaName: 'South Manchester area',
+          isMinorPoster: true,
+          createdAt: DateTime.now().subtract(const Duration(days: 3, hours: 4)),
+        ),
+      ];
 }

@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' show RealtimeChannel;
 import '../data/radar_repository.dart';
 import '../models/connection_request.dart';
 import '../models/enums.dart';
+import '../models/feed_post.dart' show FeedPost, FeedPostKind, distanceKm;
 import '../models/guardian_link.dart';
 import '../models/pi_payment.dart';
 import '../models/radar_event.dart';
@@ -140,6 +141,9 @@ class RadarFilter {
     this.ageBracket,
     this.position,
     this.verifiedHostsOnly = false,
+    this.radiusKm,
+    this.viewerLat,
+    this.viewerLon,
   });
 
   final Set<RadarEventType> types;
@@ -157,6 +161,11 @@ class RadarFilter {
   /// high credibility — same rule as the badge in the directory).
   final bool verifiedHostsOnly;
 
+  /// Radius filter around the viewer's position (km). Null = unlimited.
+  final double? radiusKm;
+  final double? viewerLat;
+  final double? viewerLon;
+
   RadarFilter copyWith({
     Set<RadarEventType>? types,
     bool clearTypes = false,
@@ -168,6 +177,10 @@ class RadarFilter {
     String? position,
     bool clearPosition = false,
     bool? verifiedHostsOnly,
+    double? radiusKm,
+    bool clearRadius = false,
+    double? viewerLat,
+    double? viewerLon,
   }) =>
       RadarFilter(
         types: clearTypes ? const {} : (types ?? this.types),
@@ -178,6 +191,9 @@ class RadarFilter {
             clearAgeBracket ? null : (ageBracket ?? this.ageBracket),
         position: clearPosition ? null : (position ?? this.position),
         verifiedHostsOnly: verifiedHostsOnly ?? this.verifiedHostsOnly,
+        radiusKm: clearRadius ? null : (radiusKm ?? this.radiusKm),
+        viewerLat: viewerLat ?? this.viewerLat,
+        viewerLon: viewerLon ?? this.viewerLon,
       );
 }
 
@@ -231,6 +247,14 @@ class RadarFilterController extends Notifier<RadarFilter> {
 
   void setVerifiedHostsOnly(bool v) =>
       state = state.copyWith(verifiedHostsOnly: v);
+
+  void setRadius(double? km, {double? viewerLat, double? viewerLon}) =>
+      state = state.copyWith(
+        radiusKm: km,
+        clearRadius: km == null,
+        viewerLat: viewerLat,
+        viewerLon: viewerLon,
+      );
 }
 
 final filteredEventsProvider = Provider<List<RadarEvent>>((ref) {
@@ -261,6 +285,18 @@ final filteredEventsProvider = Provider<List<RadarEvent>>((ref) {
     }
     if (filter.verifiedHostsOnly && !verifiedHostIds.contains(e.hostProfileId)) {
       return false;
+    }
+    if (filter.radiusKm != null &&
+        filter.viewerLat != null &&
+        filter.viewerLon != null &&
+        filter.radiusKm! > 0) {
+      final d = distanceKm(
+        lat1: filter.viewerLat!,
+        lon1: filter.viewerLon!,
+        lat2: e.latitude,
+        lon2: e.longitude,
+      );
+      if (d > filter.radiusKm!) return false;
     }
     if (filter.query.isNotEmpty) {
       final q = filter.query.toLowerCase();
@@ -723,5 +759,62 @@ class PaymentLedgerController extends AsyncNotifier<List<PiPayment>> {
   Future<void> refresh() async {
     final list = await RadarRepository.instance.fetchMyPayments();
     state = AsyncData(list);
+  }
+}
+
+// --------------------------------------------------------------- social feed
+
+/// Social feed posts — latest first, refreshed on demand.
+final feedPostsProvider =
+    AsyncNotifierProvider<FeedPostsController, List<FeedPost>>(
+        FeedPostsController.new);
+
+class FeedPostsController extends AsyncNotifier<List<FeedPost>> {
+  @override
+  Future<List<FeedPost>> build() =>
+      RadarRepository.instance.fetchFeedPosts();
+
+  Future<void> refresh() async {
+    final list = await RadarRepository.instance.fetchFeedPosts();
+    if (list.isNotEmpty) state = AsyncData(list);
+  }
+
+  /// Publishes a post as the signed-in user; returns true on success.
+  Future<bool> createPost({
+    required FeedPostKind kind,
+    required String body,
+    String? mediaUrl,
+    String? mediaPlatform,
+    String? areaName,
+    double? latitude,
+    double? longitude,
+  }) async {
+    final session = ref.read(sessionProvider);
+    final profileId = session?.profileId;
+    if (profileId == null) return false;
+    final post = FeedPost(
+      id: 'post-${DateTime.now().microsecondsSinceEpoch}',
+      authorProfileId: profileId,
+      authorName: session!.username,
+      authorRole: session.role.name,
+      kind: kind,
+      body: body.trim(),
+      createdAt: DateTime.now(),
+      mediaUrl: (mediaUrl?.trim().isEmpty ?? true) ? null : mediaUrl!.trim(),
+      mediaPlatform:
+          (mediaPlatform?.trim().isEmpty ?? true) ? null : mediaPlatform!.trim(),
+      areaName: (areaName?.trim().isEmpty ?? true) ? null : areaName!.trim(),
+      latitude: latitude,
+      longitude: longitude,
+    );
+    final ok = await RadarRepository.instance.createFeedPost(post);
+    if (ok) await refresh();
+    return ok;
+  }
+
+  Future<bool> deletePost(String postId) async {
+    final ok = await RadarRepository.instance.deleteFeedPost(postId);
+    if (ok) await refresh();
+    return ok;
   }
 }

@@ -26,6 +26,8 @@ class RadarSession {
     this.needsOnboarding = false,
     this.role = UserRole.player,
     this.isMinor = false,
+    this.viewerLatitude,
+    this.viewerLongitude,
   });
 
   final String piUid;
@@ -52,6 +54,12 @@ class RadarSession {
   /// guardian-consent gates across the UI.
   final bool isMinor;
 
+  /// Approximate viewer position derived from the profile's regional base
+  /// (city → representative coordinates). Used for radius filters and live
+  /// pins; deliberately NOT device GPS so no extra permission is needed.
+  final double? viewerLatitude;
+  final double? viewerLongitude;
+
   RadarSession copyWith({
     String? piUid,
     String? username,
@@ -63,6 +71,8 @@ class RadarSession {
     bool? needsOnboarding,
     UserRole? role,
     bool? isMinor,
+    double? viewerLatitude,
+    double? viewerLongitude,
   }) =>
       RadarSession(
         piUid: piUid ?? this.piUid,
@@ -75,6 +85,8 @@ class RadarSession {
         needsOnboarding: needsOnboarding ?? this.needsOnboarding,
         role: role ?? this.role,
         isMinor: isMinor ?? this.isMinor,
+        viewerLatitude: viewerLatitude ?? this.viewerLatitude,
+        viewerLongitude: viewerLongitude ?? this.viewerLongitude,
       );
 }
 
@@ -220,6 +232,8 @@ class AuthController extends AsyncNotifier<AuthState> {
       needsOnboarding: profile.needsOnboarding,
       role: profile.role,
       isMinor: profile.isMinor,
+      viewerLatitude: regionCoordinates(profile.country, profile.city).$1,
+      viewerLongitude: regionCoordinates(profile.country, profile.city).$2,
     );
   }
 
@@ -486,3 +500,87 @@ final sessionProvider = Provider<RadarSession?>((ref) {
   final auth = ref.watch(authProvider).value;
   return auth is AuthSignedIn ? auth.session : null;
 });
+
+/// Representative coordinates for a viewer's regional base (country + city).
+/// Coarse by design: city-level resolution only, used for radius filtering
+/// and defaulting live pins. Returns a Accra-area fallback for unknown
+/// regions so the radar still centres somewhere plausible.
+(double, double) regionCoordinates(String? country, String? city) {
+  final c = (city ?? '').toLowerCase();
+  final co = (country ?? '').toLowerCase();
+
+  // Well-known football cities first.
+  const cities = <String, (double, double)>{
+    'limbe': (4.0227, 9.1992),
+    'douala': (4.0511, 9.7679),
+    'yaounde': (3.8480, 11.5021),
+    'bamenda': (5.9597, 10.1459),
+    'accra': (5.6037, -0.1870),
+    'kumasi': (6.6885, -1.6244),
+    'lagos': (6.5244, 3.3792),
+    'abuja': (9.0765, 7.3986),
+    'nairobi': (-1.2921, 36.8219),
+    'cairo': (30.0444, 31.2357),
+    'casablanca': (33.5731, -7.5898),
+    'dakar': (14.7167, -17.4677),
+    'abidjan': (5.3599, -4.0083),
+    'kinshasa': (-4.4419, 15.2663),
+    'johannesburg': (-26.2041, 28.0473),
+    'lagos state': (6.5244, 3.3792),
+    'london': (51.5074, -0.1278),
+    'manchester': (53.4808, -2.2426),
+    'madrid': (40.4168, -3.7038),
+    'valencia': (39.4699, -0.3763),
+    'barcelona': (41.3874, 2.1686),
+    'paris': (48.8566, 2.3522),
+    'lyon': (45.7640, 4.8357),
+    'milan': (45.4642, 9.1900),
+    'rome': (41.9028, 12.4964),
+    'munich': (48.1351, 11.5820),
+    'amsterdam': (52.3676, 4.9041),
+    'lisbon': (38.7223, -9.1393),
+    'porto': (41.1579, -8.6291),
+    'istanbul': (41.0082, 28.9784),
+    'sao paulo': (-23.5505, -46.6333),
+    'rio de janeiro': (-22.9068, -43.1729),
+    'buenos aires': (-34.6037, -58.3816),
+    'new york': (40.7128, -74.0060),
+    'miami': (25.7617, -80.1918),
+    'los angeles': (34.0522, -118.2437),
+  };
+  for (final key in cities.keys) {
+    if (c.contains(key)) return cities[key]!;
+  }
+
+  // Country-level fallbacks.
+  const countries = <String, (double, double)>{
+    'cameroon': (4.0511, 9.7679),
+    'ghana': (5.6037, -0.1870),
+    'nigeria': (6.5244, 3.3792),
+    'kenya': (-1.2921, 36.8219),
+    'egypt': (30.0444, 31.2357),
+    'morocco': (33.5731, -7.5898),
+    'senegal': (14.7167, -17.4677),
+    'ivory coast': (5.3599, -4.0083),
+    "côte d'ivoire": (5.3599, -4.0083),
+    'dr congo': (-4.4419, 15.2663),
+    'south africa': (-26.2041, 28.0473),
+    'england': (51.5074, -0.1278),
+    'spain': (40.4168, -3.7038),
+    'france': (48.8566, 2.3522),
+    'italy': (41.9028, 12.4964),
+    'germany': (48.1351, 11.5820),
+    'netherlands': (52.3676, 4.9041),
+    'portugal': (38.7223, -9.1393),
+    'turkey': (41.0082, 28.9784),
+    'brazil': (-23.5505, -46.6333),
+    'argentina': (-34.6037, -58.3816),
+    'usa': (40.7128, -74.0060),
+    'united states': (40.7128, -74.0060),
+  };
+  for (final key in countries.keys) {
+    if (co.contains(key)) return countries[key]!;
+  }
+
+  return (5.6037, -0.1870);
+}

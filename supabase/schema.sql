@@ -675,3 +675,63 @@ begin
 end;
 $$;
 grant execute on function public.security_diagnostics() to authenticated;
+
+-- ============================================================
+-- FEED POSTS — social feed for highlights, drills and tactical sessions.
+-- Players, academies and clubs post; everyone can read, authors manage
+-- their own. Minor-posters are fenced by trigger to coarse area labels
+-- and get no media links (extra hardening on top of profile privacy).
+-- ============================================================
+create table if not exists public.feed_posts (
+  id uuid primary key default gen_random_uuid(),
+  author_profile_id uuid not null references public.profiles(id) on delete cascade,
+  author_name text not null,
+  author_role text not null default 'player',
+  kind text not null default 'highlight' check (kind in ('highlight','drill','tactical','general')),
+  body text not null,
+  media_url text,
+  media_platform text,
+  area_name text,
+  latitude double precision,
+  longitude double precision,
+  is_minor_poster boolean not null default false,
+  created_at timestamptz not null default now()
+);
+alter table public.feed_posts enable row level security;
+drop policy if exists "feed posts are readable" on public.feed_posts;
+create policy "feed posts are readable" on public.feed_posts
+  for select using (true);
+drop policy if exists "authors manage own posts" on public.feed_posts;
+create policy "authors manage own posts" on public.feed_posts
+  for all using (author_profile_id = auth.uid());
+
+-- Trigger: mirror the profile's minor state on every post and fence it.
+create or replace function public.enforce_feed_post_privacy()
+returns trigger as $$
+declare
+  poster_is_minor boolean := false;
+  poster_area text;
+begin
+  select p.is_minor,
+         coalesce(nullif(btrim(coalesce(p.geohash_area, '')), ''),
+                  nullif(btrim(coalesce(p.city, '')), ''), 'Region withheld')
+    into poster_is_minor, poster_area
+  from public.profiles p where p.id = new.author_profile_id;
+
+  new.is_minor_poster := coalesce(poster_is_minor, false);
+  if new.is_minor_poster then
+    new.area_name := poster_area;      -- coarse regional label only
+    new.latitude := null;              -- no coordinates leave the DB
+    new.longitude := null;
+    new.media_url := null;             -- no external media for minors
+    new.media_platform := null;
+  end if;
+  return new;
+end;
+$$ language plpgsql;
+drop trigger if exists feed_posts_privacy on public.feed_posts;
+create trigger feed_posts_privacy
+  before insert or update on public.feed_posts
+  for each row execute function public.enforce_feed_post_privacy();
+
+alter publication supabase_realtime add table public.feed_posts;
