@@ -1,3 +1,4 @@
+import '../models/connection_request.dart';
 import '../models/enums.dart';
 import '../models/radar_event.dart';
 import '../models/user_profile.dart';
@@ -232,4 +233,103 @@ class DemoSeed {
       isMinorProtected: false,
     ),
   ];
+
+  // -- Demo P2P requests (scoped to the signed-in demo user) ----------------
+
+  static final List<ConnectionRequest> _demoRequests = <ConnectionRequest>[];
+  static String? _demoRequestsFor;
+
+  /// Returns demo requests involving [profileId], generating a plausible
+  /// mixed inbox (received + sent, pending + resolved) on first call.
+  static List<ConnectionRequest> requestsFor(String profileId) {
+    if (_demoRequestsFor != profileId) {
+      _demoRequestsFor = profileId;
+      _demoRequests
+        ..clear()
+        ..addAll([
+          ConnectionRequest(
+            id: 'demo-req-1',
+            fromProfile: 'demo-academy-1',
+            toProfile: profileId,
+            type: ConnectionType.trialInvite,
+            status: ConnectionStatus.pending,
+            eventId: 'demo-event-1',
+            message:
+                'We watched your clips — impressive left foot. Join our U21 '
+                'trial block next week?',
+            createdAt: DateTime.now().subtract(const Duration(hours: 5)),
+            fromName: 'Golden Coast Academy',
+            eventTitle: 'Open trials — U18 & U21',
+          ),
+          ConnectionRequest(
+            id: 'demo-req-2',
+            fromProfile: 'demo-club-1',
+            toProfile: profileId,
+            type: ConnectionType.contact,
+            status: ConnectionStatus.pending,
+            message: 'Scouting coordinator at Valencia Youth. Open to a chat?',
+            createdAt: DateTime.now().subtract(const Duration(hours: 26)),
+            fromName: 'Valencia Youth SC',
+          ),
+          ConnectionRequest(
+            id: 'demo-req-3',
+            fromProfile: 'demo-agent-1',
+            toProfile: profileId,
+            type: ConnectionType.contact,
+            status: ConnectionStatus.declined,
+            message: 'Representing players in Ligue 2 — interested?',
+            createdAt: DateTime.now().subtract(const Duration(days: 4)),
+            fromName: 'Marc Dupont (Agent)',
+          ),
+          ConnectionRequest(
+            id: 'demo-req-4',
+            fromProfile: profileId,
+            toProfile: 'demo-player-1',
+            type: ConnectionType.contact,
+            status: ConnectionStatus.accepted,
+            message: 'Saw your game vs Lyon — great engine in midfield.',
+            createdAt: DateTime.now().subtract(const Duration(days: 2)),
+            toName: 'Leftboot Lucas',
+          ),
+          ConnectionRequest(
+            id: 'demo-req-5',
+            fromProfile: profileId,
+            toProfile: 'demo-academy-1',
+            type: ConnectionType.trialApplication,
+            status: ConnectionStatus.pending,
+            eventId: 'demo-event-1',
+            message: 'Applying as a winger — 3 seasons of regional football.',
+            createdAt: DateTime.now().subtract(const Duration(hours: 9)),
+            toName: 'Golden Coast Academy',
+            eventTitle: 'Open trials — U18 & U21',
+          ),
+        ]);
+    }
+    return List.of(_demoRequests);
+  }
+
+  /// Applies a status change to a demo request in place; true if found.
+  static bool respondToDemoRequest(String id, ConnectionStatus status) {
+    for (var i = 0; i < _demoRequests.length; i++) {
+      final r = _demoRequests[i];
+      if (r.id == id) {
+        _demoRequests[i] = ConnectionRequest(
+          id: r.id,
+          fromProfile: r.fromProfile,
+          toProfile: r.toProfile,
+          type: r.type,
+          status: status,
+          eventId: r.eventId,
+          message: r.message,
+          createdAt: r.createdAt,
+          updatedAt: DateTime.now(),
+          fromName: r.fromName,
+          toName: r.toName,
+          eventTitle: r.eventTitle,
+        );
+        return true;
+      }
+    }
+    return false;
+  }
 }

@@ -24,6 +24,11 @@ class ConnectionsScreen extends ConsumerWidget {
     final myId = session?.profileId ?? '';
     final requestsAsync = ref.watch(connectionsProvider);
     final profiles = ref.watch(profilesProvider).value ?? const <UserProfile>[];
+    final all = requestsAsync.value ?? const <ConnectionRequest>[];
+    final pendingReceived =
+        all.where((r) => r.toProfile == myId && r.isPending).length;
+    final pendingSent =
+        all.where((r) => r.fromProfile == myId && r.isPending).length;
 
     return SafeArea(
       child: Align(
@@ -58,9 +63,34 @@ class ConnectionsScreen extends ConsumerWidget {
                     indicatorColor: RadarTheme.radar,
                     labelColor: RadarTheme.textPrimary,
                     unselectedLabelColor: RadarTheme.textDim,
-                    tabs: const [
-                      Tab(text: 'Received'),
-                      Tab(text: 'Sent'),
+                    tabs: [
+                      Tab(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text('Received'),
+                            if (pendingReceived > 0) ...[
+                              const SizedBox(width: 6),
+                              _CountBadge(
+                                  count: pendingReceived,
+                                  color: RadarTheme.radar),
+                            ],
+                          ],
+                        ),
+                      ),
+                      Tab(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text('Sent'),
+                            if (pendingSent > 0) ...[
+                              const SizedBox(width: 6),
+                              _CountBadge(
+                                  count: pendingSent, color: RadarTheme.gold),
+                            ],
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -188,8 +218,33 @@ class _RequestList extends ConsumerWidget {
           otherName: otherName,
           otherRole: other?.role,
           otherCredibility: other?.credibilityScore,
+          otherKyc: other?.kycVerified ?? false,
+          otherIsMinor: other?.isMinor ?? false,
         );
       },
+    );
+  }
+}
+
+class _CountBadge extends StatelessWidget {
+  const _CountBadge({required this.count, required this.color});
+
+  final int count;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1.5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        '$count',
+        style: TextStyle(
+            fontSize: 11, fontWeight: FontWeight.w800, color: color),
+      ),
     );
   }
 }
@@ -201,6 +256,8 @@ class _RequestCard extends ConsumerWidget {
     required this.otherName,
     this.otherRole,
     this.otherCredibility,
+    this.otherKyc = false,
+    this.otherIsMinor = false,
   });
 
   final ConnectionRequest request;
@@ -208,6 +265,8 @@ class _RequestCard extends ConsumerWidget {
   final String otherName;
   final UserRole? otherRole;
   final double? otherCredibility;
+  final bool otherKyc;
+  final bool otherIsMinor;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -288,15 +347,34 @@ class _RequestCard extends ConsumerWidget {
             ),
           ],
           const SizedBox(height: 8),
-          Text(
-            [
-              if (otherRole != null)
-                '${otherRole!.label}'
-                '${otherCredibility != null && otherCredibility! > 0 ? " · credibility ${otherCredibility!.round()}" : ""}',
-              if (request.createdAt != null) df.format(request.createdAt!),
-            ].join('  ·  '),
-            style: const TextStyle(fontSize: 11.5, color: RadarTheme.textDim),
-          ),
+          Wrap(spacing: 6, runSpacing: 4, children: [
+            if (otherRole != null)
+              InfoPill(
+                  icon: otherRole!.icon, label: otherRole!.label),
+            if (otherKyc)
+              const InfoPill(
+                  icon: Icons.verified_user_outlined,
+                  label: 'KYC verified',
+                  color: RadarTheme.radar),
+            if (otherCredibility != null && otherCredibility! > 0)
+              InfoPill(
+                  icon: Icons.insights,
+                  label: 'Credibility ${otherCredibility!.round()}',
+                  color: otherCredibility! >= 70
+                      ? RadarTheme.radar
+                      : RadarTheme.gold),
+            if (request.createdAt != null)
+              InfoPill(
+                  icon: Icons.schedule,
+                  label: df.format(request.createdAt!)),
+            if (otherIsMinor)
+              const InfoPill(
+                  icon: Icons.shield_outlined,
+                  label: 'Guardian consent enforced',
+                  color: RadarTheme.gold,
+                  tooltip:
+                      'Actions on this request respect minor-safety consent rules.'),
+          ]),
           if (pending) ...[
             const SizedBox(height: 12),
             Row(

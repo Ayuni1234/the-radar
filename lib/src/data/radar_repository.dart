@@ -138,7 +138,7 @@ class RadarRepository {
 
   /// All requests involving [profileId] (sent or received), newest first.
   Future<List<ConnectionRequest>> fetchConnections(String profileId) async {
-    if (!_live) return const [];
+    if (!_live) return DemoSeed.requestsFor(profileId);
     try {
       final res = await SupabaseConfig.client
           .from('connection_requests')
@@ -165,7 +165,7 @@ class RadarRepository {
   /// Accepts or declines a received request (RLS: recipient only).
   Future<bool> respondToConnection(
       String requestId, ConnectionStatus status) async {
-    if (!_live) return true;
+    if (!_live) return DemoSeed.respondToDemoRequest(requestId, status);
     try {
       await SupabaseConfig.client.from('connection_requests').update({
         'status': status.name,
