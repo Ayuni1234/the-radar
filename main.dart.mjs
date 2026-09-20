@@ -82,7 +82,7 @@ class CompiledApp {
       AH: x0 => x0.unlock(),
       AI: (ms, c) =>
       setInterval(() => dartInstance.exports.$invokeCallback(c), ms),
-      AJ: () => new Array(),
+      AJ: x0 => x0.data,
       AK: x0 => x0.hostElement,
       B: s => printToConsole(s),
       BB: x0 => new Uint16Array(x0),
@@ -93,7 +93,7 @@ class CompiledApp {
       BG: x0 => x0.now(),
       BH: (x0,x1) => x0.lock(x1),
       BI: () => Date.now(),
-      BJ: (x0,x1) => new WebSocket(x0,x1),
+      BJ: (wasmFunction,f) => finalizeWrapper(f, function(x0) { return wasmFunction(f,arguments.length,x0) }),
       BK: x0 => x0.location,
       C: Function.prototype.call.bind(Number.prototype.toString),
       CB: x0 => new Int32Array(x0),
@@ -105,7 +105,7 @@ class CompiledApp {
       CG: x0 => x0.performance,
       CH: x0 => x0.orientation,
       CI: x0 => new WeakRef(x0),
-      CJ: x0 => x0.reason,
+      CJ: (x0,x1,x2) => x0.close(x1,x2),
       CK: (x0,x1) => x0.getModifierState(x1),
       D: Function.prototype.call.bind(BigInt.prototype.toString),
       DB: (jsArray, jsArrayOffset, wasmArray, wasmArrayOffset, length) => {
@@ -121,7 +121,7 @@ class CompiledApp {
       DG: (d, digits) => d.toFixed(digits),
       DH: (x0,x1) => x0.querySelector(x1),
       DI: x0 => x0.deref(),
-      DJ: x0 => x0.code,
+      DJ: (x0,x1) => x0.close(x1),
       DK: x0 => x0.metaKey,
       E: (exn) => {
         let stackString = exn.toString();
@@ -140,7 +140,7 @@ class CompiledApp {
       EG: x0 => x0.maxHeight,
       EH: (x0,x1) => { x0.title = x1 },
       EI: () => globalThis.WeakRef,
-      EJ: (x0,x1,x2,x3) => x0.addEventListener(x1,x2,x3),
+      EJ: x0 => x0.close(),
       EK: x0 => x0.altKey,
       F: () => new Error().stack,
       FB: x0 => new Float32Array(x0),
@@ -155,7 +155,7 @@ class CompiledApp {
         new Uint8Array(dst).set(new Uint8Array(o, offsetInBytes, lengthInBytes));
         return new DataView(dst);
       },
-      FJ: (x0,x1,x2,x3) => x0.removeEventListener(x1,x2,x3),
+      FJ: (x0,x1) => x0.send(x1),
       FK: x0 => x0.ctrlKey,
       G: s => JSON.stringify(s),
       GB: (jsArray, jsArrayOffset, wasmArray, wasmArrayOffset, length) => {
@@ -171,7 +171,7 @@ class CompiledApp {
       GG: x0 => x0.minHeight,
       GH: x0 => x0.arrayBuffer(),
       GI: (a, s, e) => a.slice(s, e),
-      GJ: (wasmFunction,f) => finalizeWrapper(f, function(x0) { return wasmFunction(f,arguments.length,x0) }),
+      GJ: x0 => x0.readyState,
       GK: x0 => x0.isComposing,
       H: Function.prototype.call.bind(Number.prototype.toString),
       HB: x0 => new Float64Array(x0),
@@ -190,7 +190,7 @@ class CompiledApp {
         return 3;
       },
       HI: x0 => x0.pop(),
-      HJ: x0 => x0.data,
+      HJ: (x0,x1) => { x0.binaryType = x1 },
       HK: x0 => x0.code,
       I: Function.prototype.call.bind(String.prototype.indexOf),
       IB: (jsArray, jsArrayOffset, wasmArray, wasmArrayOffset, length) => {
@@ -210,7 +210,7 @@ class CompiledApp {
                Object.prototype.toString.call(process) == "[object process]" &&
                process.platform == "win32"
       },
-      IJ: (wasmFunction,f) => finalizeWrapper(f, function(x0) { return wasmFunction(f,arguments.length,x0) }),
+      IJ: (a, l) => a.length = l,
       IK: x0 => x0.repeat,
       J: (s, p, i) => s.lastIndexOf(p, i),
       JB: x0 => new ArrayBuffer(x0),
@@ -254,7 +254,7 @@ class CompiledApp {
         }
         return null;
       },
-      JJ: (x0,x1,x2) => x0.close(x1,x2),
+      JJ: (x0,x1,x2) => ({amount: x0,memo: x1,metadata: x2}),
       JK: (wasmFunction,f) => finalizeWrapper(f, function(x0) { return wasmFunction(f,arguments.length,x0) }),
       K: (exn) => {
         if (exn instanceof Error) {
@@ -271,7 +271,7 @@ class CompiledApp {
       KG: x0 => x0.data,
       KH: x0 => x0.content,
       KI: () => new AbortController(),
-      KJ: (x0,x1) => x0.close(x1),
+      KJ: (wasmFunction,f) => finalizeWrapper(f, function(x0) { return wasmFunction(f,arguments.length,x0) }),
       KK: x0 => x0.userAgent,
       L: o => o === undefined,
       LB: (x0,x1,x2) => new DataView(x0,x1,x2),
@@ -282,7 +282,7 @@ class CompiledApp {
       LG: (x0,x1) => { x0.scrollTop = x1 },
       LH: x0 => x0.document,
       LI: (x0,x1,x2,x3,x4,x5) => ({method: x0,headers: x1,body: x2,credentials: x3,redirect: x4,signal: x5}),
-      LJ: x0 => x0.close(),
+      LJ: (wasmFunction,f) => finalizeWrapper(f, function(x0,x1) { return wasmFunction(f,arguments.length,x0,x1) }),
       LK: x0 => x0.navigator,
       M: o => String(o),
       MB: (o, p) => o[p],
@@ -293,7 +293,7 @@ class CompiledApp {
       MG: (x0,x1,x2) => x0.setSelectionRange(x1,x2),
       MH: () => typeof dartUseDateNowForTicks !== "undefined",
       MI: (x0,x1) => globalThis.fetch(x0,x1),
-      MJ: (x0,x1) => x0.send(x1),
+      MJ: (wasmFunction,f) => finalizeWrapper(f, function(x0) { return wasmFunction(f,arguments.length,x0) }),
       MK: (x0,x1) => x0.key(x1),
       N: (c) =>
       queueMicrotask(() => dartInstance.exports.$invokeCallback(c)),
@@ -305,7 +305,7 @@ class CompiledApp {
       NG: (x0,x1) => { x0.value = x1 },
       NH: () => Date.now(),
       NI: (x0,x1) => x0.get(x1),
-      NJ: x0 => x0.readyState,
+      NJ: (wasmFunction,f) => finalizeWrapper(f, function(x0,x1) { return wasmFunction(f,arguments.length,x0,x1) }),
       NK: x0 => x0.length,
       O: (x0,x1) => x0.didCreateEngineInitializer(x1),
       OB: Function.prototype.call.bind(Object.getOwnPropertyDescriptor(DataView.prototype, 'byteLength').get),
@@ -320,7 +320,7 @@ class CompiledApp {
       OG: (x0,x1,x2) => x0.setSelectionRange(x1,x2),
       OH: () => 1000 * performance.now(),
       OI: (wasmFunction,f) => finalizeWrapper(f, function(x0,x1,x2) { return wasmFunction(f,arguments.length,x0,x1,x2) }),
-      OJ: (x0,x1) => { x0.binaryType = x1 },
+      OJ: (x0,x1,x2,x3) => ({onReadyForServerApproval: x0,onReadyForServerCompletion: x1,onCancel: x2,onError: x3}),
       OK: x0 => x0.length,
       P: (wasmFunction,f) => finalizeWrapper(f, function(x0) { return wasmFunction(f,arguments.length,x0) }),
       PB: o => o.byteOffset,
@@ -331,7 +331,7 @@ class CompiledApp {
       PG: (x0,x1) => { x0.value = x1 },
       PH: x0 => new Uint8Array(x0),
       PI: (x0,x1) => x0.forEach(x1),
-      PJ: (a, l) => a.length = l,
+      PJ: (x0,x1,x2) => x0.createPayment(x1,x2),
       PK: x0 => x0.getReader(),
       Q: (wasmFunction,f) => finalizeWrapper(f, function() { return wasmFunction(f,arguments.length) }),
       QB: o => o.buffer,
@@ -718,7 +718,7 @@ class CompiledApp {
         }
       },
       tH: (map, o, v) => map.set(o, v),
-      tI: (x0,x1,x2) => ({amount: x0,memo: x1,metadata: x2}),
+      tI: () => new Array(),
       tJ: (x0,x1) => { x0.width = x1 },
       u: () => [],
       uB: (o, start, length) => new Float32Array(o.buffer, o.byteOffset + start, length),
@@ -728,7 +728,7 @@ class CompiledApp {
       uF: x0 => x0.hash,
       uG: (x0,x1) => x0.dispatchEvent(x1),
       uH: (map, o) => map.get(o),
-      uI: (wasmFunction,f) => finalizeWrapper(f, function(x0) { return wasmFunction(f,arguments.length,x0) }),
+      uI: (x0,x1) => new WebSocket(x0,x1),
       uJ: x0 => x0.height,
       v: (a, i) => a.push(i),
       vB: (o, start, length) => new Uint32Array(o.buffer, o.byteOffset + start, length),
@@ -738,7 +738,7 @@ class CompiledApp {
       vF: x0 => x0.state,
       vG: (x0,x1) => x0.createEvent(x1),
       vH: () => new WeakMap(),
-      vI: (wasmFunction,f) => finalizeWrapper(f, function(x0,x1) { return wasmFunction(f,arguments.length,x0,x1) }),
+      vI: x0 => x0.reason,
       vJ: x0 => x0.width,
       w: x0 => new Int8Array(x0),
       wB: (o, start, length) => new Int32Array(o.buffer, o.byteOffset + start, length),
@@ -748,7 +748,7 @@ class CompiledApp {
       wF: (x0,x1) => x0.go(x1),
       wG: (x0,x1,x2,x3) => x0.initEvent(x1,x2,x3),
       wH: x0 => x0.debugSkipFontRetryDelay,
-      wI: (wasmFunction,f) => finalizeWrapper(f, function(x0) { return wasmFunction(f,arguments.length,x0) }),
+      wI: x0 => x0.code,
       wJ: x0 => x0.rasterEndMilliseconds,
       x: (jsArray, jsArrayOffset, wasmArray, wasmArrayOffset, length) => {
         const getValue = dartInstance.exports.$wasmI8ArrayGet;
@@ -763,7 +763,7 @@ class CompiledApp {
       xF: x0 => x0.parentElement,
       xG: x0 => x0.readText(),
       xH: (x0,x1,x2) => x0.set(x1,x2),
-      xI: (wasmFunction,f) => finalizeWrapper(f, function(x0,x1) { return wasmFunction(f,arguments.length,x0,x1) }),
+      xI: (x0,x1,x2,x3) => x0.addEventListener(x1,x2,x3),
       xJ: x0 => x0.rasterStartMilliseconds,
       y: x0 => new Uint8Array(x0),
       yB: (o, start, length) => new Int16Array(o.buffer, o.byteOffset + start, length),
@@ -773,7 +773,7 @@ class CompiledApp {
       yF: (x0,x1) => x0.querySelectorAll(x1),
       yG: x0 => x0.clipboard,
       yH: x0 => x0.fontFallbackBaseUrl,
-      yI: (x0,x1,x2,x3) => ({onReadyForServerApproval: x0,onReadyForServerCompletion: x1,onCancel: x2,onError: x3}),
+      yI: (x0,x1,x2,x3) => x0.removeEventListener(x1,x2,x3),
       yJ: x0 => x0.imageBitmaps,
       z: x0 => new Uint8ClampedArray(x0),
       zB: (o, start, length) => new Uint8ClampedArray(o.buffer, o.byteOffset + start, length),
@@ -783,7 +783,7 @@ class CompiledApp {
       zF: (x0,x1) => x0.requestAnimationFrame(x1),
       zG: (x0,x1) => x0.writeText(x1),
       zH: (handle) => clearInterval(handle),
-      zI: (x0,x1,x2) => x0.createPayment(x1,x2),
+      zI: (wasmFunction,f) => finalizeWrapper(f, function(x0) { return wasmFunction(f,arguments.length,x0) }),
       zJ: x0 => x0.canvasKitMaximumSurfaces,
 
     };
