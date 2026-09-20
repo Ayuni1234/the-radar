@@ -8,10 +8,13 @@ import 'package:intl/intl.dart';
 import '../models/connection_request.dart';
 import '../models/enums.dart';
 import '../models/radar_event.dart';
+import '../models/stream_bounty.dart';
 import '../models/user_profile.dart';
 import '../state/radar_providers.dart';
+import 'bounty_board_screen.dart';
 import 'event_composer_screen.dart';
 import 'event_detail_screen.dart';
+import 'map_pins.dart';
 import 'profiles_screen.dart';
 import 'search_screen.dart';
 import 'radar_theme.dart';
@@ -34,8 +37,19 @@ class _RadarMapScreenState extends ConsumerState<RadarMapScreen> {
   Widget build(BuildContext context) {
     final events = ref.watch(filteredEventsProvider);
     final eventsAsync = ref.watch(radarEventsProvider);
+    final bounties = ref.watch(streamBountiesProvider).value ?? const <StreamBounty>[];
     final size = windowSizeFor(MediaQuery.sizeOf(context).width);
     final wide = size != WindowSize.compact;
+
+    // Interactive scouting map pins: events by live/scheduled state plus
+    // active funded bounties, each color-coded (🟢 live · 🟡 scheduled ·
+    // 🔴 bounty).
+    final pins = <MapPin>[
+      for (final e in events) MapPin.fromEvent(e),
+      for (final b in bounties)
+        if (b.status == 'funded' || b.status == 'accepted' || b.status == 'live')
+          MapPin.fromBounty(b),
+    ];
 
     return Scaffold(
       appBar: AppBar(
@@ -51,7 +65,7 @@ class _RadarMapScreenState extends ConsumerState<RadarMapScreen> {
             const Text('LIVE RADAR'),
             const SizedBox(width: 10),
             Text(
-              '${events.length} active',
+              '${events.length} active · ${bounties.where((b) => b.isFunded && b.status != 'completed').length} bounties',
               style: const TextStyle(
                   fontSize: 12.5, color: RadarTheme.textDim, fontWeight: FontWeight.w400),
             ),
@@ -84,7 +98,7 @@ class _RadarMapScreenState extends ConsumerState<RadarMapScreen> {
               ? Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Expanded(flex: 3, child: _radarCanvas(events, wide)),
+                    Expanded(flex: 3, child: _radarCanvas(pins, wide)),
                     SizedBox(
                       width: 360,
                       child: _EventSidePanel(
@@ -97,7 +111,7 @@ class _RadarMapScreenState extends ConsumerState<RadarMapScreen> {
                 )
               : Column(
                   children: [
-                    Expanded(child: _radarCanvas(events, wide)),
+                    Expanded(child: _radarCanvas(pins, wide)),
                     SizedBox(
                       height: 190,
                       child: _EventStrip(
@@ -110,7 +124,7 @@ class _RadarMapScreenState extends ConsumerState<RadarMapScreen> {
     );
   }
 
-  Widget _radarCanvas(List<RadarEvent> events, bool wide) {
+  Widget _radarCanvas(List<MapPin> pins, bool wide) {
     return Container(
       margin: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -124,17 +138,26 @@ class _RadarMapScreenState extends ConsumerState<RadarMapScreen> {
           children: [
             Positioned.fill(
               child: RadarCanvasPainterWidget(
-                events: events,
+                pins: pins,
                 selectedId: _selected?.id,
                 hoveredId: _hoveredId,
-                onSelect: (e) => wide
-                    ? setState(() => _selected = e)
-                    : _openEventSheet(context, e),
+                onSelect: (pin) {
+                  if (pin.event != null) {
+                    if (wide) {
+                      setState(() => _selected = pin.event);
+                    } else {
+                      _openEventSheet(context, pin.event!);
+                    }
+                  } else if (pin.bounty != null) {
+                    Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) => const BountyBoardScreen()));
+                  }
+                },
                 onHover: (id) => setState(() => _hoveredId = id),
               ),
             ),
             const Positioned(top: 14, left: 14, child: _FilterChips()),
-            const Positioned(bottom: 14, right: 14, child: _Legend()),
+            const Positioned(bottom: 14, right: 14, child: _ScoutingLegend()),
           ],
         ),
       ),
@@ -195,17 +218,17 @@ class _RadarMapScreenState extends ConsumerState<RadarMapScreen> {
 class RadarCanvasPainterWidget extends StatefulWidget {
   const RadarCanvasPainterWidget({
     super.key,
-    required this.events,
+    required this.pins,
     required this.selectedId,
     required this.hoveredId,
     required this.onSelect,
     required this.onHover,
   });
 
-  final List<RadarEvent> events;
+  final List<MapPin> pins;
   final String? selectedId;
   final String? hoveredId;
-  final ValueChanged<RadarEvent> onSelect;
+  final ValueChanged<MapPin> onSelect;
   final ValueChanged<String?> onHover;
 
   @override
@@ -235,8 +258,7 @@ class _RadarCanvasPainterWidgetState extends State<RadarCanvasPainterWidget>
         onTapUp: (d) {
           final id = _hitTest(d.localPosition);
           if (id != null) {
-            final match =
-                widget.events.where((e) => e.id == id).firstOrNull;
+            final match = widget.pins.where((p) => p.id == id).firstOrNull;
             if (match != null) widget.onSelect(match);
           }
         },
@@ -245,7 +267,7 @@ class _RadarCanvasPainterWidgetState extends State<RadarCanvasPainterWidget>
           builder: (context, _) => CustomPaint(
             painter: _RadarPaint(
               sweepAngle: _sweep.value * 2 * math.pi,
-              events: widget.events,
+              pins: widget.pins,
               selectedId: widget.selectedId,
               hoveredId: widget.hoveredId,
             ),
@@ -261,43 +283,24 @@ class _RadarCanvasPainterWidgetState extends State<RadarCanvasPainterWidget>
     if (size == null) return null;
     final center = Offset(size.width / 2, size.height / 2);
     final radius = math.min(size.width, size.height) / 2 - 24;
-    for (final blip in _layout(widget.events, center, radius)) {
+    for (final blip in layoutPins(widget.pins, center, radius)) {
       if ((blip.$2 - pos).distance <= 18) return blip.$1.id;
     }
     return null;
   }
 }
 
-List<(RadarEvent, Offset)> _layout(
-    List<RadarEvent> events, Offset center, double radius) {
-  final result = <(RadarEvent, Offset)>[];
-  for (var i = 0; i < events.length; i++) {
-    final e = events[i];
-    // Deterministic pseudo-geo layout: bearing & distance from longitude &
-    // latitude so the layout is stable across rebuilds.
-    final bearing = (e.longitude.abs() * 40) % 360;
-    final distance = 0.35 + ((e.latitude.abs() * 13) % 55) / 100;
-    final angle = bearing * math.pi / 180 - math.pi / 2;
-    final r = radius * distance * (e.isBoosted ? 0.82 : 1.0);
-    final offset = Offset(
-      center.dx + math.cos(angle) * r,
-      center.dy + math.sin(angle) * r,
-    );
-    result.add((e, offset));
-  }
-  return result;
-}
 
 class _RadarPaint extends CustomPainter {
   _RadarPaint({
     required this.sweepAngle,
-    required this.events,
+    required this.pins,
     required this.selectedId,
     required this.hoveredId,
   });
 
   final double sweepAngle;
-  final List<RadarEvent> events;
+  final List<MapPin> pins;
   final String? selectedId;
   final String? hoveredId;
 
@@ -338,18 +341,14 @@ class _RadarPaint extends CustomPainter {
     canvas.drawCircle(center, 5, youAreHere);
     canvas.drawCircle(center, 10, youAreHere..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6));
 
-    // Event blips.
-    for (final (event, pos) in _layout(events, center, radius)) {
-      final isSel = event.id == selectedId;
-      final isHov = event.id == hoveredId;
-      final color = switch (event.type) {
-        RadarEventType.trial => RadarTheme.pi,
-        RadarEventType.match => RadarTheme.radar,
-        RadarEventType.tournament => RadarTheme.gold,
-        RadarEventType.trainingSession => RadarTheme.info,
-      };
+    // Scouting-map blips, color-coded by the pin convention:
+    // 🟢 live now · 🟡 scheduled · 🔴 active bounty.
+    for (final (pin, pos) in layoutPins(pins, center, radius)) {
+      final isSel = pin.id == selectedId;
+      final isHov = pin.id == hoveredId;
+      final color = pin.color;
 
-      if (event.isBoosted) {
+      if (pin.isBoosted) {
         canvas.drawCircle(
             pos, 15, Paint()..color = RadarTheme.gold.withValues(alpha: 0.14));
       }
@@ -358,13 +357,19 @@ class _RadarPaint extends CustomPainter {
             pos, 20, Paint()..color = color.withValues(alpha: 0.14));
       }
 
+      // Bounties pulse: double ring.
+      if (pin.kind == PinKind.bounty) {
+        canvas.drawCircle(
+            pos, 15, Paint()..color = color.withValues(alpha: 0.22));
+      }
+
       final blip = Paint()
-        ..color = color.withValues(alpha: event.isLive ? 1 : 0.75);
+        ..color = color.withValues(alpha: pin.kind == PinKind.liveNow ? 1 : 0.78);
       canvas.drawCircle(pos, isSel ? 8 : 6, blip);
       canvas.drawCircle(
           pos, 12, Paint()..color = color.withValues(alpha: 0.18));
 
-      if (event.isMinorProtected) {
+      if (pin.isMinorProtected) {
         final shield = Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1.4
@@ -379,7 +384,60 @@ class _RadarPaint extends CustomPainter {
       old.sweepAngle != sweepAngle ||
       old.selectedId != selectedId ||
       old.hoveredId != hoveredId ||
-      old.events != events;
+      old.pins != pins;
+}
+
+/// Map legend: the scouting color code from the spec.
+class _ScoutingLegend extends StatelessWidget {
+  const _ScoutingLegend();
+
+  @override
+  Widget build(BuildContext context) {
+    Widget dot(Color c) => Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: c, shape: BoxShape.circle),
+        );
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: RadarTheme.ink.withValues(alpha: 0.7),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: RadarTheme.stroke),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(mainAxisSize: MainAxisSize.min, children: [
+            dot(RadarTheme.radar),
+            const SizedBox(width: 6),
+            const Text('🟢 Live now', style: _legendStyle),
+          ]),
+          const SizedBox(height: 4),
+          Row(mainAxisSize: MainAxisSize.min, children: [
+            dot(RadarTheme.gold),
+            const SizedBox(width: 6),
+            const Text('🟡 Scheduled', style: _legendStyle),
+          ]),
+          const SizedBox(height: 4),
+          Row(mainAxisSize: MainAxisSize.min, children: [
+            dot(RadarTheme.alert),
+            const SizedBox(width: 6),
+            const Text('🔴 Bounty active', style: _legendStyle),
+          ]),
+          const SizedBox(height: 4),
+          Row(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(Icons.shield_outlined, size: 10, color: RadarTheme.textDim),
+            const SizedBox(width: 6),
+            const Text('Minor-protected', style: _legendStyle),
+          ]),
+        ],
+      ),
+    );
+  }
+
+  static const _legendStyle =
+      TextStyle(fontSize: 10.5, color: RadarTheme.textDim);
 }
 
 // ------------------------------------------------------------- filter chips
@@ -486,57 +544,6 @@ class _FilterChips extends ConsumerWidget {
       ],
     );
   }
-}
-
-class _Legend extends StatelessWidget {
-  const _Legend();
-
-  @override
-  Widget build(BuildContext context) {
-    Widget dot(Color c) => Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(color: c, shape: BoxShape.circle),
-        );
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: RadarTheme.ink.withValues(alpha: 0.7),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: RadarTheme.stroke),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(mainAxisSize: MainAxisSize.min, children: [
-            dot(RadarTheme.radar),
-            const SizedBox(width: 6),
-            const Text('Match', style: _legendStyle),
-          ]),
-          const SizedBox(height: 4),
-          Row(mainAxisSize: MainAxisSize.min, children: [
-            dot(RadarTheme.pi),
-            const SizedBox(width: 6),
-            const Text('Trial', style: _legendStyle),
-          ]),
-          const SizedBox(height: 4),
-          Row(mainAxisSize: MainAxisSize.min, children: [
-            dot(RadarTheme.gold),
-            const SizedBox(width: 6),
-            const Text('Tournament', style: _legendStyle),
-          ]),
-          const SizedBox(height: 4),
-          Row(mainAxisSize: MainAxisSize.min, children: [
-            dot(RadarTheme.info),
-            const SizedBox(width: 6),
-            const Text('Training', style: _legendStyle),
-          ]),
-        ],
-      ),
-    );
-  }
-
-  static const _legendStyle = TextStyle(fontSize: 10.5, color: RadarTheme.textDim);
 }
 
 // ----------------------------------------------------------------- panels
