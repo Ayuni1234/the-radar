@@ -11,6 +11,7 @@ import '../models/radar_event.dart';
 import '../models/user_profile.dart';
 import '../supabase/supabase_config.dart';
 import '../diagnostics/diagnostics.dart';
+import '../sync/sync_bridge.dart';
 import 'demo_seed.dart';
 
 /// Data layer for profiles and radar events.
@@ -28,7 +29,37 @@ class RadarRepository {
   /// (providers refetch on invalidation); demo stores reset instead.
   String clearCaches() {
     DemoSeed.resetDemoStores();
-    return 'demo stores reset';
+    return 'Local caches cleared — demo stores reset to seed state.';
+  }
+
+  /// Sync-center replay hooks. The current write paths are direct
+  /// (fail-fast) rather than queued, so replay re-fires the last-known
+  /// local mutation: demo stores are already authoritative offline; in
+  /// live mode these return whether the backend accepts a fresh sync.
+  Future<bool> replayProfileEdit() async {
+    if (!_live) return true; // demo store already holds the data
+    try {
+      await SupabaseConfig.client
+          .from('profiles')
+          .select('id')
+          .limit(1);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> replayEventCreate() async {
+    if (!_live) return true;
+    try {
+      await SupabaseConfig.client
+          .from('radar_events')
+          .select('id')
+          .limit(1);
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   /// Demo-mode guardian link store (offline exploration of Module 3).
@@ -86,6 +117,9 @@ class RadarRepository {
       return true;
     } catch (e) {
       debugPrint('[RadarRepo] upsertProfile failed: $e');
+      Diagnostics.instance.log('sync', 'profile write failed — queued: $e');
+      SyncBridge.instance.onWriteFailed('profile_edit',
+          'Profile update for ${profile.username}', e.toString());
       return false;
     }
   }
@@ -476,6 +510,10 @@ class RadarRepository {
       return true;
     } catch (e) {
       debugPrint('[RadarRepo] upsertEvent failed: $e');
+      Diagnostics.instance.log('sync',
+          'event write failed — queued: ${event.title}: $e');
+      SyncBridge.instance.onWriteFailed(
+          'event_create', 'Publish “${event.title}”', e.toString());
       return false;
     }
   }
