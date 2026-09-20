@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../data/radar_repository.dart';
 import '../models/connection_request.dart';
 import '../models/enums.dart';
+import '../models/guardian_link.dart';
 import '../models/user_profile.dart';
 import '../state/auth_controller.dart';
 import '../state/radar_providers.dart';
@@ -615,6 +616,28 @@ Future<void> requestConnection(
   );
   if (result == null || !context.mounted) return;
 
+  // Module 3: guardian-consent pre-check (fail-closed UX). The
+  // authoritative gate is the connection_requests_minor_consent trigger —
+  // this only replaces a raw DB error with a clear explanation.
+  final targetConsent =
+      await RadarRepository.instance.fetchConsentStatus(target.id);
+  final selfConsent = (session?.isMinor ?? false)
+      ? await RadarRepository.instance.fetchConsentStatus(me)
+      : null;
+  final blockReason = _consentBlockReason(
+    type: result.type,
+    targetConsent: targetConsent,
+    selfConsent: selfConsent,
+  );
+  if (blockReason != null) {
+    if (!context.mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (_) => _ConsentWallDialog(reason: blockReason),
+    );
+    return;
+  }
+
   final ok = await RadarRepository.instance.createConnectionRequest(
     ConnectionRequest(
       id: '',
@@ -635,6 +658,75 @@ Future<void> requestConnection(
       ),
     ),
   );
+}
+
+/// Returns a human-readable reason when guardian consent blocks this
+/// request, or null when it may proceed.
+String? _consentBlockReason({
+  required ConnectionType type,
+  required MinorConsent targetConsent,
+  required MinorConsent? selfConsent,
+}) {
+  // A minor applying for a trial themselves needs event consent.
+  if (selfConsent != null &&
+      selfConsent.isMinor &&
+      type == ConnectionType.trialApplication &&
+      !selfConsent.allowsEvents) {
+    return 'Your guardian has not enabled event participation yet. '
+        'Ask them to allow it on the Safety tab.';
+  }
+  if (!targetConsent.isMinor) return null;
+  switch (type) {
+    case ConnectionType.contact:
+      if (!targetConsent.allowsContact) {
+        return "${targetConsent.allowsEvents ? "This player's" : "This young player's"} "
+            'guardian has not enabled contact requests yet. Your message '
+            'would be rejected — the request can be sent once they allow it.';
+      }
+      return null;
+    case ConnectionType.trialInvite:
+      if (!targetConsent.allowsEvents) {
+        return 'This player\'s guardian has not enabled event '
+            'participation yet. Trial invites can be sent once they do.';
+      }
+      return null;
+    case ConnectionType.trialApplication:
+      if (!targetConsent.allowsContact && !targetConsent.allowsEvents) {
+        return 'This player\'s guardian consent is required before any '
+            'connection can be made.';
+      }
+      return null;
+  }
+}
+
+/// Consent-wall dialog shown when a guardian has not enabled a request.
+class _ConsentWallDialog extends StatelessWidget {
+  const _ConsentWallDialog({required this.reason});
+
+  final String reason;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: RadarTheme.panel,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      icon: const Icon(Icons.shield_outlined, color: RadarTheme.info, size: 32),
+      title: const Text(
+        'Guardian consent required',
+        style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+      ),
+      content: Text(
+        reason,
+        style: const TextStyle(fontSize: 13.5, height: 1.5),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Understood'),
+        ),
+      ],
+    );
+  }
 }
 
 // --------------------------------------------------------- connection sheet

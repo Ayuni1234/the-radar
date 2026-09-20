@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/connection_request.dart';
 import '../models/enums.dart';
+import '../models/guardian_link.dart';
 import '../models/radar_event.dart';
 import '../models/user_profile.dart';
 import '../supabase/supabase_config.dart';
@@ -20,6 +21,19 @@ class RadarRepository {
   static final RadarRepository instance = RadarRepository._();
 
   bool get _live => SupabaseConfig.available;
+
+  /// Demo-mode guardian link store (offline exploration of Module 3).
+  static List<GuardianLink> _demoGuardianLinks = <GuardianLink>[
+    GuardianLink(
+      id: 'demo-gl-seed-1',
+      minorProfile: 'demo-player-minor',
+      guardianProfile: 'demo-parent-1',
+      status: GuardianLinkStatus.active,
+      consentConnections: false,
+      consentEvents: true,
+      createdAt: DateTime(2026, 4, 2),
+    ),
+  ];
 
   // ---------------------------------------------------------------- profiles
 
@@ -185,6 +199,192 @@ class RadarRepository {
     } catch (e) {
       debugPrint('[RadarRepo] hasPendingRequest failed: $e');
       return false;
+    }
+  }
+
+  // ---------------------------------------------------------------- guardian
+
+  /// All guardian links involving [profileId] — as minor or as guardian.
+  Future<List<GuardianLink>> fetchGuardianLinks(String profileId) async {
+    if (!_live) {
+      return _demoGuardianLinks
+          .where((l) =>
+              l.minorProfile == profileId || l.guardianProfile == profileId)
+          .toList();
+    }
+    try {
+      final res = await SupabaseConfig.client
+          .from('guardian_links')
+          .select('*')
+          .or('minor_profile.eq.$profileId,guardian_profile.eq.$profileId')
+          .order('created_at', ascending: false);
+      return res.map<GuardianLink>((e) => GuardianLink.fromJson(e)).toList();
+    } catch (e) {
+      debugPrint('[RadarRepo] fetchGuardianLinks failed: $e');
+      return const [];
+    }
+  }
+
+  /// Minor invites a guardian (row is created pending; only the guardian
+  /// can approve — enforced by the `guardian_links_insert_guard` trigger).
+  Future<bool> createGuardianLink(
+      String minorProfileId, String guardianProfileId) async {
+    if (!_live) {
+      _demoGuardianLinks.add(GuardianLink(
+        id: 'demo-gl-${_demoGuardianLinks.length + 1}',
+        minorProfile: minorProfileId,
+        guardianProfile: guardianProfileId,
+        status: GuardianLinkStatus.pending,
+        createdAt: DateTime.now(),
+      ));
+      return true;
+    }
+    try {
+      await SupabaseConfig.client.from('guardian_links').insert({
+        'minor_profile': minorProfileId,
+        'guardian_profile': guardianProfileId,
+        'status': 'pending',
+      });
+      return true;
+    } catch (e) {
+      debugPrint('[RadarRepo] createGuardianLink failed: $e');
+      return false;
+    }
+  }
+
+  /// Guardian approves/declines; the minor may revoke. The database trigger
+  /// rejects anything else regardless of what the client sends.
+  Future<bool> respondToGuardianLink(String linkId, String status) async {
+    if (!_live) {
+      _demoGuardianLinks = [
+        for (final l in _demoGuardianLinks)
+          if (l.id == linkId)
+            GuardianLink(
+              id: l.id,
+              minorProfile: l.minorProfile,
+              guardianProfile: l.guardianProfile,
+              status: GuardianLinkStatus.fromRaw(status),
+              consentConnections: l.consentConnections,
+              consentEvents: l.consentEvents,
+              createdAt: l.createdAt,
+              updatedAt: DateTime.now(),
+            )
+          else
+            l,
+      ];
+      return true;
+    }
+    try {
+      await SupabaseConfig.client.from('guardian_links').update({
+        'status': status,
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', linkId);
+      return true;
+    } catch (e) {
+      debugPrint('[RadarRepo] respondToGuardianLink failed: $e');
+      return false;
+    }
+  }
+
+  /// Guardian flips one or both consent switches (active links only).
+  Future<bool> setGuardianConsent(
+    String linkId, {
+    bool? consentConnections,
+    bool? consentEvents,
+  }) async {
+    if (!_live) {
+      _demoGuardianLinks = [
+        for (final l in _demoGuardianLinks)
+          if (l.id == linkId)
+            GuardianLink(
+              id: l.id,
+              minorProfile: l.minorProfile,
+              guardianProfile: l.guardianProfile,
+              status: l.status,
+              consentConnections:
+                  consentConnections ?? l.consentConnections,
+              consentEvents: consentEvents ?? l.consentEvents,
+              createdAt: l.createdAt,
+              updatedAt: DateTime.now(),
+            )
+          else
+            l,
+      ];
+      return true;
+    }
+    try {
+      final patch = <String, Object?>{
+        'updated_at': DateTime.now().toIso8601String(),
+        'consent_connections': ?consentConnections,
+        'consent_events': ?consentEvents,
+      };
+      await SupabaseConfig.client
+          .from('guardian_links')
+          .update(patch)
+          .eq('id', linkId);
+      return true;
+    } catch (e) {
+      debugPrint('[RadarRepo] setGuardianConsent failed: $e');
+      return false;
+    }
+  }
+
+  /// Consent ground truth for a profile (calls the `minor_consent_status`
+  /// SECURITY DEFINER RPC — booleans only, no PII).
+  Future<MinorConsent> fetchConsentStatus(String minorProfileId) async {
+    if (!_live) {
+      final links = _demoGuardianLinks.where((l) =>
+          l.minorProfile == minorProfileId &&
+          l.status == GuardianLinkStatus.active);
+      final anyLink = links.isNotEmpty;
+      final isMinor = DemoSeed.profiles
+          .any((p) => p.id == minorProfileId && p.isMinor);
+      return MinorConsent(
+        isMinor: isMinor,
+        consentConnections:
+            !isMinor || (anyLink && links.any((l) => l.consentConnections)),
+        consentEvents:
+            !isMinor || (anyLink && links.any((l) => l.consentEvents)),
+      );
+    }
+    try {
+      final res = await SupabaseConfig.client.rpc(
+        'minor_consent_status',
+        params: {'p_minor': minorProfileId},
+      );
+      return MinorConsent.fromJson(res);
+    } catch (e) {
+      debugPrint('[RadarRepo] fetchConsentStatus failed: $e');
+      // Fail CLOSED: treat as blocked until proven otherwise.
+      return const MinorConsent(isMinor: true);
+    }
+  }
+
+  /// Finds a guardian account by Pi username (used by the minor invite
+  /// flow). Returns null when no parent profile matches.
+  Future<UserProfile?> findGuardianByUsername(String username) async {
+    final u = username.trim();
+    if (u.isEmpty) return null;
+    if (!_live) {
+      for (final p in DemoSeed.profiles) {
+        if (p.username.toLowerCase() == u.toLowerCase() &&
+            p.role == UserRole.parent) {
+          return p;
+        }
+      }
+      return null;
+    }
+    try {
+      final res = await SupabaseConfig.client
+          .from('profiles')
+          .select()
+          .ilike('username', u)
+          .eq('role', 'parent')
+          .limit(1);
+      return res.isEmpty ? null : UserProfile.fromJson(res.first);
+    } catch (e) {
+      debugPrint('[RadarRepo] findGuardianByUsername failed: $e');
+      return null;
     }
   }
 

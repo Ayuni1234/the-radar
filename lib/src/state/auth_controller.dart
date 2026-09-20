@@ -22,6 +22,7 @@ class RadarSession {
     this.sessionToken,
     this.needsOnboarding = false,
     this.role = UserRole.player,
+    this.isMinor = false,
   });
 
   final String piUid;
@@ -44,6 +45,10 @@ class RadarSession {
   final String? sessionToken;
   final UserRole role;
 
+  /// Safeguarding flag from the profile — drives location masking and the
+  /// guardian-consent gates across the UI.
+  final bool isMinor;
+
   RadarSession copyWith({
     String? piUid,
     String? username,
@@ -54,6 +59,7 @@ class RadarSession {
     String? sessionToken,
     bool? needsOnboarding,
     UserRole? role,
+    bool? isMinor,
   }) =>
       RadarSession(
         piUid: piUid ?? this.piUid,
@@ -65,6 +71,7 @@ class RadarSession {
         sessionToken: sessionToken ?? this.sessionToken,
         needsOnboarding: needsOnboarding ?? this.needsOnboarding,
         role: role ?? this.role,
+        isMinor: isMinor ?? this.isMinor,
       );
 }
 
@@ -209,6 +216,7 @@ class AuthController extends AsyncNotifier<AuthState> {
       sessionToken: outcome.sessionToken,
       needsOnboarding: profile.needsOnboarding,
       role: profile.role,
+      isMinor: profile.isMinor,
     );
   }
 
@@ -269,6 +277,7 @@ class AuthController extends AsyncNotifier<AuthState> {
     final next = session.copyWith(
       needsOnboarding: false,
       role: updated.role,
+      isMinor: updated.isMinor,
     );
     state = AsyncData(AuthSignedIn(next));
     return next;

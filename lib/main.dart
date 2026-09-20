@@ -9,6 +9,7 @@ import 'src/ui/payments_screen.dart';
 import 'src/ui/profiles_screen.dart';
 import 'src/ui/radar_map_screen.dart';
 import 'src/ui/radar_theme.dart';
+import 'src/ui/safeguarding_screen.dart';
 import 'src/ui/shell.dart';
 
 /// Main navigation destinations (shared by the rail and bottom bar).
@@ -17,6 +18,7 @@ final List<(String, IconData, Widget)> _destinations = [
   ('Players', Icons.groups, const ProfilesScreen()),
   ('My CV', Icons.badge_outlined, const CvEditorScreen()),
   ('Pi Wallet', Icons.account_balance_wallet, const PaymentsScreen()),
+  ('Safety', Icons.shield_outlined, const SafeguardingScreen()),
 ];
 
 void main() {

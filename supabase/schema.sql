@@ -36,6 +36,37 @@ create table if not exists public.profiles (
   updated_at        timestamptz not null default now()
 );
 
+-- Converge older live tables: rename the legacy KYC column and add any
+-- columns introduced after the table was first created (create table if not
+-- exists cannot do this on an existing table).
+do $$
+begin
+  if exists (select 1 from information_schema.columns
+             where table_schema = 'public' and table_name = 'profiles'
+               and column_name = 'is_kyc_verified')
+     and not exists (select 1 from information_schema.columns
+                     where table_schema = 'public' and table_name = 'profiles'
+                       and column_name = 'kyc_verified') then
+    alter table public.profiles rename column is_kyc_verified to kyc_verified;
+  end if;
+end
+$$;
+alter table public.profiles add column if not exists credibility_score   numeric(5,2) not null default 0;
+alter table public.profiles add column if not exists display_name        text;
+alter table public.profiles add column if not exists bio                 text;
+alter table public.profiles add column if not exists country             text;
+alter table public.profiles add column if not exists city                text;
+alter table public.profiles add column if not exists positions           text[] not null default '{}';
+alter table public.profiles add column if not exists football_cv         text;
+alter table public.profiles add column if not exists video_showcase_urls text[] not null default '{}';
+alter table public.profiles add column if not exists club_affiliation    text;
+alter table public.profiles add column if not exists is_minor            boolean not null default false;
+alter table public.profiles add column if not exists geohash_area        text;
+alter table public.profiles add column if not exists rating              numeric(3,2) not null default 0;
+alter table public.profiles add column if not exists avatar_url          text;
+alter table public.profiles add column if not exists onboarded_at        timestamptz;
+alter table public.profiles add column if not exists updated_at          timestamptz not null default now();
+
 -- ------------------------------------------------------------
 -- radar_events: live training sessions, matches, trials, tournaments
 -- ------------------------------------------------------------
@@ -231,11 +262,140 @@ end
 $$;
 
 -- ============================================================
--- Minor-safety guard: force approximate precision for minor-protected rows
+-- Module 3: Minor-Safety & Privacy Safeguards
 -- ============================================================
-create or replace function public.enforce_minor_safety()
+-- Geofencing and consent are enforced at the DATABASE level, so they hold
+-- no matter which client writes. Three layers:
+--
+--   1. radar_events       — minor-protected rows (and events hosted by
+--                           minors) are forced to approximate precision;
+--                           exact venue names are stripped.
+--   2. profiles           — a minor's profile may only carry a coarse area
+--                           label, never precise coordinates.
+--   3. connection_requests— adults cannot approach a minor without the
+--                           guardian's explicit consent.
+--
+-- Consent model (`guardian_links`): a minor invites a guardian; the
+-- guardian approves and controls two independent switches, both OFF by
+-- default:
+--   consent_connections — adults may send contact requests to the minor
+--   consent_events      — the minor may be invited to / apply for events
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- guardian_links: minor ↔ guardian relationship + consent switches
+-- ------------------------------------------------------------
+create table if not exists public.guardian_links (
+  id                  uuid primary key default gen_random_uuid(),
+  minor_profile       uuid not null references public.profiles(id) on delete cascade,
+  guardian_profile    uuid not null references public.profiles(id) on delete cascade,
+  status              text not null default 'pending'
+                      check (status in ('pending','active','declined','revoked')),
+  consent_connections boolean not null default false,
+  consent_events      boolean not null default false,
+  created_at          timestamptz not null default now(),
+  updated_at          timestamptz not null default now(),
+  unique (minor_profile, guardian_profile)
+);
+create index if not exists guardian_links_minor_idx    on public.guardian_links (minor_profile);
+create index if not exists guardian_links_guardian_idx on public.guardian_links (guardian_profile);
+
+alter table public.guardian_links enable row level security;
+
+-- Both parties see the link; nobody else can (the enforcement trigger below
+-- reads it as SECURITY DEFINER, so secrecy here does not weaken safety).
+drop policy if exists "guardian links visible to participants" on public.guardian_links;
+create policy "guardian links visible to participants" on public.guardian_links
+  for select using (minor_profile = auth.uid() or guardian_profile = auth.uid());
+-- The MINOR invites their guardian (pending); the guardian approves.
+drop policy if exists "guardian links invited by minor" on public.guardian_links;
+create policy "guardian links invited by minor" on public.guardian_links
+  for insert with check (minor_profile = auth.uid());
+drop policy if exists "guardian links updated by participants" on public.guardian_links;
+create policy "guardian links updated by participants" on public.guardian_links
+  for update using (minor_profile = auth.uid() or guardian_profile = auth.uid());
+
+-- Role guards: a minor can invite + revoke but can NEVER self-approve a
+-- pending link or flip the consent switches — that power is guardian-only.
+create or replace function public.guardian_link_insert_guards()
 returns trigger as $$
 begin
+  if auth.uid() is not null and new.minor_profile = auth.uid()
+     and new.status <> 'pending' then
+    new.status := 'pending';  -- minors can only ever create invitations
+  end if;
+  return new;
+end;
+$$ language plpgsql;
+
+drop trigger if exists guardian_links_insert_guard on public.guardian_links;
+create trigger guardian_links_insert_guard
+  before insert on public.guardian_links
+  for each row execute function public.guardian_link_insert_guards();
+
+create or replace function public.guardian_link_update_guards()
+returns trigger as $$
+begin
+  if auth.uid() is null then
+    return new;  -- service role / maintenance
+  end if;
+  if new.minor_profile = auth.uid() and new.guardian_profile <> auth.uid() then
+    if old.status = 'pending' and new.status not in ('pending', 'revoked') then
+      raise exception 'only the guardian can approve or decline a guardian link';
+    end if;
+    if new.consent_connections <> old.consent_connections
+       or new.consent_events <> old.consent_events then
+      raise exception 'only the guardian can change consent switches';
+    end if;
+  end if;
+  return new;
+end;
+$$ language plpgsql;
+
+drop trigger if exists guardian_links_update_guard on public.guardian_links;
+create trigger guardian_links_update_guard
+  before update on public.guardian_links
+  for each row execute function public.guardian_link_update_guards();
+
+-- ------------------------------------------------------------
+-- Consent lookup for UX pre-checks: booleans only, no PII. Any
+-- authenticated user may call it; the real gate is the trigger below.
+-- ------------------------------------------------------------
+create or replace function public.minor_consent_status(p_minor uuid)
+returns jsonb
+language sql stable
+security definer
+set search_path = public as
+$$
+  select jsonb_build_object(
+    'is_minor',
+      coalesce((select p.is_minor from public.profiles p where p.id = p_minor), false),
+    'consent_connections',
+      coalesce((select bool_or(g.consent_connections)
+                from public.guardian_links g
+                where g.minor_profile = p_minor and g.status = 'active'), false),
+    'consent_events',
+      coalesce((select bool_or(g.consent_events)
+                from public.guardian_links g
+                where g.minor_profile = p_minor and g.status = 'active'), false)
+  );
+$$;
+
+-- ------------------------------------------------------------
+-- Layer 1 — events: fence minor-protected rows AND events hosted by minors
+-- ------------------------------------------------------------
+create or replace function public.enforce_minor_safety()
+returns trigger as $$
+declare
+  host_is_minor boolean := false;
+begin
+  if new.host_profile_id is not null then
+    select p.is_minor into host_is_minor
+    from public.profiles p where p.id = new.host_profile_id;
+  end if;
+  if coalesce(host_is_minor, false) then
+    new.is_minor_protected := true;   -- a minor's event is always fenced
+  end if;
   if new.is_minor_protected then
     new.geo_precision := 'approximate';
     new.venue_name := null;
@@ -249,3 +409,92 @@ drop trigger if exists radar_events_minor_safety on public.radar_events;
 create trigger radar_events_minor_safety
   before insert or update on public.radar_events
   for each row execute function public.enforce_minor_safety();
+
+-- ------------------------------------------------------------
+-- Layer 2 — profiles: minors carry only a coarse area label. If the coarse
+-- label is missing, fall back to city — never to anything more precise.
+-- ------------------------------------------------------------
+create or replace function public.enforce_minor_profile_privacy()
+returns trigger as $$
+begin
+  if new.is_minor then
+    if new.geohash_area is null or btrim(new.geohash_area) = '' then
+      new.geohash_area := coalesce(nullif(btrim(coalesce(new.city, '')), ''), 'Region withheld');
+    end if;
+  end if;
+  return new;
+end;
+$$ language plpgsql;
+
+drop trigger if exists profiles_minor_privacy on public.profiles;
+create trigger profiles_minor_privacy
+  before insert or update on public.profiles
+  for each row execute function public.enforce_minor_profile_privacy();
+
+-- ------------------------------------------------------------
+-- Layer 3 — connections: guardian consent gates every adult → minor
+-- approach (SECURITY DEFINER so the check works even though
+-- guardian_links are hidden from non-participants by RLS).
+-- ------------------------------------------------------------
+create or replace function public.enforce_minor_connection_consent()
+returns trigger as $$
+declare
+  sender_is_minor     boolean := false;
+  target_is_minor     boolean := false;
+  sender_is_guardian  boolean := false;
+  consent_connections boolean := false;
+  consent_events      boolean := false;
+begin
+  select p.is_minor into sender_is_minor
+    from public.profiles p where p.id = new.from_profile;
+  select p.is_minor into target_is_minor
+    from public.profiles p where p.id = new.to_profile;
+
+  -- Adult approaching a minor.
+  if coalesce(target_is_minor, false) and not coalesce(sender_is_minor, false) then
+    -- The minor's approved guardian is always allowed through.
+    select exists (
+      select 1 from public.guardian_links g
+      where g.minor_profile = new.to_profile
+        and g.guardian_profile = new.from_profile
+        and g.status = 'active'
+    ) into sender_is_guardian;
+
+    if not sender_is_guardian then
+      select coalesce(bool_or(g.consent_connections), false),
+             coalesce(bool_or(g.consent_events), false)
+      into consent_connections, consent_events
+      from public.guardian_links g
+      where g.minor_profile = new.to_profile and g.status = 'active';
+
+      if new.request_type = 'contact' and not consent_connections then
+        raise exception 'minor_contact_blocked: guardian consent for connections is required';
+      elsif new.request_type = 'trial_invite' and not consent_events then
+        raise exception 'minor_event_blocked: guardian consent for event participation is required';
+      elsif new.request_type = 'trial_application'
+            and not (consent_connections or consent_events) then
+        raise exception 'minor_contact_blocked: guardian consent is required';
+      end if;
+    end if;
+  end if;
+
+  -- A minor applying for an open trial themselves: participation consent.
+  if coalesce(sender_is_minor, false) and new.request_type = 'trial_application' then
+    select coalesce(bool_or(g.consent_events), false) into consent_events
+    from public.guardian_links g
+    where g.minor_profile = new.from_profile and g.status = 'active';
+    if not consent_events then
+      raise exception 'minor_event_blocked: guardian consent for event participation is required';
+    end if;
+  end if;
+
+  return new;
+end;
+$$ language plpgsql
+security definer
+set search_path = public;
+
+drop trigger if exists connection_requests_minor_consent on public.connection_requests;
+create trigger connection_requests_minor_consent
+  before insert on public.connection_requests
+  for each row execute function public.enforce_minor_connection_consent();

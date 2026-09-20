@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' show RealtimeChannel;
 
 import '../data/radar_repository.dart';
 import '../models/enums.dart';
+import '../models/guardian_link.dart';
 import '../models/pi_payment.dart';
 import '../models/radar_event.dart';
 import '../models/user_profile.dart';
@@ -275,6 +276,89 @@ final filteredEventsProvider = Provider<List<RadarEvent>>((ref) {
       if (boost != 0) return boost;
       return a.startsAt.compareTo(b.startsAt);
     });
+});
+
+/// Guardian links for the signed-in user (as minor and/or as guardian).
+/// Refreshed after every action and when the session changes.
+final guardianLinksProvider =
+    AsyncNotifierProvider<GuardianLinksController, List<GuardianLink>>(
+        GuardianLinksController.new);
+
+class GuardianLinksController extends AsyncNotifier<List<GuardianLink>> {
+  @override
+  Future<List<GuardianLink>> build() async {
+    final session = ref.watch(sessionProvider);
+    final profileId = session?.profileId;
+    if (profileId == null) return const [];
+    return RadarRepository.instance.fetchGuardianLinks(profileId);
+  }
+
+  Future<bool> refresh() async {
+    final session = ref.read(sessionProvider);
+    final profileId = session?.profileId;
+    if (profileId == null) return false;
+    final links =
+        await RadarRepository.instance.fetchGuardianLinks(profileId);
+    state = AsyncData(links);
+    return true;
+  }
+
+  /// Minor invites a guardian by Pi username. Returns an error string on
+  /// failure, or null on success.
+  Future<String?> inviteGuardian(String username) async {
+    final session = ref.read(sessionProvider);
+    final profileId = session?.profileId;
+    if (profileId == null) return 'You must be signed in as the minor.';
+    final guardian = await RadarRepository.instance
+        .findGuardianByUsername(username);
+    if (guardian == null) {
+      return 'No guardian (parent) account found for "${username.trim()}".';
+    }
+    if (guardian.id == profileId) return 'You cannot invite yourself.';
+    final ok = await RadarRepository.instance
+        .createGuardianLink(profileId, guardian.id);
+    if (!ok) return 'Could not send the invite — try again.';
+    await refresh();
+    return null;
+  }
+
+  /// Guardian approves a pending link.
+  Future<void> approveLink(String linkId) async {
+    await RadarRepository.instance.respondToGuardianLink(linkId, 'active');
+    await refresh();
+  }
+
+  /// Guardian declines; minor may revoke their own pending link.
+  Future<void> declineLink(String linkId) async {
+    await RadarRepository.instance.respondToGuardianLink(linkId, 'declined');
+    await refresh();
+  }
+
+  Future<void> revokeLink(String linkId) async {
+    await RadarRepository.instance.respondToGuardianLink(linkId, 'revoked');
+    await refresh();
+  }
+
+  Future<void> setConsent(
+    String linkId, {
+    bool? consentConnections,
+    bool? consentEvents,
+  }) async {
+    await RadarRepository.instance.setGuardianConsent(
+      linkId,
+      consentConnections: consentConnections,
+      consentEvents: consentEvents,
+    );
+    await refresh();
+  }
+}
+
+/// Consent status for an arbitrary profile (family-cached). Used by the
+/// connection-request sheet for friendly pre-checks; the database trigger
+/// remains the authoritative gate.
+final consentStatusProvider =
+    FutureProvider.autoDispose.family<MinorConsent, String>((ref, profileId) {
+  return RadarRepository.instance.fetchConsentStatus(profileId);
 });
 
 /// Pi payment lifecycle state for the UI.
