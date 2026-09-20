@@ -925,11 +925,30 @@ class StreamBountiesController extends AsyncNotifier<List<StreamBounty>> {
   }
 
   /// Poster-only: releases the escrow to the streamer via the
-  /// SECURITY DEFINER `release_bounty` RPC (the "smart contract" payout).
-  Future<bool> releaseEscrow(String bountyId) async {
+  /// SECURITY DEFINER `release_bounty` RPC, then fires the instant A2U
+  /// micro-payout to the streamer's Pi wallet (idempotent edge function).
+  /// Returns a human summary of what happened.
+  Future<(bool, String)> releaseEscrow(String bountyId) async {
     final ok = await RadarRepository.instance.releaseBounty(bountyId);
+    if (!ok) {
+      await refresh();
+      return (false, 'Release failed — you can only release live/finished broadcasts');
+    }
+    final payoutId =
+        await RadarRepository.instance.triggerBountyPayout(bountyId);
     await refresh();
-    return ok;
+    if (payoutId != null) {
+      return (
+        true,
+        payoutId.startsWith('demo-')
+            ? 'Escrow released — payout settled to the streamer\'s Pi wallet'
+            : 'Escrow released · instant Pi payout sent ($payoutId)'
+      );
+    }
+    return (
+      true,
+      'Escrow released — automatic payout queued (will retry)'
+    );
   }
 
   /// Poster-only: cancels an unfunded (or disputed) bounty. Escrowed Pi for

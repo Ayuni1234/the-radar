@@ -7,6 +7,7 @@ import '../models/stream_bounty.dart';
 import '../pi/pi_service.dart' show PiPaymentPhase;
 import '../state/auth_controller.dart';
 import '../state/radar_providers.dart';
+import 'blind_test_screen.dart';
 import 'match_analytics_screen.dart';
 import 'radar_theme.dart';
 import 'shell.dart';
@@ -61,6 +62,16 @@ class BountyBoardScreen extends ConsumerWidget {
                           color: RadarTheme.textPrimary,
                           fontWeight: FontWeight.w700)),
                 ]),
+                actions: [
+                  IconButton(
+                    tooltip: 'Blind scouting test',
+                    icon: const Icon(Icons.visibility_off, size: 19),
+                    onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                            builder: (_) => const BlindTestScreen())),
+                  ),
+                  const SizedBox(width: 4),
+                ],
               ),
               SliverToBoxAdapter(
                 child: Padding(
@@ -675,15 +686,14 @@ class _BountyCardState extends ConsumerState<_BountyCard> {
     );
     if (confirmed != true) return;
     setState(() => _busy = true);
-    final ok = await ref.read(streamBountiesProvider.notifier).releaseEscrow(b.id);
+    final (ok, message) =
+        await ref.read(streamBountiesProvider.notifier).releaseEscrow(b.id);
     if (!mounted) return;
     setState(() => _busy = false);
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       behavior: SnackBarBehavior.floating,
       backgroundColor: ok ? RadarTheme.panelHigh : RadarTheme.alert,
-      content: Text(ok
-          ? 'Escrow released — the streamer has been paid'
-          : 'Release failed — you can only release live/finished broadcasts'),
+      content: Text(message),
     ));
   }
 }

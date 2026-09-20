@@ -714,6 +714,31 @@ class RadarRepository {
     }
   }
 
+  /// Triggers the instant A2U micro-payout to the streamer's Pi wallet via
+  /// the `bounty-payout` edge function (idempotent — safe to re-invoke).
+  /// Returns the payout payment id, or null on failure.
+  Future<String?> triggerBountyPayout(String bountyId) async {
+    if (!_live) return 'demo-payout-$bountyId';
+    try {
+      final res = await SupabaseConfig.functions.invoke(
+        'bounty-payout',
+        body: {'bountyId': bountyId},
+      );
+      final data = res.data;
+      if (data is Map) {
+        if (data['ok'] == true) {
+          return (data['paymentId'] ?? 'unknown').toString();
+        }
+        debugPrint(
+            '[RadarRepo] bounty payout rejected: ${data['error']}');
+      }
+      return null;
+    } catch (e) {
+      debugPrint('[RadarRepo] triggerBountyPayout failed: $e');
+      return null;
+    }
+  }
+
   Future<bool> upsertEvent(RadarEvent event) async {
     if (!_live) {
       // Demo mode: keep the published event visible on the offline radar.
