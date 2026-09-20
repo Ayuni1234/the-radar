@@ -106,6 +106,16 @@ Deno.serve(async (req) => {
         reference_id: (meta.reference_id as string) ?? null,
         expires_at: expiryFor(product),
       });
+
+      // Boost products: stamp the target event's boosted_until so it pins
+      // above non-boosted events on the radar and discovery feeds.
+      const BOOST_PRODUCTS = new Set(["session_boost_48h", "event_spotlight_7d"]);
+      if (BOOST_PRODUCTS.has(product) && meta.reference_id) {
+        await admin
+          .from("radar_events")
+          .update({ boosted_until: expiryFor(product) })
+          .eq("id", meta.reference_id as string);
+      }
     }
 
     // Incomplete-payment recovery arrives here too (onIncompletePaymentFound).
@@ -127,6 +137,10 @@ function expiryFor(product: string): string | null {
       return new Date(now + 30 * day).toISOString();
     case "session_boost_48h":
       return new Date(now + 2 * day).toISOString();
+    case "event_spotlight_7d":
+      return new Date(now + 7 * day).toISOString();
+    case "profile_spotlight_14d":
+      return new Date(now + 14 * day).toISOString();
     default:
       return null; // bounties don't expire
   }

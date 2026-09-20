@@ -516,6 +516,10 @@ class PaymentFlowController extends Notifier<PaymentFlowState> {
                 ...state.history,
               ],
             );
+            // Pull the fresh entitlement + receipt from the backend.
+            unawaited(
+                ref.read(entitlementsProvider.notifier).refresh());
+            unawaited(ref.read(paymentLedgerProvider.notifier).refresh());
             break;
           case PiPaymentPhase.cancelled:
             state = state.copyWith(
@@ -678,6 +682,46 @@ class ConsentAuditController extends AsyncNotifier<List<ConsentAuditEntry>> {
 
   Future<void> refresh() async {
     final list = await RadarRepository.instance.fetchConsentAudit();
+    state = AsyncData(list);
+  }
+}
+
+/// The signed-in user's active boosts, entitlements and payment receipts.
+/// Refreshed when the wallet tab opens and after any completed payment.
+final entitlementsProvider =
+    AsyncNotifierProvider<EntitlementsController, List<Entitlement>>(
+        EntitlementsController.new);
+
+class EntitlementsController
+    extends AsyncNotifier<List<Entitlement>> {
+  @override
+  Future<List<Entitlement>> build() async {
+    final session = ref.watch(sessionProvider);
+    if (session?.profileId == null) return const [];
+    return RadarRepository.instance.fetchMyEntitlements();
+  }
+
+  Future<void> refresh() async {
+    final list = await RadarRepository.instance.fetchMyEntitlements();
+    state = AsyncData(list);
+  }
+}
+
+/// The signed-in user's payment ledger (own receipts only, via RLS).
+final paymentLedgerProvider =
+    AsyncNotifierProvider<PaymentLedgerController, List<PiPayment>>(
+        PaymentLedgerController.new);
+
+class PaymentLedgerController extends AsyncNotifier<List<PiPayment>> {
+  @override
+  Future<List<PiPayment>> build() async {
+    final session = ref.watch(sessionProvider);
+    if (session?.profileId == null) return const [];
+    return RadarRepository.instance.fetchMyPayments();
+  }
+
+  Future<void> refresh() async {
+    final list = await RadarRepository.instance.fetchMyPayments();
     state = AsyncData(list);
   }
 }

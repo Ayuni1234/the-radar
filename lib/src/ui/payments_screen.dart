@@ -2,9 +2,12 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../models/pi_payment.dart';
+import '../models/radar_event.dart';
 import '../pi/pi_service.dart';
+import '../state/auth_controller.dart';
 import '../state/radar_providers.dart';
 import 'radar_theme.dart';
 import 'shell.dart';
@@ -66,6 +69,8 @@ class PaymentsScreen extends ConsumerWidget {
                     style: TextStyle(color: RadarTheme.textDim, fontSize: 13),
                   ),
                   const SizedBox(height: 18),
+                  const _ActiveBoosts(),
+                  const SizedBox(height: 24),
                   GridView(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
@@ -98,7 +103,8 @@ class PaymentsScreen extends ConsumerWidget {
                             'and notify matching scouts in your region.',
                         price: 2.0,
                         product: 'session_boost_48h',
-                        cta: 'Boost session',
+                        cta: 'Boost event',
+                        needsEvent: true,
                       ),
                       _ProductCard(
                         icon: Icons.emoji_events_outlined,
@@ -111,11 +117,39 @@ class PaymentsScreen extends ConsumerWidget {
                         price: 10.0,
                         product: 'scouting_bounty',
                         cta: 'Post bounty',
+                        needsEvent: true,
+                      ),
+                      _ProductCard(
+                        icon: Icons.travel_explore,
+                        accent: RadarTheme.info,
+                        title: 'Global Spotlight (7d)',
+                        description:
+                            'Seven days of global spotlight placement: your '
+                            'event sits at the very top of every discovery '
+                            'feed worldwide with a spotlight badge.',
+                        price: 8.0,
+                        product: 'event_spotlight_7d',
+                        cta: 'Spotlight event',
+                        needsEvent: true,
+                      ),
+                      _ProductCard(
+                        icon: Icons.workspace_premium,
+                        accent: RadarTheme.pi,
+                        title: 'Profile Spotlight (14d)',
+                        description:
+                            'Fourteen days at the top of the player directory '
+                            'and search results, plus a spotlight badge on '
+                            'your Football CV.',
+                        price: 6.0,
+                        product: 'profile_spotlight_14d',
+                        cta: 'Spotlight profile',
                       ),
                     ],
                   ),
                   const SizedBox(height: 24),
                   const _StatusTimeline(),
+                  const SizedBox(height: 24),
+                  const _LedgerSection(),
                   if (flow.history.isNotEmpty) ...[
                     const SizedBox(height: 24),
                     const SectionHeader('This session'),
@@ -217,6 +251,7 @@ class _ProductCard extends ConsumerWidget {
     required this.price,
     required this.product,
     required this.cta,
+    this.needsEvent = false,
   });
 
   final IconData icon;
@@ -226,6 +261,10 @@ class _ProductCard extends ConsumerWidget {
   final double price;
   final String product;
   final String cta;
+
+  /// Event-scoped products (boost / bounty / spotlight) ask the buyer
+  /// which of their hosted events to apply the purchase to.
+  final bool needsEvent;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -294,12 +333,7 @@ class _ProductCard extends ConsumerWidget {
                 ),
                 onPressed: busy
                     ? null
-                    : () => ref.read(paymentFlowProvider.notifier).pay(
-                          amount: price,
-                          memo: 'The Radar — $title',
-                          product: product,
-                          metadata: {'sku': product, 'price_pi': price},
-                        ),
+                    : () => _start(context, ref),
                 icon: const Icon(Icons.currency_exchange, size: 16),
                 label: Text(cta),
               ),
@@ -309,6 +343,69 @@ class _ProductCard extends ConsumerWidget {
       ),
     );
   }
+  /// Picks the target event (when required) and launches the Pi payment
+  /// with `reference_id` in metadata so the backend can scope the grant.
+  Future<void> _start(BuildContext context, WidgetRef ref) async {
+    RadarEvent? target;
+    if (needsEvent) {
+      final session = ref.read(sessionProvider);
+      final events =
+          ref.read(radarEventsProvider).value ?? const <RadarEvent>[];
+      final mine = (session?.profileId == null)
+          ? const <RadarEvent>[]
+          : events
+              .where((e) => e.hostProfileId == session!.profileId)
+              .toList();
+      if (mine.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          behavior: SnackBarBehavior.floating,
+          content: Text(
+              'Publish an event first — boosts and bounties attach to one of '
+              'your events.'),
+        ));
+        return;
+      }
+      target = await showDialog<RadarEvent>(
+        context: context,
+        builder: (ctx) => SimpleDialog(
+          backgroundColor: RadarTheme.panel,
+          title: const Text('Choose the event to boost'),
+          children: [
+            for (final e in mine.take(12))
+              SimpleDialogOption(
+                onPressed: () => Navigator.pop(ctx, e),
+                child: Row(children: [
+                  Icon(e.type.icon, size: 17, color: RadarTheme.radar),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(e.title,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 13.5)),
+                  ),
+                  if (e.isBoosted)
+                    const Icon(Icons.bolt, size: 15, color: RadarTheme.gold),
+                ]),
+              ),
+          ],
+        ),
+      );
+      if (target == null) return;
+    }
+    if (!context.mounted) return;
+    ref.read(paymentFlowProvider.notifier).pay(
+          amount: price,
+          memo: target != null
+              ? 'The Radar — $title: ${target.title}'
+              : 'The Radar — $title',
+          product: product,
+          metadata: {
+            'sku': product,
+            'price_pi': price,
+            if (target != null) 'reference_id': target.id,
+          },
+        );
+  }
+
 }
 
 class _StatusTimeline extends StatelessWidget {
@@ -436,6 +533,247 @@ class _HistoryTile extends StatelessWidget {
                   fontWeight: FontWeight.w700, color: RadarTheme.gold)),
         ],
       ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Active boosts — live remaining-time tracker
+// ---------------------------------------------------------------------------
+
+class _ActiveBoosts extends ConsumerStatefulWidget {
+  const _ActiveBoosts();
+
+  @override
+  ConsumerState<_ActiveBoosts> createState() => _ActiveBoostsState();
+}
+
+class _ActiveBoostsState extends ConsumerState<_ActiveBoosts> {
+  @override
+  void initState() {
+    super.initState();
+    // Pull the server-side ledger once when the tab opens.
+    Future<void>.microtask(() {
+      ref.read(entitlementsProvider.notifier).refresh();
+      ref.read(paymentLedgerProvider.notifier).refresh();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final entitlements = ref.watch(entitlementsProvider);
+    final events = ref.watch(radarEventsProvider).value ?? const <RadarEvent>[];
+    final session = ref.watch(sessionProvider);
+    final myEvents = (session?.profileId == null)
+        ? const <RadarEvent>[]
+        : events.where((e) => e.hostProfileId == session!.profileId).toList();
+
+    final list = entitlements.value ?? const <Entitlement>[];
+    final active = list.where((e) => e.isActive).toList();
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: RadarTheme.panel,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: RadarTheme.stroke),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Icon(Icons.bolt, size: 17, color: RadarTheme.gold),
+          const SizedBox(width: 8),
+          const Expanded(
+            child: Text('Active boosts & visibility',
+                style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700)),
+          ),
+          if (entitlements.isLoading)
+            const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          else
+            InfoPill(
+                icon: Icons.verified_outlined,
+                label: '${active.length} active',
+                color: active.isEmpty ? RadarTheme.textDim : RadarTheme.radar),
+        ]),
+        const SizedBox(height: 10),
+        if (active.isEmpty)
+          const Text(
+            'No active boosts. Purchased boosts appear here with live '
+            'remaining time and their visibility impact.',
+            style: TextStyle(
+                fontSize: 12.5, color: RadarTheme.textDim, height: 1.4),
+          )
+        else
+          for (final e in active) _BoostTile(entitlement: e, events: myEvents),
+      ]),
+    );
+  }
+}
+
+class _BoostTile extends StatelessWidget {
+  const _BoostTile({required this.entitlement, required this.events});
+
+  final Entitlement entitlement;
+  final List<RadarEvent> events;
+
+  @override
+  Widget build(BuildContext context) {
+    final e = entitlement;
+    RadarEvent? boosted;
+    for (final ev in events) {
+      if (ev.id == e.referenceId) boosted = ev;
+    }
+    final impact = switch (e.product) {
+      'session_boost_48h' => 'Top of regional radar · scouts notified',
+      'event_spotlight_7d' => 'Top of every discovery feed worldwide',
+      'profile_spotlight_14d' => 'Top of directory & search results',
+      'premium_search_30d' => 'Unlimited advanced search filters',
+      'scouting_bounty' => 'Bounty visible to verified scouts',
+      _ => 'Active',
+    };
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: RadarTheme.panelHigh,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: RadarTheme.gold.withValues(alpha: 0.4)),
+      ),
+      child: Row(children: [
+        const Icon(Icons.bolt, size: 18, color: RadarTheme.gold),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                boosted != null
+                    ? '${e.productLabel} — ${boosted.title}'
+                    : e.productLabel,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 2),
+              Text(impact,
+                  style: const TextStyle(
+                      fontSize: 11.5, color: RadarTheme.textDim)),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        InfoPill(
+          icon: Icons.timer_outlined,
+          label: e.remainingLabel,
+          color: RadarTheme.radar,
+        ),
+      ]),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Transaction ledger — past purchases from the backend (RLS: payer only)
+// ---------------------------------------------------------------------------
+
+class _LedgerSection extends ConsumerWidget {
+  const _LedgerSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ledger = ref.watch(paymentLedgerProvider);
+    final rows = ledger.value ?? const <PiPayment>[];
+    final df = DateFormat('d MMM yyyy · HH:mm');
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: RadarTheme.panel,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: RadarTheme.stroke),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Icon(Icons.receipt_long, size: 17, color: RadarTheme.radar),
+          const SizedBox(width: 8),
+          const Expanded(
+            child: Text('Transaction history ledger',
+                style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700)),
+          ),
+          IconButton(
+            tooltip: 'Refresh',
+            icon: const Icon(Icons.refresh, size: 17),
+            onPressed: () =>
+                ref.read(paymentLedgerProvider.notifier).refresh(),
+          ),
+        ]),
+        const SizedBox(height: 4),
+        const Text(
+          'Every purchase, receipt and token allocation — stored on the '
+          'platform backend and readable only by you.',
+          style: TextStyle(
+              fontSize: 12, color: RadarTheme.textDim, height: 1.4),
+        ),
+        const SizedBox(height: 12),
+        if (rows.isEmpty)
+          const Text(
+            'No past purchases on this account yet.',
+            style: TextStyle(fontSize: 12.5, color: RadarTheme.textDim),
+          )
+        else
+          for (final p in rows.take(20))
+            Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: RadarTheme.panelHigh,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: RadarTheme.stroke),
+              ),
+              child: Row(children: [
+                Icon(
+                  p.status == 'completed'
+                      ? Icons.check_circle_outline
+                      : p.status == 'cancelled'
+                          ? Icons.cancel_outlined
+                          : Icons.hourglass_top,
+                  size: 17,
+                  color: p.status == 'completed'
+                      ? RadarTheme.radar
+                      : p.status == 'cancelled'
+                          ? RadarTheme.textDim
+                          : RadarTheme.gold,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(p.memo,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${df.format(p.createdAt)}'
+                        '${p.txid != null ? '  ·  txid ${p.txid!.substring(0, min(p.txid!.length, 12))}…' : ''}',
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 11, color: RadarTheme.textDim),
+                      ),
+                    ],
+                  ),
+                ),
+                Text('${p.amount.toStringAsFixed(2)} π',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: RadarTheme.gold)),
+              ]),
+            ),
+      ]),
     );
   }
 }

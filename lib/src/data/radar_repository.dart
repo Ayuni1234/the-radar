@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/connection_request.dart';
 import '../models/enums.dart';
 import '../models/guardian_link.dart';
+import '../models/pi_payment.dart';
 import '../models/radar_event.dart';
 import '../models/user_profile.dart';
 import '../supabase/supabase_config.dart';
@@ -326,6 +327,38 @@ class RadarRepository {
     } catch (e) {
       debugPrint('[RadarRepo] setGuardianConsent failed: $e');
       return false;
+    }
+  }
+
+  /// The signed-in user's own payment receipts (RLS: payer only).
+  Future<List<PiPayment>> fetchMyPayments() async {
+    if (!_live) return const [];
+    try {
+      final res = await SupabaseConfig.client
+          .from('pi_payments')
+          .select()
+          .order('created_at', ascending: false)
+          .limit(50);
+      return res.map<PiPayment>((e) => PiPayment.fromJson(e)).toList();
+    } catch (e) {
+      debugPrint('[RadarRepo] fetchMyPayments failed: $e');
+      return const [];
+    }
+  }
+
+  /// The signed-in user's entitlements — boosts, premium access, bounties
+  /// (RLS: `user_uid = verified_pi_uid()`).
+  Future<List<Entitlement>> fetchMyEntitlements() async {
+    if (!_live) return const [];
+    try {
+      final res = await SupabaseConfig.client
+          .from('entitlements')
+          .select()
+          .order('granted_at', ascending: false);
+      return res.map<Entitlement>((e) => Entitlement.fromJson(e)).toList();
+    } catch (e) {
+      debugPrint('[RadarRepo] fetchMyEntitlements failed: $e');
+      return const [];
     }
   }
 

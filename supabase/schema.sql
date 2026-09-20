@@ -224,10 +224,13 @@ drop policy if exists "hosts manage own events" on public.radar_events;
 create policy "hosts manage own events" on public.radar_events
   for all using (host_profile_id = auth.uid());
 
--- Payments: service role (edge functions) only.
+-- Payments: service role writes; the verified payer reads their own receipts.
 drop policy if exists "payments service only" on public.pi_payments;
 create policy "payments service only" on public.pi_payments
   for select using (false);
+drop policy if exists "payments readable by payer" on public.pi_payments;
+create policy "payments readable by payer" on public.pi_payments
+  for select using (user_uid = public.verified_pi_uid());
 -- Entitlements readable only by the verified owner.
 drop policy if exists "entitlements readable by owner" on public.entitlements;
 create policy "entitlements readable by owner" on public.entitlements
