@@ -13,6 +13,7 @@ import '../state/radar_providers.dart';
 import 'event_composer_screen.dart';
 import 'event_detail_screen.dart';
 import 'profiles_screen.dart';
+import 'search_screen.dart';
 import 'radar_theme.dart';
 import 'shell.dart';
 
@@ -57,6 +58,13 @@ class _RadarMapScreenState extends ConsumerState<RadarMapScreen> {
           ],
         ),
         actions: [
+          IconButton(
+            tooltip: 'Global search',
+            icon: const Icon(Icons.travel_explore, size: 20),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const SearchScreen()),
+            ),
+          ),
           IconButton(
             tooltip: 'Publish event',
             icon: const Icon(Icons.add_location_alt_outlined, size: 20),

@@ -540,3 +540,117 @@ class PaymentFlowController extends Notifier<PaymentFlowState> {
     state = state.copyWith(phase: PiPaymentPhase.idle, message: null);
   }
 }
+
+// ---------------------------------------------------------------------------
+// Global search — saved filters & quick presets
+// ---------------------------------------------------------------------------
+
+/// A named, re-playable search configuration (scouting window shortcut).
+class SavedSearch {
+  const SavedSearch({
+    required this.id,
+    required this.name,
+    required this.query,
+  });
+
+  final String id;
+  final String name;
+  final GlobalSearchQuery query;
+}
+
+/// The saved-search store. Session-scoped for now: presets survive
+/// navigation and hot reload; cross-device persistence can later ride on
+/// `auth.updateUser(data: ...)` app metadata.
+final savedSearchesProvider =
+    NotifierProvider<SavedSearchesController, List<SavedSearch>>(
+        SavedSearchesController.new);
+
+class SavedSearchesController extends Notifier<List<SavedSearch>> {
+  @override
+  List<SavedSearch> build() => const [];
+
+  void save(String name, GlobalSearchQuery query) {
+    state = [
+      SavedSearch(
+        id: 'saved-${DateTime.now().microsecondsSinceEpoch}',
+        name: name,
+        query: query,
+      ),
+      ...state,
+    ];
+  }
+
+  void remove(String id) =>
+      state = state.where((s) => s.id != id).toList();
+}
+
+/// A full global-search query spanning players and events.
+class GlobalSearchQuery {
+  const GlobalSearchQuery({
+    this.text = '',
+    this.positions = const {},
+    this.ageBracket,
+    this.country,
+    this.city,
+    this.dominantFoot,
+    this.minCredibility = 0,
+    this.eventTypes = const {},
+    this.playersScope = true,
+    this.eventsScope = true,
+  });
+
+  final String text;
+  final Set<String> positions;
+  final AgeBracket? ageBracket;
+  final String? country;
+  final String? city;
+  final String? dominantFoot;
+  final double minCredibility;
+  final Set<RadarEventType> eventTypes;
+  final bool playersScope;
+  final bool eventsScope;
+
+  bool get isEmpty =>
+      text.isEmpty &&
+      positions.isEmpty &&
+      ageBracket == null &&
+      country == null &&
+      city == null &&
+      dominantFoot == null &&
+      minCredibility <= 0 &&
+      eventTypes.isEmpty;
+
+  GlobalSearchQuery copyWith({
+    String? text,
+    Set<String>? positions,
+    bool clearPositions = false,
+    AgeBracket? ageBracket,
+    bool clearAgeBracket = false,
+    String? country,
+    bool clearCountry = false,
+    String? city,
+    bool clearCity = false,
+    String? dominantFoot,
+    bool clearDominantFoot = false,
+    double? minCredibility,
+    Set<RadarEventType>? eventTypes,
+    bool clearEventTypes = false,
+    bool? playersScope,
+    bool? eventsScope,
+  }) =>
+      GlobalSearchQuery(
+        text: text ?? this.text,
+        positions: clearPositions ? const {} : (positions ?? this.positions),
+        ageBracket:
+            clearAgeBracket ? null : (ageBracket ?? this.ageBracket),
+        country: clearCountry ? null : (country ?? this.country),
+        city: clearCity ? null : (city ?? this.city),
+        dominantFoot:
+            clearDominantFoot ? null : (dominantFoot ?? this.dominantFoot),
+        minCredibility: minCredibility ?? this.minCredibility,
+        eventTypes:
+            clearEventTypes ? const {} : (eventTypes ?? this.eventTypes),
+        playersScope: playersScope ?? this.playersScope,
+        eventsScope: eventsScope ?? this.eventsScope,
+      );
+}

@@ -12,6 +12,7 @@ import '../state/auth_controller.dart';
 import '../state/radar_providers.dart';
 import 'player_cv_screen.dart';
 import 'radar_theme.dart';
+import 'search_screen.dart';
 import 'shell.dart';
 
 /// Searchable directory of players, scouts, clubs, academies, agents,
@@ -48,6 +49,13 @@ class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
       appBar: AppBar(
         title: const Text('Directory'),
         actions: [
+          IconButton(
+            tooltip: 'Global search',
+            icon: const Icon(Icons.travel_explore, size: 20),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const SearchScreen()),
+            ),
+          ),
           SizedBox(
             width: 220,
             child: Padding(
