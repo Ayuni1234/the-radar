@@ -308,6 +308,12 @@ class DemoSeed {
     return List.of(_demoRequests);
   }
 
+  /// Diagnostics: restores the demo stores to their seeded state.
+  static void resetDemoStores() {
+    _demoRequestsFor = null;
+    _demoRequests.clear();
+  }
+
   /// Applies a status change to a demo request in place; true if found.
   static bool respondToDemoRequest(String id, ConnectionStatus status) {
     for (var i = 0; i < _demoRequests.length; i++) {

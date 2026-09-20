@@ -605,3 +605,73 @@ create trigger guardian_links_audit
   after insert or update of status, consent_connections, consent_events
   on public.guardian_links
   for each row execute function public.audit_guardian_link_changes();
+
+-- ============================================================
+-- Admin diagnostics (System Health page). SECURITY DEFINER so the
+-- dashboard can read catalog-level state (policies, triggers, tables)
+-- that anon/authenticated roles cannot see directly. Read-only.
+-- ============================================================
+create or replace function public.security_diagnostics()
+returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare
+  v_tables  jsonb;
+  v_policies jsonb;
+  v_triggers jsonb;
+  v_functions jsonb;
+  v_publication text;
+begin
+  select coalesce(jsonb_agg(jsonb_build_object(
+           'table', c.relname, 'rls', c.relrowsecurity)), '[]')
+    into v_tables
+    from pg_class c
+    join pg_namespace n on n.oid = c.relnamespace
+   where n.nspname = 'public' and c.relkind = 'r'
+     and c.relname in ('profiles','radar_events','connection_requests',
+                       'guardian_links','entitlements','pi_payments',
+                       'pi_sessions','consent_audit_log');
+
+  select coalesce(jsonb_agg(jsonb_build_object(
+           'table', tablename, 'policy', policyname, 'cmd', cmd)), '[]')
+    into v_policies
+    from pg_policies
+   where schemaname = 'public';
+
+  select coalesce(jsonb_agg(jsonb_build_object(
+           'table', tgrelid::regclass::text,
+           'trigger', t.tgname,
+           'function', p.proname,
+           'enabled', t.tgenabled = 'O')), '[]')
+    into v_triggers
+    from pg_trigger t
+    join pg_proc p on p.oid = t.tgfoid
+   where not t.tgisinternal
+     and p.proname in ('enforce_minor_safety','enforce_minor_profile_privacy',
+                       'enforce_minor_connection_consent',
+                       'audit_guardian_link_changes');
+
+  select coalesce(jsonb_agg(jsonb_build_object('function', proname)), '[]')
+    into v_functions
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'public'
+     and p.proname in ('verified_pi_uid','minor_consent_status',
+                       'read_consent_audit','write_consent_audit',
+                       'audit_guardian_link_changes');
+
+  select count(*)::text into v_publication
+    from pg_publication_tables
+   where pubname = 'supabase_realtime'
+     and schemaname = 'public'
+     and tablename in ('radar_events','profiles');
+
+  return jsonb_build_object(
+    'tables', v_tables,
+    'policies', v_policies,
+    'triggers', v_triggers,
+    'functions', v_functions,
+    'realtime_tables', v_publication
+  );
+end;
+$$;
+grant execute on function public.security_diagnostics() to authenticated;

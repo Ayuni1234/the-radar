@@ -10,6 +10,7 @@ import '../models/pi_payment.dart';
 import '../models/radar_event.dart';
 import '../models/user_profile.dart';
 import '../supabase/supabase_config.dart';
+import '../diagnostics/diagnostics.dart';
 import 'demo_seed.dart';
 
 /// Data layer for profiles and radar events.
@@ -22,6 +23,13 @@ class RadarRepository {
   static final RadarRepository instance = RadarRepository._();
 
   bool get _live => SupabaseConfig.available;
+
+  /// Diagnostics hook: nothing persistent is cached client-side today
+  /// (providers refetch on invalidation); demo stores reset instead.
+  String clearCaches() {
+    DemoSeed.resetDemoStores();
+    return 'demo stores reset';
+  }
 
   /// Demo-mode guardian link store (offline exploration of Module 3).
   static List<GuardianLink> _demoGuardianLinks = <GuardianLink>[
@@ -501,6 +509,9 @@ class RadarRepository {
         table: 'radar_events',
         callback: (payload) {
           debugPrint('[RadarRepo] realtime ${payload.eventType.name}');
+          Diagnostics.instance.log('realtime',
+              'radar_events ${payload.eventType.name} — refetching');
+          
           // Re-fetch for a consistent snapshot instead of patching locally —
           // robust to RLS-masked rows.
           unawaited(fetchEvents().then(onNext, onError: (Object e) {
@@ -508,6 +519,7 @@ class RadarRepository {
           }));
         },
       ).subscribe();
+      Diagnostics.instance.trackChannel('radar-events-live');
       return null;
     } catch (e) {
       debugPrint('[RadarRepo] subscribeEvents failed: $e');
@@ -529,11 +541,14 @@ class RadarRepository {
         schema: 'public',
         table: 'profiles',
         callback: (payload) {
+          Diagnostics.instance
+              .log('realtime', 'profiles ${payload.eventType.name} — refetching');
           unawaited(fetchProfiles().then(onNext, onError: (Object e) {
             debugPrint('[RadarRepo] refetch failed: $e');
           }));
         },
       ).subscribe();
+      Diagnostics.instance.trackChannel('radar-profiles-live');
       return null;
     } catch (e) {
       debugPrint('[RadarRepo] subscribeProfiles failed: $e');

@@ -7,6 +7,7 @@ import '../models/user_profile.dart';
 import '../state/auth_controller.dart';
 import '../state/radar_providers.dart';
 import '../supabase/supabase_config.dart';
+import 'system_health_screen.dart';
 import 'radar_theme.dart';
 import 'shell.dart';
 
@@ -61,7 +62,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     return Scaffold(
       backgroundColor: RadarTheme.ink,
-      appBar: AppBar(title: const Text('Account settings')),
+      appBar: AppBar(
+        title: const Text('Account settings'),
+        actions: [
+          IconButton(
+            tooltip: 'System health & diagnostics',
+            icon: const Icon(Icons.monitor_heart_outlined, size: 20),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                  builder: (_) => const SystemHealthScreen()),
+            ),
+          ),
+          const SizedBox(width: 6),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
         children: [
