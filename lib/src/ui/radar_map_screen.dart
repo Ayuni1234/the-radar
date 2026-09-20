@@ -11,6 +11,7 @@ import '../models/radar_event.dart';
 import '../models/user_profile.dart';
 import '../state/radar_providers.dart';
 import 'event_composer_screen.dart';
+import 'event_detail_screen.dart';
 import 'profiles_screen.dart';
 import 'radar_theme.dart';
 import 'shell.dart';
@@ -843,6 +844,20 @@ class EventDetailsSheet extends ConsumerWidget {
                   label: const Text('Host profile'),
                 ),
               ],
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: TextButton.icon(
+                key: const ValueKey('event-full-details'),
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => EventDetailScreen(event: event),
+                  ),
+                ),
+                icon: const Icon(Icons.unfold_more, size: 16),
+                label: const Text('Full details & applicants'),
+              ),
             ),
           ],
         ),
