@@ -2,6 +2,7 @@ import '../models/connection_request.dart';
 import '../models/enums.dart';
 import '../models/feed_post.dart';
 import '../models/radar_event.dart';
+import '../models/stream_bounty.dart';
 import '../models/user_profile.dart';
 
 /// Offline dataset used when Supabase is not configured (demo mode).
@@ -316,6 +317,9 @@ class DemoSeed {
     feedPosts
       ..clear()
       ..addAll(_seedFeedPosts());
+    streamBounties
+      ..clear()
+      ..addAll(_seedBounties());
   }
 
   /// Applies a status change to a demo request in place; true if found.
@@ -402,6 +406,68 @@ class DemoSeed {
           areaName: 'South Manchester area',
           isMinorPoster: true,
           createdAt: DateTime.now().subtract(const Duration(days: 3, hours: 4)),
+        ),
+      ];
+
+  // ------------------------------------------------------------- stream bounties
+
+  static final List<StreamBounty> streamBounties = _seedBounties();
+
+  static List<StreamBounty> _seedBounties() => <StreamBounty>[
+        StreamBounty(
+          id: 'demo-bounty-1',
+          posterProfileId: 'demo-scout-1',
+          posterName: 'Marta Segura',
+          title:
+              '90-min tactical stream of Player #7 — Thursday showcase match',
+          brief:
+              'Offering 50 Pi for a stable 90-minute tactical stream focusing on '
+                  'Player #7 (RW). Wide angle from the halfway line, phone gimbal '
+                  'if available. Kickoff Thursday 16:00 local.',
+          areaName: 'Limbe — Omnisport Annex',
+          venueName: 'Omnisport Annex Stadium, main pitch',
+          latitude: 4.0227,
+          longitude: 9.1992,
+          amountPi: 50,
+          durationMinutes: 90,
+          kickoffAt: DateTime.now().add(const Duration(days: 2, hours: 5)),
+          status: 'funded',
+          createdAt: DateTime.now().subtract(const Duration(hours: 7)),
+        ),
+        StreamBounty(
+          id: 'demo-bounty-2',
+          posterProfileId: 'demo-agent-1',
+          posterName: 'D. Ferreira',
+          title: 'Full match stream — Sunday league derby',
+          brief:
+              'Need both goals plus buildup play on film. 60–90 minutes, stable '
+                  '4G upload. Payment released when the broadcast completes.',
+          areaName: 'Accra — Cantonments',
+          latitude: 5.6210,
+          longitude: -0.1730,
+          amountPi: 35,
+          durationMinutes: 80,
+          kickoffAt: DateTime.now().add(const Duration(days: 1, hours: 9)),
+          status: 'open',
+          createdAt: DateTime.now().subtract(const Duration(hours: 22)),
+        ),
+        StreamBounty(
+          id: 'demo-bounty-3',
+          posterProfileId: 'demo-club-1',
+          posterName: 'FC Atlas',
+          title: 'U19 league fixture — pitch-side tactical cam',
+          brief: 'Completed and paid. Thank you to the local videographer!',
+          areaName: 'Casablanca — Maarif',
+          latitude: 33.5936,
+          longitude: -7.6323,
+          amountPi: 60,
+          durationMinutes: 90,
+          status: 'completed',
+          streamerProfileId: 'demo-player-1',
+          streamerName: 'leftboot_lucas',
+          watchedMinutes: 94,
+          createdAt: DateTime.now().subtract(const Duration(days: 5)),
+          completedAt: DateTime.now().subtract(const Duration(days: 3)),
         ),
       ];
 }

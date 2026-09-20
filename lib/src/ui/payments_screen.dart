@@ -9,6 +9,7 @@ import '../models/radar_event.dart';
 import '../pi/pi_service.dart';
 import '../state/auth_controller.dart';
 import '../state/radar_providers.dart';
+import 'bounty_board_screen.dart';
 import 'radar_theme.dart';
 import 'shell.dart';
 
@@ -33,6 +34,12 @@ class PaymentsScreen extends ConsumerWidget {
           ],
         ),
         actions: [
+          IconButton(
+            tooltip: 'Talent Watcher bounties',
+            icon: const Icon(Icons.workspace_premium, size: 20),
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => const BountyBoardScreen())),
+          ),
           if (flow.phase != PiPaymentPhase.idle)
             Padding(
               padding: const EdgeInsets.only(right: 14),

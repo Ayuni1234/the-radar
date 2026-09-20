@@ -116,6 +116,16 @@ Deno.serve(async (req) => {
           .update({ boosted_until: expiryFor(product) })
           .eq("id", meta.reference_id as string);
       }
+
+      // Bounty escrow funding: the posted bounty becomes `funded` — the Pi
+      // is now held by the platform until the poster releases it to the
+      // streamer (release_bounty RPC after a successful broadcast).
+      if (product === "stream_bounty_funding" && meta.reference_id) {
+        await patchBounty(admin, meta.reference_id as string, {
+          status: "funded",
+          funded_payment_id: payment.identifier,
+        });
+      }
     }
 
     // Incomplete-payment recovery arrives here too (onIncompletePaymentFound).
@@ -151,6 +161,26 @@ function json(body: unknown, status = 200) {
     status,
     headers: { "Content-Type": "application/json", ...CORS_HEADERS },
   });
+}
+
+async function patchBounty(
+  admin: ReturnType<typeof createAdminClient>,
+  bountyId: string,
+  patch: Record<string, unknown>,
+) {
+  try {
+    await fetch(`${Deno.env.get("SUPABASE_URL")}/rest/v1/stream_bounties?id=eq.${bountyId}`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+        apikey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(patch),
+    });
+  } catch (e) {
+    console.log("bounty patch failed", e);
+  }
 }
 
 function createAdminClient() {

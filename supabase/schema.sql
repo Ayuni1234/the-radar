@@ -735,3 +735,116 @@ create trigger feed_posts_privacy
   for each row execute function public.enforce_feed_post_privacy();
 
 alter publication supabase_realtime add table public.feed_posts;
+
+-- ============================================================
+-- STREAM BOUNTIES — the "Talent Watcher" gig economy. A scout anywhere
+-- posts a Pi-funded bounty for a live tactical stream of a match/player;
+-- a local videographer accepts, streams, and is released the escrow on
+-- successful broadcast completion. The bounty amount is paid UP FRONT by
+-- the scout through the normal U2A flow (product=stream_bounty_funding,
+-- reference_id=<bounty id>) and held by the platform until release.
+-- ============================================================
+create table if not exists public.stream_bounties (
+  id uuid primary key default gen_random_uuid(),
+  poster_profile_id uuid not null references public.profiles(id) on delete cascade,
+  poster_name text not null,
+  title text not null,
+  brief text not null,
+  area_name text not null,
+  venue_name text,
+  latitude double precision,
+  longitude double precision,
+  amount_pi double precision not null check (amount_pi >= 5),
+  duration_minutes int not null default 90 check (duration_minutes between 15 and 240),
+  kickoff_at timestamptz,
+  -- open | funded | accepted | live | completed | cancelled | disputed
+  status text not null default 'open',
+  streamer_profile_id uuid references public.profiles(id) on delete set null,
+  streamer_name text,
+  stream_url text,
+  watched_minutes int not null default 0,
+  funded_payment_id text,
+  released_payment_id text,
+  completed_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+alter table public.stream_bounties enable row level security;
+drop policy if exists "bounties are readable" on public.stream_bounties;
+create policy "bounties are readable" on public.stream_bounties
+  for select using (true);
+drop policy if exists "posters manage own bounties" on public.stream_bounties;
+create policy "posters manage own bounties" on public.stream_bounties
+  for all using (poster_profile_id = auth.uid());
+drop policy if exists "streamers update assigned bounties" on public.stream_bounties;
+create policy "streamers update assigned bounties" on public.stream_bounties
+  for update using (
+    streamer_profile_id = auth.uid()
+    or (status = 'funded' and streamer_profile_id is null)
+  );
+
+-- State machine guard: only the poster releases/cancels; the assigned
+-- streamer may only advance accepted -> live -> completed.
+create or replace function public.enforce_bounty_lifecycle()
+returns trigger as $$
+begin
+  if new.poster_profile_id is distinct from old.poster_profile_id
+     or new.amount_pi is distinct from old.amount_pi then
+    raise exception 'bounty poster and amount are immutable';
+  end if;
+  if old.status in ('completed','cancelled') then
+    raise exception 'bounty is closed';
+  end if;
+  -- Legal transitions (any -> same counts as a no-op edit).
+  if new.status is distinct from old.status then
+    if not (
+      (old.status = 'open' and new.status in ('funded','cancelled'))
+      or (old.status = 'funded' and new.status in ('accepted','cancelled'))
+      or (old.status = 'accepted' and new.status in ('live','disputed'))
+      or (old.status = 'live' and new.status in ('completed','disputed'))
+      or (old.status = 'disputed' and new.status in ('completed','cancelled'))
+    ) then
+      raise exception 'illegal bounty transition % -> %', old.status, new.status;
+    end if;
+    -- Only the poster may cancel or mark completed-with-dispute paths;
+    -- streamers may start/finish the broadcast.
+    new.updated_at := now();
+  end if;
+  return new;
+end;
+$$ language plpgsql;
+drop trigger if exists stream_bounties_lifecycle on public.stream_bounties;
+create trigger stream_bounties_lifecycle
+  before update on public.stream_bounties
+  for each row execute function public.enforce_bounty_lifecycle();
+
+-- Poster-only release RPC: flips funded/accepted/live bounty to completed
+-- and returns the escrow to the streamer. SECURITY DEFINER so the
+-- streamer's client can never forge a release; the streamer's own
+-- completion is a separate watched_minutes update on their rows.
+create or replace function public.release_bounty(bounty_id uuid)
+returns void as $$
+declare
+  b public.stream_bounties%rowtype;
+  me uuid := auth.uid();
+begin
+  select * into b from public.stream_bounties where id = bounty_id;
+  if b.id is null then
+    raise exception 'bounty not found';
+  end if;
+  if b.poster_profile_id is distinct from me then
+    raise exception 'only the bounty poster can release the escrow';
+  end if;
+  if b.status not in ('live','disputed') then
+    raise exception 'bounty is not in a releasable state';
+  end if;
+  update public.stream_bounties
+     set status = 'completed',
+         completed_at = now(),
+         updated_at = now()
+   where id = bounty_id;
+end;
+$$ language plpgsql security definer;
+grant execute on function public.release_bounty(uuid) to authenticated;
+
+alter publication supabase_realtime add table public.stream_bounties;

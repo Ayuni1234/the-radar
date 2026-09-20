@@ -9,6 +9,7 @@ import '../models/feed_post.dart';
 import '../models/guardian_link.dart';
 import '../models/pi_payment.dart';
 import '../models/radar_event.dart';
+import '../models/stream_bounty.dart';
 import '../models/user_profile.dart';
 import '../supabase/supabase_config.dart';
 import '../diagnostics/diagnostics.dart';
@@ -550,6 +551,127 @@ class RadarRepository {
       return true;
     } catch (e) {
       debugPrint('[RadarRepo] deleteFeedPost failed: $e');
+      return false;
+    }
+  }
+
+  // ---------------------------------------------------------- stream bounties
+
+  /// All visible stream bounties (gig board), newest first.
+  Future<List<StreamBounty>> fetchStreamBounties() async {
+    if (!_live) return List.of(DemoSeed.streamBounties);
+    try {
+      final res = await SupabaseConfig.client
+          .from('stream_bounties')
+          .select()
+          .order('created_at', ascending: false)
+          .limit(100);
+      return res.map<StreamBounty>((b) => StreamBounty.fromJson(b)).toList();
+    } catch (e) {
+      debugPrint('[RadarRepo] fetchStreamBounties failed: $e');
+      return List.of(DemoSeed.streamBounties);
+    }
+  }
+
+  /// Creates a bounty row. The poster then funds it with a Pi U2A payment
+  /// (product `stream_bounty_funding`, reference_id = bounty id).
+  Future<StreamBounty?> createStreamBounty(StreamBounty bounty) async {
+    if (!_live) {
+      DemoSeed.streamBounties.insert(0, bounty);
+      return bounty;
+    }
+    try {
+      final res = await SupabaseConfig.client
+          .from('stream_bounties')
+          .insert({
+            'poster_profile_id': bounty.posterProfileId,
+            'poster_name': bounty.posterName,
+            'title': bounty.title,
+            'brief': bounty.brief,
+            'area_name': bounty.areaName,
+            'venue_name': bounty.venueName,
+            'latitude': bounty.latitude,
+            'longitude': bounty.longitude,
+            'amount_pi': bounty.amountPi,
+            'duration_minutes': bounty.durationMinutes,
+            'kickoff_at': bounty.kickoffAt?.toIso8601String(),
+            'status': 'open',
+          })
+          .select()
+          .single();
+      return StreamBounty.fromJson(res);
+    } catch (e) {
+      debugPrint('[RadarRepo] createStreamBounty failed: $e');
+      return null;
+    }
+  }
+
+  /// Client-side status edit. Most transitions go through dedicated RPCs or
+  /// edge functions; this is the thin update used for assign/start/finish.
+  Future<bool> updateBounty(String id, Map<String, Object?> patch) async {
+    if (!_live) {
+      for (var i = 0; i < DemoSeed.streamBounties.length; i++) {
+        if (DemoSeed.streamBounties[i].id == id) {
+          final b = DemoSeed.streamBounties[i];
+          DemoSeed.streamBounties[i] = StreamBounty.fromJson({
+            'id': b.id,
+            'poster_profile_id': b.posterProfileId,
+            'poster_name': b.posterName,
+            'title': b.title,
+            'brief': b.brief,
+            'area_name': b.areaName,
+            'venue_name': b.venueName,
+            'latitude': b.latitude,
+            'longitude': b.longitude,
+            'amount_pi': b.amountPi,
+            'duration_minutes': b.durationMinutes,
+            'kickoff_at': b.kickoffAt?.toIso8601String(),
+            'status': patch['status'] ?? b.status,
+            'streamer_profile_id':
+                patch['streamer_profile_id'] ?? b.streamerProfileId,
+            'streamer_name': patch['streamer_name'] ?? b.streamerName,
+            'stream_url': patch['stream_url'] ?? b.streamUrl,
+            'watched_minutes': b.watchedMinutes,
+            'completed_at': b.completedAt?.toIso8601String(),
+            'created_at': b.createdAt.toIso8601String(),
+          });
+          return true;
+        }
+      }
+      return false;
+    }
+    try {
+      await SupabaseConfig.client
+          .from('stream_bounties')
+          .update(patch)
+          .eq('id', id);
+      return true;
+    } catch (e) {
+      debugPrint('[RadarRepo] updateBounty failed: $e');
+      return false;
+    }
+  }
+
+  /// Poster-only escrow release through the `release_bounty` SECURITY
+  /// DEFINER RPC. Returns true when the bounty flipped to completed.
+  Future<bool> releaseBounty(String bountyId) async {
+    if (!_live) {
+      for (var i = 0; i < DemoSeed.streamBounties.length; i++) {
+        final b = DemoSeed.streamBounties[i];
+        if (b.id == bountyId && (b.status == 'live' || b.status == 'disputed')) {
+          DemoSeed.streamBounties[i] = b.copyWith(status: 'completed');
+          return true;
+        }
+      }
+      return false;
+    }
+    try {
+      await SupabaseConfig.client.rpc('release_bounty', params: {
+        'bounty_id': bountyId,
+      });
+      return true;
+    } catch (e) {
+      debugPrint('[RadarRepo] releaseBounty failed: $e');
       return false;
     }
   }

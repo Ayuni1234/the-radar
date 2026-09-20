@@ -10,6 +10,7 @@ import '../models/feed_post.dart' show FeedPost, FeedPostKind, distanceKm;
 import '../models/guardian_link.dart';
 import '../models/pi_payment.dart';
 import '../models/radar_event.dart';
+import '../models/stream_bounty.dart';
 import '../models/user_profile.dart';
 import '../pi/pi_service.dart';
 import 'auth_controller.dart';
@@ -815,6 +816,130 @@ class FeedPostsController extends AsyncNotifier<List<FeedPost>> {
   Future<bool> deletePost(String postId) async {
     final ok = await RadarRepository.instance.deleteFeedPost(postId);
     if (ok) await refresh();
+    return ok;
+  }
+}
+
+// ------------------------------------------------------------- stream bounties
+
+/// Pi-backed "Talent Watcher" bounties: scouts post escrowed Pi for live
+/// tactical streams; local videographers accept, stream and get released
+/// the escrow on broadcast completion.
+final streamBountiesProvider =
+    AsyncNotifierProvider<StreamBountiesController, List<StreamBounty>>(
+        StreamBountiesController.new);
+
+class StreamBountiesController extends AsyncNotifier<List<StreamBounty>> {
+  @override
+  Future<List<StreamBounty>> build() =>
+      RadarRepository.instance.fetchStreamBounties();
+
+  Future<void> refresh() async {
+    final list = await RadarRepository.instance.fetchStreamBounties();
+    if (list.isNotEmpty) state = AsyncData(list);
+  }
+
+  /// Creates the bounty row and returns its id — the caller immediately
+  /// starts the Pi funding payment bound to it (reference_id).
+  Future<String?> postBounty({
+    required String title,
+    required String brief,
+    required String areaName,
+    String? venueName,
+    required double amountPi,
+    required int durationMinutes,
+    DateTime? kickoffAt,
+  }) async {
+    final session = ref.read(sessionProvider);
+    final profileId = session?.profileId;
+    if (profileId == null) return null;
+    final draft = StreamBounty(
+      id: 'bounty-${DateTime.now().microsecondsSinceEpoch}',
+      posterProfileId: profileId,
+      posterName: session!.username,
+      title: title.trim(),
+      brief: brief.trim(),
+      areaName: areaName.trim(),
+      venueName: venueName?.trim().isEmpty == true ? null : venueName!.trim(),
+      latitude: session.viewerLatitude,
+      longitude: session.viewerLongitude,
+      amountPi: amountPi,
+      durationMinutes: durationMinutes,
+      kickoffAt: kickoffAt,
+      status: 'open',
+      createdAt: DateTime.now(),
+    );
+    final created =
+        await RadarRepository.instance.createStreamBounty(draft);
+    await refresh();
+    return created?.id;
+  }
+
+  /// Funds a bounty: opens the Pi U2A payment with product
+  /// `stream_bounty_funding` and reference_id = bounty id. The completion
+  /// webhook flips the bounty to `funded` (escrow held by the platform).
+  void fundBounty(String bountyId, double amountPi, String title) {
+    ref.read(paymentFlowProvider.notifier).pay(
+          amount: amountPi,
+          memo: 'The Radar — bounty escrow: $title',
+          product: 'stream_bounty_funding',
+          metadata: {
+            'sku': 'stream_bounty_funding',
+            'price_pi': amountPi,
+            'reference_id': bountyId,
+          },
+        );
+  }
+
+  /// A local streamer accepts a funded bounty (claims the gig).
+  Future<bool> acceptBounty(String bountyId) async {
+    final session = ref.read(sessionProvider);
+    final profileId = session?.profileId;
+    if (profileId == null) return false;
+    final ok = await RadarRepository.instance.updateBounty(bountyId, {
+      'status': 'accepted',
+      'streamer_profile_id': profileId,
+      'streamer_name': session!.username,
+    });
+    await refresh();
+    return ok;
+  }
+
+  /// Streamer goes live / posts their stream link.
+  Future<bool> goLive(String bountyId, String streamUrl) async {
+    final ok = await RadarRepository.instance.updateBounty(bountyId, {
+      'status': 'live',
+      if (streamUrl.trim().isNotEmpty) 'stream_url': streamUrl.trim(),
+    });
+    await refresh();
+    return ok;
+  }
+
+  /// Streamer marks the broadcast finished (watched minutes logged).
+  Future<bool> finishBroadcast(String bountyId, int minutes) async {
+    final ok = await RadarRepository.instance.updateBounty(bountyId, {
+      'watched_minutes': minutes,
+    });
+    await refresh();
+    return ok;
+  }
+
+  /// Poster-only: releases the escrow to the streamer via the
+  /// SECURITY DEFINER `release_bounty` RPC (the "smart contract" payout).
+  Future<bool> releaseEscrow(String bountyId) async {
+    final ok = await RadarRepository.instance.releaseBounty(bountyId);
+    await refresh();
+    return ok;
+  }
+
+  /// Poster-only: cancels an unfunded (or disputed) bounty. Escrowed Pi for
+  /// funded bounties is refunded through the disputed path instead.
+  Future<bool> cancelBounty(String bountyId) async {
+    final ok =
+        await RadarRepository.instance.updateBounty(bountyId, {
+      'status': 'cancelled',
+    });
+    await refresh();
     return ok;
   }
 }
