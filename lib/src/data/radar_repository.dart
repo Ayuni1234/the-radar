@@ -407,7 +407,9 @@ class RadarRepository {
 
   Future<bool> upsertEvent(RadarEvent event) async {
     if (!_live) {
-      debugPrint('[RadarRepo] demo mode: event stored locally only');
+      // Demo mode: keep the published event visible on the offline radar.
+      DemoSeed.events.removeWhere((e) => e.id == event.id);
+      DemoSeed.events.add(event);
       return true;
     }
     try {

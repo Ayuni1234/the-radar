@@ -10,6 +10,7 @@ import '../models/enums.dart';
 import '../models/radar_event.dart';
 import '../models/user_profile.dart';
 import '../state/radar_providers.dart';
+import 'event_composer_screen.dart';
 import 'profiles_screen.dart';
 import 'radar_theme.dart';
 import 'shell.dart';
@@ -55,6 +56,11 @@ class _RadarMapScreenState extends ConsumerState<RadarMapScreen> {
           ],
         ),
         actions: [
+          IconButton(
+            tooltip: 'Publish event',
+            icon: const Icon(Icons.add_location_alt_outlined, size: 20),
+            onPressed: () => EventComposerScreen.show(context),
+          ),
           IconButton(
             tooltip: 'Safety policy',
             icon: const Icon(Icons.shield_outlined, size: 20),
