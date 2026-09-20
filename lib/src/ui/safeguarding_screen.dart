@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../models/enums.dart';
 import '../models/guardian_link.dart';
@@ -112,6 +115,10 @@ class SafeguardingScreen extends ConsumerWidget {
                   );
                 },
               ),
+              const SizedBox(height: 18),
+
+              // --------------------------------------- consent audit history
+              _ConsentAuditPanel(),
               const SizedBox(height: 24),
             ],
           ),
@@ -573,11 +580,153 @@ class _GuardianLinkTile extends StatelessWidget {
                   style: const TextStyle(
                       fontSize: 12, color: RadarTheme.textDim),
                 ),
+                const SizedBox(height: 6),
+                Wrap(spacing: 6, runSpacing: 4, children: [
+                  InfoPill(
+                    icon: link.consentConnections
+                        ? Icons.connect_without_contact
+                        : Icons.block,
+                    label: link.consentConnections
+                        ? 'Contacts allowed'
+                        : 'Contacts blocked',
+                    color: link.consentConnections
+                        ? RadarTheme.radar
+                        : RadarTheme.alert,
+                  ),
+                  InfoPill(
+                    icon: link.consentEvents
+                        ? Icons.emoji_events_outlined
+                        : Icons.block,
+                    label: link.consentEvents
+                        ? 'Events allowed'
+                        : 'Events blocked',
+                    color: link.consentEvents
+                        ? RadarTheme.radar
+                        : RadarTheme.alert,
+                  ),
+                ]),
               ],
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Transparent consent history — every guardian permission decision,
+/// recorded by the `guardian_links_audit` database trigger and read back
+/// through the participant-scoped `read_consent_audit` RPC.
+class _ConsentAuditPanel extends ConsumerWidget {
+  const _ConsentAuditPanel();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final auditAsync = ref.watch(consentAuditProvider);
+    return _Panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            const Icon(Icons.receipt_long, size: 17, color: RadarTheme.radar),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: SectionHeader('Consent history & audit log'),
+            ),
+            IconButton(
+              tooltip: 'Refresh',
+              icon: const Icon(Icons.refresh, size: 17),
+              onPressed: () => unawaited(
+                  ref.read(consentAuditProvider.notifier).refresh()),
+            ),
+          ]),
+          Text(
+            'Every approval, denial and consent switch is recorded by the '
+            'database — this log cannot be edited from the app.',
+            style: const TextStyle(
+                fontSize: 12, color: RadarTheme.textDim, height: 1.4),
+          ),
+          const SizedBox(height: 10),
+          auditAsync.when(
+            loading: () => const Padding(
+              padding: EdgeInsets.all(14),
+              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+            ),
+            error: (e, _) => Text(
+              'Could not load the audit log: $e',
+              style: const TextStyle(color: RadarTheme.alert, fontSize: 12.5),
+            ),
+            data: (entries) {
+              if (entries.isEmpty) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                  child: Text(
+                    'No consent decisions recorded yet. History appears here '
+                    'as guardians approve links and manage permissions.',
+                    style: TextStyle(
+                        fontSize: 12.5, color: RadarTheme.textDim, height: 1.4),
+                  ),
+                );
+              }
+              return Column(children: [
+                for (final e in entries.take(30))
+                  _AuditTile(entry: e),
+                if (entries.length > 30)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      'Showing the 30 most recent of ${entries.length} entries.',
+                      style: const TextStyle(
+                          fontSize: 11.5, color: RadarTheme.textDim),
+                    ),
+                  ),
+              ]);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AuditTile extends StatelessWidget {
+  const _AuditTile({required this.entry});
+
+  final ConsentAuditEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    final (icon, color) = entry.visual;
+    final df = DateFormat('d MMM yyyy · HH:mm');
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: RadarTheme.panelHigh,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: RadarTheme.stroke),
+      ),
+      child: Row(children: [
+        Icon(icon, size: 17, color: color),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(entry.label,
+              style: const TextStyle(
+                  fontSize: 13, fontWeight: FontWeight.w600)),
+        ),
+        InfoPill(
+          icon: entry.actorRole == 'guardian'
+              ? Icons.family_restroom
+              : Icons.person,
+          label: entry.actorRole == 'guardian' ? 'Guardian' : 'Minor',
+          color: RadarTheme.textDim,
+        ),
+        const SizedBox(width: 6),
+        Text(
+          entry.createdAt == null ? '' : df.format(entry.createdAt!),
+          style: const TextStyle(fontSize: 11.5, color: RadarTheme.textDim),
+        ),
+      ]),
     );
   }
 }

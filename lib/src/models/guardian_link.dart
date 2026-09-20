@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 /// Guardian ↔ minor relationship and consent switches (Module 3).
 ///
 /// A minor invites a guardian (their parent/guardian account on The Radar);
@@ -99,4 +101,67 @@ class MinorConsent {
     }
     return const MinorConsent(isMinor: false);
   }
+}
+
+/// One row of the append-only `consent_audit_log` — every guardian
+/// permission change, written by the database trigger, read participant-
+/// scoped through the `read_consent_audit` SECURITY DEFINER function.
+class ConsentAuditEntry {
+  const ConsentAuditEntry({
+    required this.minorProfile,
+    this.guardianProfile,
+    required this.action,
+    required this.actorRole,
+    this.createdAt,
+  });
+
+  final String minorProfile;
+  final String? guardianProfile;
+  final String action;
+
+  /// 'minor' or 'guardian' — who performed the change.
+  final String actorRole;
+  final DateTime? createdAt;
+
+  factory ConsentAuditEntry.fromJson(Map<String, Object?> json) {
+    return ConsentAuditEntry(
+      minorProfile: (json['minor_profile'] ?? '').toString(),
+      guardianProfile: json['guardian_profile']?.toString(),
+      action: (json['action'] ?? '').toString(),
+      actorRole: (json['actor_role'] ?? 'minor').toString(),
+      createdAt: json['created_at'] == null
+          ? null
+          : DateTime.tryParse(json['created_at'].toString())?.toLocal(),
+    );
+  }
+
+  String get label => switch (action) {
+        'link_pending' => 'Guardian link requested',
+        'link_active' => 'Guardian link approved',
+        'link_declined' => 'Guardian link declined',
+        'link_revoked' => 'Guardian link revoked',
+        'consent_connections_on' => 'Direct-contact consent granted',
+        'consent_connections_off' => 'Direct-contact consent revoked',
+        'consent_events_on' => 'Event-participation consent granted',
+        'consent_events_off' => 'Event-participation consent revoked',
+        _ => action,
+      };
+
+  (IconData, Color) get visual => switch (action) {
+        'link_active' => (Icons.handshake_outlined, ConsentColors.radar),
+        'link_pending' => (Icons.hourglass_top, ConsentColors.gold),
+        'link_declined' || 'link_revoked' =>
+          (Icons.link_off, ConsentColors.dim),
+        'consent_connections_on' || 'consent_events_on' =>
+          (Icons.check_circle_outline, ConsentColors.radar),
+        _ => (Icons.remove_circle_outline, ConsentColors.alert),
+      };
+}
+
+/// Color tokens kept in the model layer to avoid a UI import cycle.
+abstract final class ConsentColors {
+  static const Color radar = Color(0xFF3DFFA2);
+  static const Color gold = Color(0xFFF5C043);
+  static const Color alert = Color(0xFFFF6B6B);
+  static const Color dim = Color(0xFF93A1B7);
 }

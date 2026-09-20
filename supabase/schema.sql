@@ -498,3 +498,100 @@ drop trigger if exists connection_requests_minor_consent on public.connection_re
 create trigger connection_requests_minor_consent
   before insert on public.connection_requests
   for each row execute function public.enforce_minor_connection_consent();
+
+-- ============================================================
+-- Consent audit log (Module 3 — Guardian Consent Management)
+-- Append-only record of every guardian permission change enforced by
+-- the backend triggers. Written by SECURITY DEFINER trigger functions;
+-- no client policy on purpose — the log is tamper-evident.
+-- ============================================================
+create table if not exists public.consent_audit_log (
+  id          uuid primary key default gen_random_uuid(),
+  minor_profile   uuid not null,
+  guardian_profile uuid,
+  link_id      uuid,
+  action       text not null check (action in
+               ('link_pending','link_active','link_declined','link_revoked',
+                'consent_connections_on','consent_connections_off',
+                'consent_events_on','consent_events_off')),
+  actor_role   text not null check (actor_role in ('minor','guardian')),
+  created_at   timestamptz not null default now()
+);
+create index if not exists consent_audit_minor_idx
+  on public.consent_audit_log (minor_profile, created_at desc);
+alter table public.consent_audit_log enable row level security;
+-- No policies: rows are inserted by definer-rights triggers and read via
+-- the SECURITY DEFINER function below (participant-scoped, no PII beyond
+-- what the viewer is already entitled to).
+
+-- Writes one audit row. Definer rights so the client never needs write
+-- access to the log; IDs are captured before the mutation on guardian_links.
+create or replace function public.write_consent_audit(
+  p_minor uuid, p_guardian uuid, p_link uuid, p_action text, p_actor text
+) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  insert into public.consent_audit_log
+    (minor_profile, guardian_profile, link_id, action, actor_role)
+  values (p_minor, p_guardian, p_link, p_action, p_actor);
+end;
+$$;
+
+-- Participant-scoped read (minor or guardian of the row sees their history).
+create or replace function public.read_consent_audit()
+returns setof public.consent_audit_log
+language sql security definer set search_path = public as $$
+  select a.* from public.consent_audit_log a
+  where a.minor_profile = auth.uid() or a.guardian_profile = auth.uid()
+  order by a.created_at desc
+  limit 200;
+$$;
+grant execute on function public.read_consent_audit() to authenticated;
+revoke insert, update, delete on public.consent_audit_log from authenticated;
+
+-- Audit triggers on guardian_links: capture every status/consent change.
+create or replace function public.audit_guardian_link_changes()
+returns trigger
+language plpgsql security definer set search_path = public as $$
+declare
+  v_actor text := case when new.guardian_profile = auth.uid()
+                  then 'guardian' else 'minor' end;
+begin
+  if tg_op = 'INSERT' then
+    perform public.write_consent_audit(
+      new.minor_profile, new.guardian_profile, new.id,
+      'link_pending', v_actor);
+  elsif tg_op = 'UPDATE' then
+    if new.status is distinct from old.status then
+      perform public.write_consent_audit(
+        new.minor_profile, new.guardian_profile, new.id,
+        case new.status
+          when 'active' then 'link_active'
+          when 'declined' then 'link_declined'
+          when 'revoked' then 'link_revoked'
+          else 'link_pending' end,
+        v_actor);
+    end if;
+    if new.consent_connections is distinct from old.consent_connections then
+      perform public.write_consent_audit(
+        new.minor_profile, new.guardian_profile, new.id,
+        case when new.consent_connections
+          then 'consent_connections_on' else 'consent_connections_off' end,
+        v_actor);
+    end if;
+    if new.consent_events is distinct from old.consent_events then
+      perform public.write_consent_audit(
+        new.minor_profile, new.guardian_profile, new.id,
+        case when new.consent_events
+          then 'consent_events_on' else 'consent_events_off' end,
+        v_actor);
+    end if;
+  end if;
+  return null;
+end;
+$$;
+drop trigger if exists guardian_links_audit on public.guardian_links;
+create trigger guardian_links_audit
+  after insert or update of status, consent_connections, consent_events
+  on public.guardian_links
+  for each row execute function public.audit_guardian_link_changes();

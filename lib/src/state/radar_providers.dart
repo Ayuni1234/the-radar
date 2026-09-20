@@ -357,6 +357,8 @@ class GuardianLinksController extends AsyncNotifier<List<GuardianLink>> {
         .createGuardianLink(profileId, guardian.id);
     if (!ok) return 'Could not send the invite — try again.';
     await refresh();
+    unawaited(
+        ref.read(consentAuditProvider.notifier).refresh());
     return null;
   }
 
@@ -364,17 +366,20 @@ class GuardianLinksController extends AsyncNotifier<List<GuardianLink>> {
   Future<void> approveLink(String linkId) async {
     await RadarRepository.instance.respondToGuardianLink(linkId, 'active');
     await refresh();
+    unawaited(ref.read(consentAuditProvider.notifier).refresh());
   }
 
   /// Guardian declines; minor may revoke their own pending link.
   Future<void> declineLink(String linkId) async {
     await RadarRepository.instance.respondToGuardianLink(linkId, 'declined');
     await refresh();
+    unawaited(ref.read(consentAuditProvider.notifier).refresh());
   }
 
   Future<void> revokeLink(String linkId) async {
     await RadarRepository.instance.respondToGuardianLink(linkId, 'revoked');
     await refresh();
+    unawaited(ref.read(consentAuditProvider.notifier).refresh());
   }
 
   Future<void> setConsent(
@@ -388,6 +393,7 @@ class GuardianLinksController extends AsyncNotifier<List<GuardianLink>> {
       consentEvents: consentEvents,
     );
     await refresh();
+    unawaited(ref.read(consentAuditProvider.notifier).refresh());
   }
 }
 
@@ -653,4 +659,25 @@ class GlobalSearchQuery {
         playersScope: playersScope ?? this.playersScope,
         eventsScope: eventsScope ?? this.eventsScope,
       );
+}
+
+/// Consent audit history for the signed-in user (minor and/or guardian).
+/// Backed by the append-only `consent_audit_log` via the participant-
+/// scoped `read_consent_audit` RPC; refreshed after every consent action.
+final consentAuditProvider =
+    AsyncNotifierProvider<ConsentAuditController, List<ConsentAuditEntry>>(
+        ConsentAuditController.new);
+
+class ConsentAuditController extends AsyncNotifier<List<ConsentAuditEntry>> {
+  @override
+  Future<List<ConsentAuditEntry>> build() async {
+    final session = ref.watch(sessionProvider);
+    if (session?.profileId == null) return const [];
+    return RadarRepository.instance.fetchConsentAudit();
+  }
+
+  Future<void> refresh() async {
+    final list = await RadarRepository.instance.fetchConsentAudit();
+    state = AsyncData(list);
+  }
 }

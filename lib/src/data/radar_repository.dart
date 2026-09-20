@@ -360,6 +360,24 @@ class RadarRepository {
     }
   }
 
+  /// Consent history for the signed-in user (as minor and/or guardian),
+  /// read through the participant-scoped `read_consent_audit` RPC. The
+  /// append-only log is written by database triggers; the client can
+  /// never insert into it.
+  Future<List<ConsentAuditEntry>> fetchConsentAudit() async {
+    if (!_live) return const [];
+    try {
+      final res = await SupabaseConfig.client.rpc('read_consent_audit');
+      return (res as List)
+          .map<ConsentAuditEntry>(
+              (e) => ConsentAuditEntry.fromJson(Map<String, Object?>.from(e as Map)))
+          .toList();
+    } catch (e) {
+      debugPrint('[RadarRepo] fetchConsentAudit failed: $e');
+      return const [];
+    }
+  }
+
   /// Finds a guardian account by Pi username (used by the minor invite
   /// flow). Returns null when no parent profile matches.
   Future<UserProfile?> findGuardianByUsername(String username) async {
