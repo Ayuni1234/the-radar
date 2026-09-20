@@ -28,6 +28,7 @@ create table if not exists public.profiles (
   geohash_area      text,                            -- coarse area label (minors: only this)
   rating            numeric(3,2) not null default 0,
   avatar_url        text,
+  onboarded_at      timestamptz,                   -- null = onboarding not completed
   created_at        timestamptz not null default now(),
   updated_at        timestamptz not null default now()
 );

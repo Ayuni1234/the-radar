@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'src/state/auth_controller.dart';
 import 'src/ui/login_screen.dart';
+import 'src/ui/onboarding_screen.dart';
 import 'src/ui/payments_screen.dart';
 import 'src/ui/profiles_screen.dart';
 import 'src/ui/radar_map_screen.dart';
@@ -34,7 +35,10 @@ class RadarApp extends ConsumerWidget {
       home: auth.isLoading
           ? const SplashGate()
           : auth.value is AuthSignedIn
-              ? const HomeShell()
+              ? (auth.value is AuthSignedIn &&
+                      (auth.value as AuthSignedIn).session.needsOnboarding)
+                  ? const OnboardingScreen()
+                  : const HomeShell()
               : const LoginScreen(),
     );
   }

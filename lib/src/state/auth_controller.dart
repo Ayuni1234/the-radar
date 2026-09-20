@@ -20,6 +20,7 @@ class RadarSession {
     this.profileId,
     this.accessToken,
     this.sessionToken,
+    this.needsOnboarding = false,
     this.role = UserRole.player,
   });
 
@@ -35,6 +36,9 @@ class RadarSession {
   final String? profileId;
   final String? accessToken;
 
+  /// True while the guided onboarding (role → region → profile) is pending.
+  final bool needsOnboarding;
+
   /// App Studio session token from the server-side exchange — proof the
   /// identity was verified server-side before this session existed.
   final String? sessionToken;
@@ -48,6 +52,7 @@ class RadarSession {
     String? profileId,
     String? accessToken,
     String? sessionToken,
+    bool? needsOnboarding,
     UserRole? role,
   }) =>
       RadarSession(
@@ -58,6 +63,7 @@ class RadarSession {
         profileId: profileId ?? this.profileId,
         accessToken: accessToken ?? this.accessToken,
         sessionToken: sessionToken ?? this.sessionToken,
+        needsOnboarding: needsOnboarding ?? this.needsOnboarding,
         role: role ?? this.role,
       );
 }
@@ -201,8 +207,71 @@ class AuthController extends AsyncNotifier<AuthState> {
       profileId: profile.id,
       accessToken: outcome.accessToken,
       sessionToken: outcome.sessionToken,
+      needsOnboarding: profile.needsOnboarding,
       role: profile.role,
     );
+  }
+
+  /// Persists the onboarding answers onto the profile row and marks it
+  /// onboarded. Returns the refreshed session (no longer needsOnboarding).
+  Future<RadarSession> finishOnboarding({
+    required UserRole role,
+    String? displayName,
+    String? bio,
+    String? country,
+    String? city,
+    bool isMinor = false,
+  }) async {
+    final auth = state.value;
+    if (auth is! AuthSignedIn) {
+      throw StateError('Cannot finish onboarding while signed out.');
+    }
+    final session = auth.session;
+    final repo = RadarRepository.instance;
+
+    UserProfile profile;
+    try {
+      List<Map<String, Object?>> rows = const [];
+      if (SupabaseConfig.available && session.profileId != null) {
+        final res = await SupabaseConfig.client
+            .from('profiles')
+            .select()
+            .eq('id', session.profileId!)
+            .limit(1);
+        rows = res.cast<Map<String, Object?>>();
+      }
+      profile = rows.isNotEmpty
+          ? UserProfile.fromJson(rows.first)
+          : DemoFallback.profileForUid(session.piUid, session.username);
+    } catch (e) {
+      debugPrint('[Auth] onboarding profile load failed: $e');
+      profile = DemoFallback.profileForUid(session.piUid, session.username);
+    }
+
+    final updated = profile.copyWith(
+      id: session.profileId ?? profile.id,
+      piUid: session.piUid,
+      role: role,
+      displayName: (displayName?.trim().isNotEmpty ?? false)
+          ? displayName!.trim()
+          : profile.displayName,
+      bio: bio?.trim(),
+      country: country?.trim(),
+      city: city?.trim(),
+      isMinor: isMinor,
+      onboardedAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+    await repo.upsertProfile(updated);
+    debugPrint('[Auth] onboarding complete for ${updated.username} '
+        '(role=${updated.role.name}, minor=${updated.isMinor})');
+
+    final next = session.copyWith(
+      needsOnboarding: false,
+      role: updated.role,
+    );
+    state = AsyncData(AuthSignedIn(next));
+    return next;
   }
 
   void _handleIncompletePayment(PiPaymentRecord payment) {

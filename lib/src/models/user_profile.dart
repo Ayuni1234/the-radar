@@ -23,6 +23,7 @@ class UserProfile {
     this.rating = 0,
     this.avatarUrl,
     this.updatedAt,
+    this.onboardedAt,
   });
 
   final String id;
@@ -60,6 +61,12 @@ class UserProfile {
   final String? avatarUrl;
   final DateTime? updatedAt;
 
+  /// When the guided onboarding (role → region → profile) was completed.
+  /// Null means the user has not been onboarded yet.
+  final DateTime? onboardedAt;
+
+  bool get needsOnboarding => onboardedAt == null;
+
   bool get isScout => role == UserRole.scout;
   bool get isVerifiedRole =>
       role == UserRole.scout || role == UserRole.club || role == UserRole.academy;
@@ -95,6 +102,7 @@ class UserProfile {
       rating: (json['rating'] as num?)?.toDouble() ?? 0,
       avatarUrl: json['avatar_url']?.toString(),
       updatedAt: DateTime.tryParse((json['updated_at'] ?? '').toString())?.toLocal(),
+      onboardedAt: DateTime.tryParse((json['onboarded_at'] ?? '').toString())?.toLocal(),
     );
   }
 
@@ -117,6 +125,7 @@ class UserProfile {
         if (geohashArea != null) 'geohash_area': geohashArea,
         'rating': rating,
         if (avatarUrl != null) 'avatar_url': avatarUrl,
+        if (onboardedAt != null) 'onboarded_at': onboardedAt!.toIso8601String(),
         'updated_at': (updatedAt ?? DateTime.now()).toIso8601String(),
       };
 
@@ -141,6 +150,7 @@ class UserProfile {
     double? rating,
     String? avatarUrl,
     DateTime? updatedAt,
+    DateTime? onboardedAt,
   }) =>
       UserProfile(
         id: id ?? this.id,
@@ -163,5 +173,6 @@ class UserProfile {
         rating: rating ?? this.rating,
         avatarUrl: avatarUrl ?? this.avatarUrl,
         updatedAt: updatedAt ?? this.updatedAt,
+        onboardedAt: onboardedAt ?? this.onboardedAt,
       );
 }
