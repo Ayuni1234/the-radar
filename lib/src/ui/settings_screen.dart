@@ -7,6 +7,7 @@ import '../models/user_profile.dart';
 import '../state/auth_controller.dart';
 import '../state/radar_providers.dart';
 import '../supabase/supabase_config.dart';
+import 'docs_center_screen.dart';
 import 'sync_center_screen.dart';
 import 'system_health_screen.dart';
 import 'radar_theme.dart';
@@ -66,6 +67,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       appBar: AppBar(
         title: const Text('Account settings'),
         actions: [
+          IconButton(
+            tooltip: 'Documentation & about',
+            icon: const Icon(Icons.menu_book_outlined, size: 20),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                  builder: (_) => const DocsCenterScreen()),
+            ),
+          ),
           IconButton(
             tooltip: 'Data & sync center',
             icon: const Icon(Icons.sync, size: 20),
