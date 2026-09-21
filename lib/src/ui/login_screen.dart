@@ -220,11 +220,15 @@ class _EnvFootnote extends ConsumerWidget {
           ),
         ),
         const SizedBox(width: 8),
-        Text(
-          (pi?.isSdkAvailable ?? false)
-              ? 'Pi SDK ready · $env'
-              : 'Pi SDK absent · demo environment',
-          style: const TextStyle(fontSize: 11.5, color: RadarTheme.textDim),
+        Flexible(
+          child: Text(
+            (pi?.isSdkAvailable ?? false)
+                ? 'Pi SDK ready · $env'
+                : 'Pi SDK absent · demo environment',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 11.5, color: RadarTheme.textDim),
+          ),
         ),
       ],
     );

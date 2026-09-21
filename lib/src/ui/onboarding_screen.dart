@@ -274,7 +274,9 @@ class _RoleStep extends StatelessWidget {
         crossAxisCount: wide ? 3 : 2,
         mainAxisSpacing: 10,
         crossAxisSpacing: 10,
-        childAspectRatio: wide ? 1.35 : 1.15,
+        // Taller cards on narrow surfaces: the role description wraps to
+        // 3 lines + icon without clipping (was 1.15, overflowed by 32px).
+        childAspectRatio: wide ? 1.35 : 0.92,
       ),
       children: [
         for (final role in UserRole.values)

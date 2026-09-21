@@ -97,8 +97,23 @@ Deno.serve(async (req) => {
     });
 
     // 3. Grant entitlement based on the product in payment metadata.
+    // PitchMarket products are NOT entitlements — the buyer's payment is
+    // settled (fee split + merchant A2U payout + stock decrement) by the
+    // dedicated `market-checkout` function, which owns the receipts.
+    const MARKET_PRODUCTS = new Set([
+      "market_gear_purchase",
+      "market_merchant_payout",
+      "market_platform_fee",
+    ]);
     const meta = (payment.metadata ?? {}) as Record<string, unknown>;
     const product = meta.product as string | undefined;
+    if (product != null && MARKET_PRODUCTS.has(product)) {
+      return json({
+        ok: true,
+        payment,
+        note: "market payment — settled by market-checkout",
+      });
+    }
     if (product) {
       await admin.from("entitlements").upsert({
         user_uid: payment.user_uid,

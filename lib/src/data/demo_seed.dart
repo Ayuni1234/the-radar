@@ -2,6 +2,9 @@ import '../analytics/tracking_session.dart';
 import '../models/connection_request.dart';
 import '../models/enums.dart';
 import '../models/feed_post.dart';
+import '../models/market.dart';
+import '../models/market_order.dart';
+import '../models/market_sales.dart';
 import '../models/radar_event.dart';
 import '../models/stream_bounty.dart';
 import '../models/user_profile.dart';
@@ -321,6 +324,14 @@ class DemoSeed {
     streamBounties
       ..clear()
       ..addAll(_seedBounties());
+    marketShops
+      ..clear()
+      ..addAll(_seedMarketShops());
+    marketListings
+      ..clear()
+      ..addAll(_seedMarketListings());
+    marketOrders.clear();
+    marketSales.clear();
   }
 
   /// Applies a status change to a demo request in place; true if found.
@@ -412,6 +423,21 @@ class DemoSeed {
 
   // ------------------------------------------------------------- stream bounties
 
+  // ------------------------------------------------------------- pitch market
+
+  /// Demo merchant storefronts (offline exploration of The PitchMarket).
+  static final List<MarketShop> marketShops = _seedMarketShops();
+
+  /// Demo gear listings (offline exploration of The PitchMarket).
+  static final List<MarketListing> marketListings = _seedMarketListings();
+
+  /// Demo buyer orders (fee-split receipts). Empty until the user runs a
+  /// demo checkout, mirroring a fresh wallet's empty order history.
+  static final List<MarketOrder> marketOrders = <MarketOrder>[];
+
+  /// Demo merchant payout receipts (sales ledger for the seller dashboard).
+  static final List<MarketSale> marketSales = <MarketSale>[];
+
   static final List<StreamBounty> streamBounties = _seedBounties();
 
   static List<StreamBounty> _seedBounties() => <StreamBounty>[
@@ -469,6 +495,94 @@ class DemoSeed {
           watchedMinutes: 94,
           createdAt: DateTime.now().subtract(const Duration(days: 5)),
           completedAt: DateTime.now().subtract(const Duration(days: 3)),
+        ),
+      ];
+
+  // ------------------------------------------------------------- pitch market
+
+  static List<MarketShop> _seedMarketShops() => <MarketShop>[
+        MarketShop(
+          id: 'demo-shop-1',
+          ownerId: 'demo-agent-1',
+          shopName: 'Accra Creator Depot',
+          description:
+              'Pro streaming gear for West-African creators. Same-day pickup '
+              'in Osu, delivery across Greater Accra. Every unit tested '
+              'on-camera.',
+          piUid: 'pi-uid-demo-5',
+          locationArea: 'Accra — Osu',
+          isVerified: true,
+          createdAt: DateTime(2026, 5, 14),
+        ),
+        MarketShop(
+          id: 'demo-shop-2',
+          ownerId: 'demo-scout-1',
+          shopName: 'Valencia Pitch-Side Tech',
+          description:
+              'Gimbals, tripods and lapel mics for pitch-side streaming. '
+              'Ex-rental units, serviced yearly.',
+          piUid: 'pi-uid-demo-2',
+          locationArea: 'Valencia — Ruzafa',
+          isVerified: true,
+          createdAt: DateTime(2026, 6, 30),
+        ),
+      ];
+
+  static List<MarketListing> _seedMarketListings() => <MarketListing>[
+        MarketListing(
+          id: 'demo-listing-1',
+          shopId: 'demo-shop-1',
+          title: 'DJI Osmo Mobile 6 Gimbal',
+          category: 'gimbal',
+          pricePi: 45,
+          condition: 'brand_new',
+          stockQuantity: 3,
+          mediaUrls: <String>['https://images.pi-radar.demo/osmo6-1.jpg'],
+          createdAt: DateTime.now().subtract(const Duration(days: 2)),
+        ),
+        MarketListing(
+          id: 'demo-listing-2',
+          shopId: 'demo-shop-1',
+          title: 'Rode Wireless GO II (dual channel)',
+          category: 'audio',
+          pricePi: 38.5,
+          condition: 'like_new',
+          stockQuantity: 1,
+          mediaUrls: const <String>[],
+          createdAt: DateTime.now().subtract(const Duration(days: 5)),
+        ),
+        MarketListing(
+          id: 'demo-listing-3',
+          shopId: 'demo-shop-2',
+          title: 'Manfrotto Befree GT Pro Tripod',
+          category: 'tripod',
+          pricePi: 29,
+          condition: 'good',
+          stockQuantity: 5,
+          mediaUrls: const <String>[],
+          createdAt: DateTime.now().subtract(const Duration(days: 8)),
+        ),
+        MarketListing(
+          id: 'demo-listing-4',
+          shopId: 'demo-shop-2',
+          title: 'Pixel 8 Pro — streaming spare (256 GB)',
+          category: 'phone',
+          pricePi: 320,
+          condition: 'like_new',
+          stockQuantity: 1,
+          mediaUrls: const <String>[],
+          createdAt: DateTime.now().subtract(const Duration(days: 12)),
+        ),
+        MarketListing(
+          id: 'demo-listing-5',
+          shopId: 'demo-shop-1',
+          title: 'Godox SL60W key light + softbox',
+          category: 'lighting',
+          pricePi: 52.75,
+          condition: 'brand_new',
+          stockQuantity: 2,
+          mediaUrls: const <String>[],
+          createdAt: DateTime.now().subtract(const Duration(days: 15)),
         ),
       ];
 

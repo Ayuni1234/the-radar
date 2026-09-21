@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../models/market_order.dart';
 import '../models/pi_payment.dart';
 import '../models/radar_event.dart';
 import '../pi/pi_service.dart';
 import '../state/auth_controller.dart';
+import '../state/market_providers.dart';
 import '../state/radar_providers.dart';
 import 'bounty_board_screen.dart';
 import 'radar_theme.dart';
@@ -157,6 +159,8 @@ class PaymentsScreen extends ConsumerWidget {
                   const _StatusTimeline(),
                   const SizedBox(height: 24),
                   const _LedgerSection(),
+                  const SizedBox(height: 24),
+                  const _MarketOrdersSection(),
                   if (flow.history.isNotEmpty) ...[
                     const SizedBox(height: 24),
                     const SectionHeader('This session'),
@@ -780,6 +784,128 @@ class _LedgerSection extends ConsumerWidget {
                         color: RadarTheme.gold)),
               ]),
             ),
+      ]),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// PitchMarket orders — completed gear purchases with the fee-split receipt
+// ---------------------------------------------------------------------------
+
+class _MarketOrdersSection extends ConsumerStatefulWidget {
+  const _MarketOrdersSection();
+
+  @override
+  ConsumerState<_MarketOrdersSection> createState() =>
+      _MarketOrdersSectionState();
+}
+
+class _MarketOrdersSectionState
+    extends ConsumerState<_MarketOrdersSection> {
+  @override
+  void initState() {
+    super.initState();
+    Future<void>.microtask(() =>
+        ref.read(myMarketOrdersProvider.notifier).refresh());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final orders = ref.watch(myMarketOrdersProvider).value ?? const <MarketOrder>[];
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: RadarTheme.panel,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: RadarTheme.stroke),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Icon(Icons.storefront, size: 17, color: RadarTheme.pi),
+          const SizedBox(width: 8),
+          const Expanded(
+            child: Text('PitchMarket orders',
+                style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700)),
+          ),
+          if (orders.isNotEmpty)
+            InfoPill(
+              icon: Icons.inventory_2_outlined,
+              label: '${orders.length} gear purchase${orders.length == 1 ? '' : 's'}',
+              color: RadarTheme.pi,
+            ),
+        ]),
+        const SizedBox(height: 4),
+        const Text(
+          'Gear you bought on The PitchMarket — each receipt shows the '
+          'split: core amount to the merchant, maintenance fee to the '
+          'platform treasury.',
+          style: TextStyle(fontSize: 12, color: RadarTheme.textDim, height: 1.4),
+        ),
+        const SizedBox(height: 12),
+        if (orders.isEmpty)
+          const Text(
+            'No gear purchases yet — browse The PitchMarket to grab your '
+            'first streaming setup.',
+            style: TextStyle(fontSize: 12.5, color: RadarTheme.textDim),
+          )
+        else
+          for (final o in orders.take(15)) _MarketOrderTile(order: o),
+      ]),
+    );
+  }
+}
+
+class _MarketOrderTile extends StatelessWidget {
+  const _MarketOrderTile({required this.order});
+
+  final MarketOrder order;
+
+  @override
+  Widget build(BuildContext context) {
+    final df = DateFormat('d MMM yyyy · HH:mm');
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: RadarTheme.panelHigh,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: RadarTheme.stroke),
+      ),
+      child: Row(children: [
+        const Icon(Icons.shopping_bag_outlined,
+            size: 17, color: RadarTheme.radar),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(order.listingTitle,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 2),
+              Text(
+                order.splitLabel,
+                style: const TextStyle(
+                    fontSize: 11, color: RadarTheme.textDim),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '${df.format(order.createdAt)}'
+                '${order.txid != null ? '  ·  txid ${order.txid!.substring(0, min(order.txid!.length, 12))}…' : ''}',
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                    fontSize: 11, color: RadarTheme.textDim),
+              ),
+            ],
+          ),
+        ),
+        Text('${order.amountPi.toStringAsFixed(2)} π',
+            style: const TextStyle(
+                fontWeight: FontWeight.w700, color: RadarTheme.gold)),
       ]),
     );
   }

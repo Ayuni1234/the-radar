@@ -6,6 +6,7 @@ import 'src/ui/connections_screen.dart';
 import 'src/ui/cv_editor_screen.dart';
 import 'src/ui/feed_screen.dart';
 import 'src/ui/login_screen.dart';
+import 'src/ui/market_feed_screen.dart';
 import 'src/ui/onboarding_screen.dart';
 import 'src/ui/payments_screen.dart';
 import 'src/ui/profiles_screen.dart';
@@ -15,16 +16,19 @@ import 'src/ui/safeguarding_screen.dart';
 import 'src/ui/settings_screen.dart';
 import 'src/ui/shell.dart';
 
-/// Main navigation destinations (shared by the rail and bottom bar).
+/// Main navigation destinations (shared by the rail and IndexedStack).
 final List<(String, IconData, Widget)> _destinations = [
   ('Radar', Icons.radar, const RadarMapScreen()),
   ('Feed', Icons.dynamic_feed, const FeedScreen()),
+  ('Market', Icons.storefront, const MarketFeedScreen()),
   ('Players', Icons.groups, const ProfilesScreen()),
   ('Inbox', Icons.connect_without_contact, const ConnectionsScreen()),
   ('My CV', Icons.badge_outlined, const CvEditorScreen()),
   ('Pi Wallet', Icons.account_balance_wallet, const PaymentsScreen()),
   ('Safety', Icons.shield_outlined, const SafeguardingScreen()),
 ];
+
+
 
 void main() {
   runApp(const ProviderScope(child: RadarApp()));
@@ -95,12 +99,19 @@ class SplashGate extends StatelessWidget {
 class HomeShell extends ConsumerStatefulWidget {
   const HomeShell({super.key});
 
+  /// Lets nested screens (e.g. Feed header icons) jump between tabs.
+  static void goTo(BuildContext context, int index) {
+    context.findAncestorStateOfType<_HomeShellState>()?.goTo(index);
+  }
+
   @override
   ConsumerState<HomeShell> createState() => _HomeShellState();
 }
 
 class _HomeShellState extends ConsumerState<HomeShell> {
   int _index = 0;
+
+  void goTo(int i) => setState(() => _index = i);
 
   @override
   Widget build(BuildContext context) {

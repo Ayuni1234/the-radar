@@ -1,11 +1,9 @@
-import 'dart:math' as math;
-
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../models/connection_request.dart';
+import 'city_map_canvas.dart';
 import '../models/enums.dart';
 import '../models/radar_event.dart';
 import '../models/stream_bounty.dart';
@@ -31,7 +29,6 @@ class RadarMapScreen extends ConsumerStatefulWidget {
 
 class _RadarMapScreenState extends ConsumerState<RadarMapScreen> {
   RadarEvent? _selected;
-  String? _hoveredId;
 
   @override
   Widget build(BuildContext context) {
@@ -60,14 +57,18 @@ class _RadarMapScreenState extends ConsumerState<RadarMapScreen> {
               height: 9,
               decoration: const BoxDecoration(
                   color: RadarTheme.radar, shape: BoxShape.circle),
-            ).pulsing(),
+            ),
             const SizedBox(width: 10),
             const Text('LIVE RADAR'),
             const SizedBox(width: 10),
-            Text(
-              '${events.length} active · ${bounties.where((b) => b.isFunded && b.status != 'completed').length} bounties',
-              style: const TextStyle(
-                  fontSize: 12.5, color: RadarTheme.textDim, fontWeight: FontWeight.w400),
+            Flexible(
+              child: Text(
+                '${events.length} active · ${bounties.where((b) => b.isFunded && b.status != 'completed').length} bounties',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                    fontSize: 12.5, color: RadarTheme.textDim, fontWeight: FontWeight.w400),
+              ),
             ),
           ],
         ),
@@ -98,7 +99,9 @@ class _RadarMapScreenState extends ConsumerState<RadarMapScreen> {
               ? Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Expanded(flex: 3, child: _radarCanvas(pins, wide)),
+                    Expanded(
+                        flex: 3,
+                        child: _cityMap(pins, wide, events, bounties)),
                     SizedBox(
                       width: 360,
                       child: _EventSidePanel(
@@ -110,56 +113,67 @@ class _RadarMapScreenState extends ConsumerState<RadarMapScreen> {
                   ],
                 )
               : Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Expanded(child: _radarCanvas(pins, wide)),
-                    SizedBox(
-                      height: 190,
-                      child: _EventStrip(
-                        events: events,
-                        onSelect: (e) => _openEventSheet(context, e),
+                    // Filter chips row sits directly above the map (mock).
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 4, 12, 6),
+                      child: SizedBox(
+                        height: 44,
+                        child: ListView(
+                          scrollDirection: Axis.horizontal,
+                          children: const [
+                            _FilterChips(),
+                          ],
+                        ),
                       ),
                     ),
+                    Expanded(child: _cityMap(pins, wide, events, bounties)),
                   ],
                 ),
     );
   }
 
-  Widget _radarCanvas(List<MapPin> pins, bool wide) {
+  /// The satellite-style city map with semantic marker overlays.
+  Widget _cityMap(List<MapPin> pins, bool wide, List<RadarEvent> events,
+      List<StreamBounty> bounties) {
+    final live = events.where((e) => e.isLive).toList();
+    final scheduled = events.where((e) => !e.isLive).toList();
+    final protectedEvents = events.where((e) => e.isMinorProtected).toList();
+    final activeBounties = bounties
+        .where((b) => b.status == 'funded' || b.status == 'accepted' || b.status == 'live')
+        .toList();
+
     return Container(
-      margin: const EdgeInsets.all(12),
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF0B1120),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: RadarTheme.stroke),
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: RadarCanvasPainterWidget(
-                pins: pins,
-                selectedId: _selected?.id,
-                hoveredId: _hoveredId,
-                onSelect: (pin) {
-                  if (pin.event != null) {
-                    if (wide) {
-                      setState(() => _selected = pin.event);
-                    } else {
-                      _openEventSheet(context, pin.event!);
-                    }
-                  } else if (pin.bounty != null) {
-                    Navigator.of(context).push(MaterialPageRoute(
-                        builder: (_) => const BountyBoardScreen()));
-                  }
-                },
-                onHover: (id) => setState(() => _hoveredId = id),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        children: [
+          const Positioned.fill(child: CityMapCanvas()),
+          Positioned.fill(
+            child: CityMapMarkerLayout(
+              liveEvents: live,
+              scheduledEvents: scheduled,
+              bounties: activeBounties,
+              protectedEvents: protectedEvents,
+              onSelectEvent: (e) {
+                if (wide) {
+                  setState(() => _selected = e);
+                } else {
+                  _openEventSheet(context, e);
+                }
+              },
+              onSelectBounty: (_) => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const BountyBoardScreen()),
               ),
             ),
-            const Positioned(top: 14, left: 14, child: _FilterChips()),
-            const Positioned(bottom: 14, right: 14, child: _ScoutingLegend()),
-          ],
-        ),
+          ),
+          const Positioned(top: 14, right: 14, child: _ScoutingLegend()),
+        ],
       ),
     );
   }
@@ -211,180 +225,6 @@ class _RadarMapScreenState extends ConsumerState<RadarMapScreen> {
       ),
     );
   }
-}
-
-// ---------------------------------------------------------------- canvas
-
-class RadarCanvasPainterWidget extends StatefulWidget {
-  const RadarCanvasPainterWidget({
-    super.key,
-    required this.pins,
-    required this.selectedId,
-    required this.hoveredId,
-    required this.onSelect,
-    required this.onHover,
-  });
-
-  final List<MapPin> pins;
-  final String? selectedId;
-  final String? hoveredId;
-  final ValueChanged<MapPin> onSelect;
-  final ValueChanged<String?> onHover;
-
-  @override
-  State<RadarCanvasPainterWidget> createState() =>
-      _RadarCanvasPainterWidgetState();
-}
-
-class _RadarCanvasPainterWidgetState extends State<RadarCanvasPainterWidget>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _sweep =
-      AnimationController(vsync: this, duration: const Duration(seconds: 5))
-        ..repeat();
-
-  @override
-  void dispose() {
-    _sweep.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return MouseRegion(
-      onHover: (e) => widget.onHover(_hitTest(e.localPosition)),
-      onExit: (PointerExitEvent _) => widget.onHover(null),
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTapUp: (d) {
-          final id = _hitTest(d.localPosition);
-          if (id != null) {
-            final match = widget.pins.where((p) => p.id == id).firstOrNull;
-            if (match != null) widget.onSelect(match);
-          }
-        },
-        child: AnimatedBuilder(
-          animation: _sweep,
-          builder: (context, _) => CustomPaint(
-            painter: _RadarPaint(
-              sweepAngle: _sweep.value * 2 * math.pi,
-              pins: widget.pins,
-              selectedId: widget.selectedId,
-              hoveredId: widget.hoveredId,
-            ),
-            size: Size.infinite,
-          ),
-        ),
-      ),
-    );
-  }
-
-  String? _hitTest(Offset pos) {
-    final size = context.size;
-    if (size == null) return null;
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = math.min(size.width, size.height) / 2 - 24;
-    for (final blip in layoutPins(widget.pins, center, radius)) {
-      if ((blip.$2 - pos).distance <= 18) return blip.$1.id;
-    }
-    return null;
-  }
-}
-
-
-class _RadarPaint extends CustomPainter {
-  _RadarPaint({
-    required this.sweepAngle,
-    required this.pins,
-    required this.selectedId,
-    required this.hoveredId,
-  });
-
-  final double sweepAngle;
-  final List<MapPin> pins;
-  final String? selectedId;
-  final String? hoveredId;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = math.min(size.width, size.height) / 2 - 24;
-
-    // Concentric rings + cross hairs.
-    final ring = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1
-      ..color = RadarTheme.stroke.withValues(alpha: 0.55);
-    for (final f in const [0.25, 0.5, 0.75, 1.0]) {
-      canvas.drawCircle(center, radius * f, ring);
-    }
-    canvas.drawLine(Offset(center.dx - radius, center.dy),
-        Offset(center.dx + radius, center.dy), ring);
-    canvas.drawLine(Offset(center.dx, center.dy - radius),
-        Offset(center.dx, center.dy + radius), ring);
-
-    // Sweep gradient.
-    final sweepRect = Rect.fromCircle(center: center, radius: radius);
-    final sweepPaint = Paint()
-      ..shader = SweepGradient(
-        colors: [
-          RadarTheme.radar.withValues(alpha: 0.0),
-          RadarTheme.radar.withValues(alpha: 0.16),
-          RadarTheme.radar.withValues(alpha: 0.30),
-        ],
-        stops: const [0.55, 0.85, 1.0],
-        transform: GradientRotation(sweepAngle - math.pi / 2),
-      ).createShader(sweepRect);
-    canvas.drawCircle(center, radius, sweepPaint);
-
-    // Center "you are here".
-    final youAreHere = Paint()..color = RadarTheme.radar;
-    canvas.drawCircle(center, 5, youAreHere);
-    canvas.drawCircle(center, 10, youAreHere..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6));
-
-    // Scouting-map blips, color-coded by the pin convention:
-    // 🟢 live now · 🟡 scheduled · 🔴 active bounty.
-    for (final (pin, pos) in layoutPins(pins, center, radius)) {
-      final isSel = pin.id == selectedId;
-      final isHov = pin.id == hoveredId;
-      final color = pin.color;
-
-      if (pin.isBoosted) {
-        canvas.drawCircle(
-            pos, 15, Paint()..color = RadarTheme.gold.withValues(alpha: 0.14));
-      }
-      if (isSel || isHov) {
-        canvas.drawCircle(
-            pos, 20, Paint()..color = color.withValues(alpha: 0.14));
-      }
-
-      // Bounties pulse: double ring.
-      if (pin.kind == PinKind.bounty) {
-        canvas.drawCircle(
-            pos, 15, Paint()..color = color.withValues(alpha: 0.22));
-      }
-
-      final blip = Paint()
-        ..color = color.withValues(alpha: pin.kind == PinKind.liveNow ? 1 : 0.78);
-      canvas.drawCircle(pos, isSel ? 8 : 6, blip);
-      canvas.drawCircle(
-          pos, 12, Paint()..color = color.withValues(alpha: 0.18));
-
-      if (pin.isMinorProtected) {
-        final shield = Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.4
-          ..color = RadarTheme.textDim;
-        canvas.drawCircle(pos, 13, shield);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _RadarPaint old) =>
-      old.sweepAngle != sweepAngle ||
-      old.selectedId != selectedId ||
-      old.hoveredId != hoveredId ||
-      old.pins != pins;
 }
 
 /// Map legend: the scouting color code from the spec.
@@ -548,79 +388,6 @@ class _FilterChips extends ConsumerWidget {
 
 // ----------------------------------------------------------------- panels
 
-class _EventSidePanel extends StatelessWidget {
-  const _EventSidePanel({
-    required this.events,
-    required this.selected,
-    required this.onSelect,
-  });
-
-  final List<RadarEvent> events;
-  final RadarEvent? selected;
-  final ValueChanged<RadarEvent> onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(0, 12, 12, 12),
-      decoration: BoxDecoration(
-        color: RadarTheme.panel,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: RadarTheme.stroke),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-            child: SectionHeader('Event feed',
-                trailing: Text('${events.length}',
-                    style: const TextStyle(color: RadarTheme.textDim))),
-          ),
-          Expanded(
-            child: events.isEmpty
-                ? const Center(
-                    child: Text('No events match the current filters.',
-                        style: TextStyle(color: RadarTheme.textDim)))
-                : ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                    itemCount: events.length,
-                    itemBuilder: (context, i) {
-                      final e = events[i];
-                      return _EventCard(
-                        event: e,
-                        selected: e.id == selected?.id,
-                        onTap: () => onSelect(e),
-                      );
-                    },
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _EventStrip extends StatelessWidget {
-  const _EventStrip({required this.events, required this.onSelect});
-
-  final List<RadarEvent> events;
-  final ValueChanged<RadarEvent> onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView.builder(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-      itemCount: events.length,
-      itemBuilder: (context, i) => SizedBox(
-        width: 280,
-        child: _EventCard(event: events[i], selected: false, onTap: () => onSelect(events[i])),
-      ),
-    );
-  }
-}
-
 class _EventCard extends StatelessWidget {
   const _EventCard({
     required this.event,
@@ -648,8 +415,7 @@ class _EventCard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Icon(event.type.icon,
-                      size: 15, color: RadarTheme.radar),
+                  Icon(event.type.icon, size: 15, color: RadarTheme.radar),
                   const SizedBox(width: 7),
                   Expanded(
                     child: Text(
@@ -701,6 +467,59 @@ class _EventCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _EventSidePanel extends StatelessWidget {
+  const _EventSidePanel({
+    required this.events,
+    required this.selected,
+    required this.onSelect,
+  });
+
+  final List<RadarEvent> events;
+  final RadarEvent? selected;
+  final ValueChanged<RadarEvent> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(0, 12, 12, 12),
+      decoration: BoxDecoration(
+        color: RadarTheme.panel,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: RadarTheme.stroke),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+            child: SectionHeader('Event feed',
+                trailing: Text('${events.length}',
+                    style: const TextStyle(color: RadarTheme.textDim))),
+          ),
+          Expanded(
+            child: events.isEmpty
+                ? const Center(
+                    child: Text('No events match the current filters.',
+                        style: TextStyle(color: RadarTheme.textDim)))
+                : ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                    itemCount: events.length,
+                    itemBuilder: (context, i) {
+                      final e = events[i];
+                      return _EventCard(
+                        event: e,
+                        selected: e.id == selected?.id,
+                        onTap: () => onSelect(e),
+                      );
+                    },
+                  ),
+          ),
+        ],
       ),
     );
   }
@@ -908,15 +727,4 @@ class Bullet extends StatelessWidget {
   }
 }
 
-extension _Pulse on Widget {
-  Widget pulsing() {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0.6, end: 1),
-      duration: const Duration(milliseconds: 900),
-      curve: Curves.easeInOut,
-      builder: (context, v, child) =>
-          Opacity(opacity: v, child: Transform.scale(scale: v, child: child)),
-      onEnd: () {},
-    );
-  }
-}
+

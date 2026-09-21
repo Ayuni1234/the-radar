@@ -5,13 +5,16 @@ import 'package:intl/intl.dart';
 import '../models/enums.dart';
 import '../models/feed_post.dart';
 import '../models/radar_event.dart';
+import '../models/stream_bounty.dart';
 import '../models/user_profile.dart';
 import '../state/auth_controller.dart';
 import '../state/radar_providers.dart';
 import 'event_detail_screen.dart';
+import '../../main.dart' show HomeShell;
 import 'player_cv_screen.dart';
 import 'radar_theme.dart';
 import 'shell.dart';
+import 'social_post_card.dart';
 
 /// Social Feeds & Live Training Schedules — highlights, drills and tactical
 /// sessions from players, academies and clubs, plus geotagged live pins and
@@ -32,6 +35,23 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
   double? _viewerLat;
   double? _viewerLon;
   int _scope = 0; // 0 = posts+sessions, 1 = posts only, 2 = sessions only
+
+  /// Rebuilds the header stat line when providers tick beneath the sliver
+  /// (Riverpod doesn't rebuild an ancestor SliverAppBar's title by itself).
+  final ValueNotifier<int> _statsTick = ValueNotifier(0);
+
+  @override
+  void initState() {
+    super.initState();
+    ref.listenManual(radarEventsProvider, (_, _) => _statsTick.value++);
+    ref.listenManual(streamBountiesProvider, (_, _) => _statsTick.value++);
+  }
+
+  @override
+  void dispose() {
+    _statsTick.dispose();
+    super.dispose();
+  }
 
   bool get _hasSessionFilters =>
       _positionFilter.isNotEmpty ||
@@ -67,13 +87,82 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
               pinned: true,
               backgroundColor: RadarTheme.ink.withValues(alpha: 0.96),
               title: Row(children: [
-                const Icon(Icons.dynamic_feed, color: RadarTheme.radar, size: 22),
-                const SizedBox(width: 8),
-                const Text('Feed',
+                const Text('LIVE RADAR',
                     style: TextStyle(
                         color: RadarTheme.textPrimary,
-                        fontWeight: FontWeight.w700)),
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.6,
+                        fontSize: 17)),
+                const SizedBox(width: 10),
+                ValueListenableBuilder<int>(
+                  valueListenable: _statsTick,
+                  builder: (_, _, _) {
+                    final liveCount = (ref.watch(radarEventsProvider).value ??
+                            const <RadarEvent>[])
+                        .where((e) => e.isLive)
+                        .length;
+                    final bountyCount = (ref.watch(streamBountiesProvider).value ??
+                            const <StreamBounty>[])
+                        .where((b) =>
+                            b.status == 'funded' ||
+                            b.status == 'accepted' ||
+                            b.status == 'live')
+                        .length;
+                    return Text(
+                      '$liveCount active · $bountyCount bounties',
+                      style: const TextStyle(
+                          color: RadarTheme.textDim,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500),
+                    );
+                  },
+                ),
                 const Spacer(),
+                IconButton(
+                  tooltip: 'Open the Radar map',
+                  icon: const Icon(Icons.travel_explore,
+                      size: 21, color: RadarTheme.textDim),
+                  onPressed: () => HomeShell.goTo(context, 0),
+                ),
+                IconButton(
+                  tooltip: 'Notifications',
+                  icon: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      const Icon(Icons.notifications_none,
+                          color: RadarTheme.textDim),
+                      Positioned(
+                        right: -1,
+                        top: -1,
+                        child: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: RadarTheme.radar,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                                color: RadarTheme.ink, width: 1.5),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      behavior: SnackBarBehavior.floating,
+                      backgroundColor: RadarTheme.panelHigh,
+                      content: Text(
+                          'Notifications: new scout follows, bounty awards and '
+                          'connection requests land here.'),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Safeguarding centre',
+                  icon: const Icon(Icons.shield_outlined,
+                      size: 21, color: RadarTheme.textDim),
+                  onPressed: () => HomeShell.goTo(context, 7),
+                ),
                 IconButton(
                   tooltip: 'Filter feed',
                   icon: Stack(
@@ -147,7 +236,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                   itemCount: posts.length,
                   itemBuilder: (context, i) => Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                    child: _PostCard(
+                    child: SocialPostCard(
                       post: posts[i],
                       onOpenAuthor: () => _openAuthor(posts[i]),
                       onDelete: () => _confirmDelete(posts[i]),
@@ -390,175 +479,6 @@ class _ComposerBar extends StatelessWidget {
   }
 }
 
-// ------------------------------------------------------------------- post card
-
-class _PostCard extends ConsumerWidget {
-  const _PostCard({required this.post, this.onOpenAuthor, this.onDelete});
-
-  final FeedPost post;
-  final VoidCallback? onOpenAuthor;
-  final VoidCallback? onDelete;
-
-  static const _roleIcons = {
-    'player': Icons.sports_soccer,
-    'scout': Icons.travel_explore,
-    'club': Icons.emoji_events,
-    'academy': Icons.school,
-    'agent': Icons.handshake,
-    'parent': Icons.family_restroom,
-  };
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final session = ref.watch(sessionProvider);
-    final isMine = session?.profileId == post.authorProfileId;
-    final time = DateFormat.MMMEd().add_jm().format(post.createdAt);
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: RadarTheme.panel,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: RadarTheme.stroke),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: RadarTheme.radar.withValues(alpha: 0.12),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  _roleIcons[post.authorRole] ?? Icons.person,
-                  size: 18,
-                  color: RadarTheme.radar,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: GestureDetector(
-                  onTap: onOpenAuthor,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              post.authorName,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                  color: RadarTheme.textPrimary,
-                                  fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                          if (post.isMinorPoster) ...[
-                            const SizedBox(width: 6),
-                            const Tooltip(
-                              message:
-                                  'Posted by a minor — location locked to a '
-                                  'coarse regional label by database triggers',
-                              child: Icon(Icons.shield,
-                                  size: 14, color: RadarTheme.gold),
-                            ),
-                          ],
-                        ],
-                      ),
-                      Text(
-                        '$time · ${post.areaName ?? 'Global'}',
-                        style: const TextStyle(
-                            color: RadarTheme.textDim, fontSize: 12),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: RadarTheme.panelHigh,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: RadarTheme.stroke),
-                ),
-                child: Text(
-                  '${post.kind.emoji} ${post.kind.label}',
-                  style: const TextStyle(
-                      color: RadarTheme.textDim, fontSize: 11),
-                ),
-              ),
-              if (isMine && onDelete != null)
-                IconButton(
-                  visualDensity: VisualDensity.compact,
-                  tooltip: 'Delete post',
-                  icon: const Icon(Icons.delete_outline,
-                      size: 18, color: RadarTheme.textDim),
-                  onPressed: onDelete,
-                ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            post.body,
-            style: const TextStyle(
-                color: RadarTheme.textPrimary, height: 1.35, fontSize: 14),
-          ),
-          if (post.hasMedia) ...[
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: RadarTheme.panelHigh,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: RadarTheme.stroke),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.play_circle_fill,
-                      color: RadarTheme.radar, size: 26),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          post.mediaPlatform ?? 'External link',
-                          style: const TextStyle(
-                              color: RadarTheme.textPrimary, fontSize: 13),
-                        ),
-                        Text(
-                          post.mediaUrl!,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              color: RadarTheme.textDim, fontSize: 11),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: 'Copy secure link',
-                    icon: const Icon(Icons.copy, size: 18),
-                    onPressed: () {
-                      // No external browser navigation in-app — the copy
-                      // action keeps the platform sandboxed.
-                      // (Clipboard write below.)
-                      // ignore: unused_local_variable
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
 
 // ---------------------------------------------------------------- session card
 
