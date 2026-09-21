@@ -10,6 +10,7 @@ class PiConfig {
   const PiConfig({
     required this.sdkVersion,
     required this.enabled,
+    required this.sandbox,
     this.scopes = defaultScopes,
   });
 
@@ -19,6 +20,15 @@ class PiConfig {
   /// Master switch. When false the UI offers the demo fallback login.
   final bool enabled;
 
+  /// Testnet sandbox mode. While the app is being polished all payments
+  /// settle on **Pi Testnet** (the SDK's sandbox flag) — flip to false for
+  /// the Mainnet launch once the app is fully verified.
+  ///
+  /// Build with:
+  ///   --dart-define=PI_SANDBOX=false   (Mainnet / production)
+  ///   (default: true — Testnet)
+  final bool sandbox;
+
   /// Scopes requested during `Pi.authenticate`.
   final List<String> scopes;
 
@@ -27,11 +37,11 @@ class PiConfig {
     'payments',
   ];
 
-  /// The app's Pi environment. The SDK's `sandbox` init flag is intentionally
-  /// absent (official v2.0 standard); plain browsers without `window.Pi`
-  /// fall back to demo mode at runtime.
-  static const PiConfig current = PiConfig(
+  /// The app's Pi environment. Plain browsers without `window.Pi` fall back
+  /// to demo mode at runtime.
+  static final PiConfig current = PiConfig(
     sdkVersion: '2.0',
     enabled: true,
+    sandbox: const bool.fromEnvironment('PI_SANDBOX', defaultValue: true),
   );
 }

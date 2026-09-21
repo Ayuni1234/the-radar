@@ -11,6 +11,7 @@ import '../state/auth_controller.dart';
 import '../state/radar_providers.dart';
 import 'event_detail_screen.dart';
 import '../../main.dart' show HomeShell;
+import '../data/media_upload_service.dart';
 import 'player_cv_screen.dart';
 import 'radar_theme.dart';
 import 'safeguarding_screen.dart';
@@ -593,6 +594,11 @@ class _ComposerSheetState extends ConsumerState<_ComposerSheet> {
   final _areaCtrl = TextEditingController();
   FeedPostKind _kind = FeedPostKind.highlight;
   bool _busy = false;
+  bool _uploading = false;
+  String? _uploadError;
+  String? _uploadedPlatform;
+  String? _uploadedMediaKind;
+  int? _uploadedDurationSeconds;
 
   static const _platforms = {
     'youtube.com': 'YouTube',
@@ -611,6 +617,77 @@ class _ComposerSheetState extends ConsumerState<_ComposerSheet> {
     return 'External link';
   }
 
+  Future<void> _uploadVideo() async {
+    setState(() {
+      _uploading = true;
+      _uploadError = null;
+    });
+    try {
+      final res = await MediaUploadService.instance.pickAndUpload(video: true);
+      if (!mounted) return;
+      if (res == null) {
+        setState(() => _uploading = false);
+        return;
+      }
+      setState(() {
+        _uploading = false;
+        _mediaCtrl.text = res.publicUrl;
+        _uploadedMediaKind = res.mediaKind;
+        _uploadedDurationSeconds = res.durationSeconds;
+        _uploadedPlatform = res.durationSeconds != null
+            ? 'device video · ${res.durationSeconds! ~/ 60}:${(res.durationSeconds! % 60).toString().padLeft(2, '0')}'
+            : 'device photo';
+      });
+    } on MediaUploadException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _uploading = false;
+        _uploadError = e.reason;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _uploading = false;
+        _uploadError = 'Upload failed — check your connection and retry.';
+      });
+    }
+  }
+
+  Future<void> _uploadImage() async {
+    setState(() {
+      _uploading = true;
+      _uploadError = null;
+    });
+    try {
+      final res =
+          await MediaUploadService.instance.pickAndUpload(video: false);
+      if (!mounted) return;
+      if (res == null) {
+        setState(() => _uploading = false);
+        return;
+      }
+      setState(() {
+        _uploading = false;
+        _mediaCtrl.text = res.publicUrl;
+        _uploadedMediaKind = res.mediaKind;
+        _uploadedDurationSeconds = null;
+        _uploadedPlatform = 'device photo';
+      });
+    } on MediaUploadException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _uploading = false;
+        _uploadError = e.reason;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _uploading = false;
+        _uploadError = 'Upload failed — check your connection and retry.';
+      });
+    }
+  }
+
   @override
   void dispose() {
     _bodyCtrl.dispose();
@@ -626,7 +703,9 @@ class _ComposerSheetState extends ConsumerState<_ComposerSheet> {
           kind: _kind,
           body: _bodyCtrl.text,
           mediaUrl: _mediaCtrl.text,
-          mediaPlatform: _platform,
+          mediaPlatform: _uploadedMediaKind != null ? _uploadedPlatform : _platform,
+          mediaKind: _uploadedMediaKind,
+          mediaDurationSeconds: _uploadedDurationSeconds,
           areaName: _areaCtrl.text,
         );
     if (!mounted) return;
@@ -696,11 +775,72 @@ class _ComposerSheetState extends ConsumerState<_ComposerSheet> {
               controller: _mediaCtrl,
               style: const TextStyle(color: RadarTheme.textPrimary),
               decoration: const InputDecoration(
-                hintText: 'Highlight link (YouTube / Vimeo / Pi Media / Drive)',
+                hintText: '…or paste a highlight link (YouTube / Vimeo)',
                 prefixIcon: Icon(Icons.link, size: 20),
               ),
-              onChanged: (_) => setState(() {}),
+              onChanged: (_) => setState(() {
+                // A hand-pasted link replaces any device upload metadata.
+                _uploadedMediaKind = null;
+                _uploadedDurationSeconds = null;
+              }),
             ),
+            const SizedBox(height: 10),
+            // Device uploads: video is capped at 3 minutes so scouts can
+            // review quick highlights before committing to a live session.
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _busy || _uploading ? null : _uploadVideo,
+                    icon: _uploading
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.videocam, size: 18),
+                    label: const Text('Upload video ≤ 3 min',
+                        overflow: TextOverflow.ellipsis),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _busy || _uploading ? null : _uploadImage,
+                    icon: const Icon(Icons.image, size: 18),
+                    label: const Text('Upload photo',
+                        overflow: TextOverflow.ellipsis),
+                  ),
+                ),
+              ],
+            ),
+            if (_uploadedPlatform != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Row(
+                  children: [
+                    const Icon(Icons.check_circle,
+                        size: 16, color: RadarTheme.radar),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Media attached ($_uploadedPlatform) — it publishes '
+                        'with your post',
+                        style: const TextStyle(
+                            fontSize: 12, color: RadarTheme.radar),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            if (_uploadError != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  _uploadError!,
+                  style: const TextStyle(
+                      fontSize: 12, color: RadarTheme.alert, height: 1.3),
+                ),
+              ),
             const SizedBox(height: 10),
             TextField(
               controller: _areaCtrl,

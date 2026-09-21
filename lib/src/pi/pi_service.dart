@@ -186,13 +186,19 @@ class PiService {
 
   PiSdkApi _resolveSdk() => _sdkOverride ?? piSdk;
 
-  /// `Pi.init({ version: '2.0' })` — idempotent and failure-tolerant.
+  /// `Pi.init({ version: '2.0', sandbox })` — idempotent and
+  /// failure-tolerant. The sandbox flag routes every payment to Pi Testnet
+  /// until the Mainnet launch (flip PI_SANDBOX=false at build time).
   Future<bool> init() async {
     if (_initialized) return true;
-    final ok = _resolveSdk().init(version: PiConfig.current.sdkVersion);
+    final ok = _resolveSdk().init(
+      version: PiConfig.current.sdkVersion,
+      sandbox: PiConfig.current.sandbox,
+    );
     _initialized = ok;
     debugPrint('[Pi] init ${ok ? 'ok' : 'unavailable'} '
-        '(version=${PiConfig.current.sdkVersion})');
+        '(version=${PiConfig.current.sdkVersion}, '
+        'network=${PiConfig.current.sandbox ? 'testnet' : 'mainnet'})');
     return ok;
   }
 

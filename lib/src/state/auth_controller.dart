@@ -20,6 +20,7 @@ class RadarSession {
     required this.username,
     required this.kycVerified,
     required this.isDemo,
+    this.displayName,
     this.profileId,
     this.accessToken,
     this.sessionToken,
@@ -33,6 +34,9 @@ class RadarSession {
   final String piUid;
   final String username;
   final bool kycVerified;
+
+  /// Pi-identity display name — falls back to the verified [username].
+  final String? displayName;
 
   /// True when signed in through the offline demo fallback instead of the
   /// real Pi SDK.
@@ -63,6 +67,7 @@ class RadarSession {
   RadarSession copyWith({
     String? piUid,
     String? username,
+    String? displayName,
     bool? kycVerified,
     bool? isDemo,
     String? profileId,
@@ -77,6 +82,7 @@ class RadarSession {
       RadarSession(
         piUid: piUid ?? this.piUid,
         username: username ?? this.username,
+        displayName: displayName ?? this.displayName,
         kycVerified: kycVerified ?? this.kycVerified,
         isDemo: isDemo ?? this.isDemo,
         profileId: profileId ?? this.profileId,
@@ -224,6 +230,12 @@ class AuthController extends AsyncNotifier<AuthState> {
     return RadarSession(
       piUid: outcome.piUid,
       username: outcome.username,
+      // Pi-identity auto-sync: the verified Pi username seeds the display
+      // name, so returning users never re-enter who they are. The onboarding
+      // name step is optional and prefilled (no redundant manual entry).
+      displayName: profile.displayName?.isNotEmpty == true
+          ? profile.displayName
+          : outcome.username,
       kycVerified: profile.kycVerified,
       isDemo: !SupabaseConfig.available,
       profileId: profile.id,
@@ -277,9 +289,13 @@ class AuthController extends AsyncNotifier<AuthState> {
       id: session.profileId ?? profile.id,
       piUid: session.piUid,
       role: role,
+      // Pi-identity sync: an empty name field keeps the Pi-verified display
+      // name (username) — no forced manual name entry.
       displayName: (displayName?.trim().isNotEmpty ?? false)
           ? displayName!.trim()
-          : profile.displayName,
+          : (profile.displayName?.isNotEmpty == true
+              ? profile.displayName
+              : session.username),
       bio: bio?.trim(),
       country: country?.trim(),
       city: city?.trim(),

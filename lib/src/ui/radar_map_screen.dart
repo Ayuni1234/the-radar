@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../models/connection_request.dart';
-import 'city_map_canvas.dart';
 import '../models/enums.dart';
 import '../models/radar_event.dart';
 import '../models/stream_bounty.dart';
@@ -11,6 +10,7 @@ import '../models/user_profile.dart';
 import '../state/radar_providers.dart';
 import 'bounty_board_screen.dart';
 import 'event_composer_screen.dart';
+import 'live_event_map.dart';
 import 'event_detail_screen.dart';
 import 'map_pins.dart';
 import 'profiles_screen.dart';
@@ -153,9 +153,10 @@ class _RadarMapScreenState extends ConsumerState<RadarMapScreen> {
       clipBehavior: Clip.antiAlias,
       child: Stack(
         children: [
-          const Positioned.fill(child: CityMapCanvas()),
+          // Live real-world map (OSM tiles + geolocated markers); falls back
+          // to the painted city canvas internally when tiles are unreachable.
           Positioned.fill(
-            child: CityMapMarkerLayout(
+            child: LiveEventMap(
               liveEvents: live,
               scheduledEvents: scheduled,
               bounties: activeBounties,

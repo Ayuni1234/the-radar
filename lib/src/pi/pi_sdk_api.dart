@@ -79,8 +79,9 @@ abstract interface class PiSdkApi {
   /// Whether the SDK global exists (only true inside the Pi Browser).
   bool isAvailable();
 
-  /// `Pi.init({ version: '2.0' })` — idempotent.
-  bool init({required String version});
+  /// `Pi.init({ version: '2.0', sandbox })` — idempotent. [sandbox]
+  /// routes payments to the Pi Testnet (validation phase).
+  bool init({required String version, bool sandbox = false});
 
   /// `Pi.authenticate(scopes, onIncompletePaymentFound)`.
   Future<PiAuthData> authenticate({

@@ -22,7 +22,7 @@ import 'pi_sdk_api.dart';
 @staticInterop
 @anonymous
 class _PiInitOptions {
-  external factory _PiInitOptions({JSString version});
+  external factory _PiInitOptions({JSString version, JSBoolean? sandbox});
 }
 
 @JS()
@@ -116,13 +116,17 @@ class PiSdkWeb implements PiSdkApi {
   bool isAvailable() => _sdk() != null;
 
   @override
-  bool init({required String version}) {
+  bool init({required String version, bool sandbox = false}) {
     if (_initialized) return true;
     final pi = _sdk();
     if (pi == null) return false;
     try {
-      // Official v2.0 standard: Pi.init({ version: "2.0" }).
-      pi.init(_PiInitOptions(version: version.toJS));
+      // Pi.init({ version: "2.0", sandbox }) — sandbox routes every
+      // payment to the Pi Testnet while the app is in validation.
+      pi.init(_PiInitOptions(
+        version: version.toJS,
+        sandbox: sandbox.toJS,
+      ));
       _initialized = true;
       return true;
     } catch (_) {

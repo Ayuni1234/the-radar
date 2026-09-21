@@ -35,9 +35,19 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final _cityCtrl = TextEditingController();
   bool _isMinor = false;
 
-  // Step 3 — profile.
-  final _nameCtrl = TextEditingController();
+  // Step 3 — profile. Prefilled from the Pi identity: the verified Pi
+  // username seeds the display name, so there is no redundant manual
+  // name-entry requirement (the field is optional and editable).
+  late final _nameCtrl = TextEditingController(text: _piDisplayName());
   final _bioCtrl = TextEditingController();
+
+  String _piDisplayName() {
+    final auth = ref.read(authProvider).value;
+    if (auth is AuthSignedIn) {
+      return auth.session.displayName ?? auth.session.username;
+    }
+    return '';
+  }
 
   @override
   void dispose() {
@@ -55,7 +65,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       case 1:
         return _countryCtrl.text.trim().isNotEmpty;
       default:
-        return _nameCtrl.text.trim().isNotEmpty;
+        // Name is prefilled from Pi identity; step 3 only asks for an
+        // (optional) short bio — always passable.
+        return true;
     }
   }
 
@@ -212,13 +224,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 const _titles = <String>[
   'Join The Radar',
   'Where do you scout for talent?',
-  'Set up your profile',
+  'Your Pi profile is ready',
 ];
 
 const _subtitles = <String>[
   'Pick your role in the football ecosystem — it shapes what you see and do.',
   'We anchor you to local sessions, trials and regional talent pools.',
-  'A display name and short bio help others find and trust you.',
+  'We pulled your name from Pi. Tweak it or add a short bio — optional.',
 ];
 
 class _ProgressDots extends StatelessWidget {

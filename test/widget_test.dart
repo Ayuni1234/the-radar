@@ -58,8 +58,8 @@ void main() {
     await tester.tap(find.text('Continue'));
     await tester.pump(const Duration(milliseconds: 250));
 
-    // Step 3 — display name is required.
-    expect(find.text('Set up your profile'), findsOneWidget);
+    // Step 3 — Pi identity prefills the name; bio is optional.
+    expect(find.text('Your Pi profile is ready'), findsOneWidget);
     await tester.ensureVisible(find.byKey(const ValueKey('onboarding-name')));
     await tester.pump(const Duration(milliseconds: 200));
     await tester.enterText(

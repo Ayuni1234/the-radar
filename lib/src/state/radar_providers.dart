@@ -786,6 +786,8 @@ class FeedPostsController extends AsyncNotifier<List<FeedPost>> {
     required String body,
     String? mediaUrl,
     String? mediaPlatform,
+    String? mediaKind,
+    int? mediaDurationSeconds,
     String? areaName,
     double? latitude,
     double? longitude,
@@ -804,6 +806,8 @@ class FeedPostsController extends AsyncNotifier<List<FeedPost>> {
       mediaUrl: (mediaUrl?.trim().isEmpty ?? true) ? null : mediaUrl!.trim(),
       mediaPlatform:
           (mediaPlatform?.trim().isEmpty ?? true) ? null : mediaPlatform!.trim(),
+      mediaKind: mediaKind,
+      mediaDurationSeconds: mediaDurationSeconds,
       areaName: (areaName?.trim().isEmpty ?? true) ? null : areaName!.trim(),
       latitude: latitude,
       longitude: longitude,

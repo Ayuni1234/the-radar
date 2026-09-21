@@ -34,6 +34,8 @@ class FeedPost {
     required this.createdAt,
     this.mediaUrl,
     this.mediaPlatform,
+    this.mediaKind,
+    this.mediaDurationSeconds,
     this.areaName,
     this.latitude,
     this.longitude,
@@ -54,6 +56,12 @@ class FeedPost {
   /// Recognized host of [mediaUrl], e.g. 'YouTube'.
   final String? mediaPlatform;
 
+  /// 'link' (external embed), 'device_video' or 'device_photo' (uploads).
+  final String? mediaKind;
+
+  /// Device-video length in seconds — always ≤ 180 (the 3-minute cap).
+  final int? mediaDurationSeconds;
+
   /// Coarse area label — the only location a post is allowed to show.
   final String? areaName;
   final double? latitude;
@@ -62,6 +70,9 @@ class FeedPost {
 
   bool get hasMedia => mediaUrl != null && mediaUrl!.isNotEmpty;
   bool get hasLocation => latitude != null && longitude != null;
+
+  /// True when [mediaUrl] is a device-uploaded video (≤ 3 min highlight).
+  bool get isDeviceVideo => mediaKind == 'device_video';
 
   Map<String, Object?> toJson() => {
         'author_profile_id': authorProfileId,
@@ -72,6 +83,8 @@ class FeedPost {
         'media_url': (mediaUrl?.isEmpty ?? true) ? null : mediaUrl,
         'media_platform':
             (mediaPlatform?.isEmpty ?? true) ? null : mediaPlatform,
+        'media_kind': mediaKind,
+        'media_duration_s': mediaDurationSeconds,
         'area_name': (areaName?.isEmpty ?? true) ? null : areaName,
         'latitude': latitude,
         'longitude': longitude,
@@ -95,6 +108,8 @@ class FeedPost {
           DateTime.now(),
       mediaUrl: str(json['media_url']),
       mediaPlatform: str(json['media_platform']),
+      mediaKind: str(json['media_kind']),
+      mediaDurationSeconds: (json['media_duration_s'] as num?)?.toInt(),
       areaName: str(json['area_name']),
       latitude: (json['latitude'] as num?)?.toDouble(),
       longitude: (json['longitude'] as num?)?.toDouble(),
