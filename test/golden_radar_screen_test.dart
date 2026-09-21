@@ -16,7 +16,13 @@ import 'package:the_radar/src/ui/city_map_canvas.dart';
 // Run:  flutter test test/golden_radar_screen_test.dart --name capture
 //       (add --update-goldens to (re)generate the PNG)
 void main() {
-  testWidgets('capture: radar tab screenshot', (tester) async {
+  // Tagged `golden-capture`: pixel goldens are OS/renderer-dependent, so this
+  // is excluded from CI (ubuntu runner) and runs only on the machine that
+  // regenerates the capture: flutter test --name capture --update-goldens.
+  testWidgets(
+    'capture: radar tab screenshot',
+    tags: ['golden-capture'],
+    (tester) async {
     await tester.binding.setSurfaceSize(const Size(412, 892));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -63,5 +69,6 @@ void main() {
       find.byType(RadarApp),
       matchesGoldenFile('goldens/radar_tab.png'),
     );
-  });
+    },
+  );
 }

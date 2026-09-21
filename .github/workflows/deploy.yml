@@ -13,7 +13,11 @@ jobs:
         with:
           channel: stable
       - run: flutter pub get
-      - run: flutter analyze
+      # Test gate: broken builds never publish. Excludes the OS-dependent
+      # golden capture test (pixel goldens are generated on dev machines;
+      # see dart_test.yaml for why).
+      - name: Test
+        run: flutter test --exclude-tags=golden-capture
       - run: flutter build web --release --wasm --base-href "/the-radar/" --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }} --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
       - uses: peaceiris/actions-gh-pages@v4
         with:
