@@ -7,8 +7,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:the_radar/main.dart';
 import 'package:the_radar/src/models/enums.dart';
 import 'package:the_radar/src/state/auth_controller.dart';
-import 'package:the_radar/src/ui/city_map_canvas.dart';
+import 'package:the_radar/src/ui/live_event_map.dart';
 import 'package:the_radar/src/ui/radar_map_screen.dart';
+
+import 'helpers/mock_path_provider.dart';
 
 // Golden-style capture: signs in through the auth controller (bypassing the
 // onboarding wizard's phone-width overflows), lands on the Radar tab and
@@ -17,6 +19,8 @@ import 'package:the_radar/src/ui/radar_map_screen.dart';
 // Run:  flutter test test/golden_radar_screen_test.dart --name capture
 //       (add --update-goldens to (re)generate the PNG)
 void main() {
+  mockPathProviderForMapCache();
+
   // Tagged `golden-capture`: pixel goldens are OS/renderer-dependent, so this
   // is excluded from CI (ubuntu runner) and runs only on the machine that
   // regenerates the capture: flutter test --name capture --update-goldens.
@@ -74,7 +78,9 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     drainExceptions();
 
-    expect(find.byType(CityMapCanvas), findsOneWidget);
+    // The live map mounts in both branches (OSM tiles, or the painted
+    // canvas fallback when tiles can't load in the test binding).
+    expect(find.byType(LiveEventMap), findsOneWidget);
 
     await expectLater(
       find.byType(RadarApp),

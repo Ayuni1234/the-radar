@@ -11,6 +11,8 @@ import '../state/auth_controller.dart';
 import '../state/radar_providers.dart';
 import 'event_detail_screen.dart';
 import '../../main.dart' show HomeShell;
+import '../data/location_service.dart';
+import 'radar_map_screen.dart';
 import '../data/media_upload_service.dart';
 import 'player_cv_screen.dart';
 import 'radar_theme.dart';
@@ -89,35 +91,43 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
               pinned: true,
               backgroundColor: RadarTheme.ink.withValues(alpha: 0.96),
               title: Row(children: [
-                const Text('LIVE RADAR',
-                    style: TextStyle(
-                        color: RadarTheme.textPrimary,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1.6,
-                        fontSize: 17)),
+                const Flexible(
+                  child: Text('LIVE RADAR',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          color: RadarTheme.textPrimary,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.6,
+                          fontSize: 17)),
+                ),
                 const SizedBox(width: 10),
-                ValueListenableBuilder<int>(
-                  valueListenable: _statsTick,
-                  builder: (_, _, _) {
-                    final liveCount = (ref.watch(radarEventsProvider).value ??
-                            const <RadarEvent>[])
-                        .where((e) => e.isLive)
-                        .length;
-                    final bountyCount = (ref.watch(streamBountiesProvider).value ??
-                            const <StreamBounty>[])
-                        .where((b) =>
-                            b.status == 'funded' ||
-                            b.status == 'accepted' ||
-                            b.status == 'live')
-                        .length;
-                    return Text(
-                      '$liveCount active · $bountyCount bounties',
-                      style: const TextStyle(
-                          color: RadarTheme.textDim,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500),
-                    );
-                  },
+                Flexible(
+                  child: ValueListenableBuilder<int>(
+                    valueListenable: _statsTick,
+                    builder: (_, _, _) {
+                      final liveCount = (ref.watch(radarEventsProvider).value ??
+                              const <RadarEvent>[])
+                          .where((e) => e.isLive)
+                          .length;
+                      final bountyCount = (ref.watch(streamBountiesProvider).value ??
+                              const <StreamBounty>[])
+                          .where((b) =>
+                              b.status == 'funded' ||
+                              b.status == 'accepted' ||
+                              b.status == 'live')
+                          .length;
+                      return Text(
+                        '$liveCount active · $bountyCount bounties',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            color: RadarTheme.textDim,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500),
+                      );
+                    },
+                  ),
                 ),
                 const Spacer(),
                 IconButton(
@@ -245,6 +255,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                       post: posts[i],
                       onOpenAuthor: () => _openAuthor(posts[i]),
                       onDelete: () => _confirmDelete(posts[i]),
+                      onOpenMapDeepLink: () => _openPostOnRadar(posts[i]),
                     ),
                   ),
                 ),
@@ -360,6 +371,45 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     if (result == true) {
       await ref.read(feedPostsProvider.notifier).refresh();
     }
+  }
+
+  /// Feed → Radar deep link: resolves the post's pin to the most specific
+  /// coordinate available (the post's own GPS tag, else the linked session's
+  /// real venue coordinates) and flies the live map to it.
+  void _openPostOnRadar(FeedPost post) {
+    double? lat = post.latitude;
+    double? lon = post.longitude;
+    String? venue = post.areaName;
+    if (lat == null || lon == null) {
+      // Fall back to the poster's live/scheduled session coordinates.
+      final events = ref.read(radarEventsProvider).value ?? const <RadarEvent>[];
+      for (final e in events) {
+        if (e.hostProfileId != post.authorProfileId) continue;
+        if (e.latitude == 0 && e.longitude == 0) continue;
+        lat = e.latitude;
+        lon = e.longitude;
+        venue ??= e.safeLocationLabel();
+        break;
+      }
+    }
+    if (lat == null || lon == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        behavior: SnackBarBehavior.floating,
+        content: Text(
+            'This post has no map pin — open the player\'s schedule instead.'),
+      ));
+      return;
+    }
+    HomeShell.goTo(context, 1); // Radar tab
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      RadarMapScreen.focusFromOutside(
+        context,
+        lat: lat!,
+        lon: lon!,
+        venue: venue,
+      );
+    });
   }
 
   Future<void> _openLivePinDialog() async {
@@ -600,6 +650,12 @@ class _ComposerSheetState extends ConsumerState<_ComposerSheet> {
   String? _uploadedMediaKind;
   int? _uploadedDurationSeconds;
 
+  // Location tagging: precise GPS pin (lat/lon) captured via quick actions.
+  bool _locating = false;
+  double? _pinLat;
+  double? _pinLon;
+  String? _pinLabel;
+
   static const _platforms = {
     'youtube.com': 'YouTube',
     'youtu.be': 'YouTube',
@@ -607,6 +663,51 @@ class _ComposerSheetState extends ConsumerState<_ComposerSheet> {
     'pi.media': 'Pi Media',
     'drive.google.com': 'Drive',
   };
+
+  /// 'Use Current Location' — fetches device GPS and pins the spot.
+  Future<void> _useCurrentLocation() async {
+    if (_locating) return;
+    setState(() {
+      _locating = true;
+      _pinLabel = null;
+    });
+    try {
+      final fix = await LocationService.instance.getCurrent();
+      if (!mounted) return;
+      setState(() {
+        _locating = false;
+        _pinLat = fix.lat;
+        _pinLon = fix.lon;
+        _pinLabel =
+            'GPS pin · ${fix.lat.toStringAsFixed(4)}, ${fix.lon.toStringAsFixed(4)}';
+        if (_areaCtrl.text.trim().isEmpty) {
+          _areaCtrl.text = 'My current spot';
+        }
+      });
+    } on LocationException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _locating = false;
+        _pinLabel = e.reason;
+      });
+    }
+  }
+
+  /// 'Tag Training Venue' — pick one of the poster's scheduled venues.
+  Future<void> _tagTrainingVenue() async {
+    final picked = await showModalBottomSheet<RadarEvent>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const _VenuePickerSheet(),
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _pinLat = picked.latitude;
+      _pinLon = picked.longitude;
+      _pinLabel = 'Venue · ${picked.safeLocationLabel()}';
+      _areaCtrl.text = picked.safeLocationLabel();
+    });
+  }
 
   String? get _platform {
     final url = _mediaCtrl.text.trim().toLowerCase();
@@ -707,6 +808,8 @@ class _ComposerSheetState extends ConsumerState<_ComposerSheet> {
           mediaKind: _uploadedMediaKind,
           mediaDurationSeconds: _uploadedDurationSeconds,
           areaName: _areaCtrl.text,
+          latitude: _pinLat,
+          longitude: _pinLon,
         );
     if (!mounted) return;
     setState(() => _busy = false);
@@ -850,6 +953,55 @@ class _ComposerSheetState extends ConsumerState<_ComposerSheet> {
                 prefixIcon: Icon(Icons.place_outlined, size: 20),
               ),
             ),
+            const SizedBox(height: 8),
+            // Quick actions: precise GPS pin or a known venue/time slot.
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _busy || _locating ? null : _useCurrentLocation,
+                    icon: _locating
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.my_location, size: 17),
+                    label: const Text('Use Current Location',
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 12.5)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _busy ? null : _tagTrainingVenue,
+                    icon: const Icon(Icons.sports_soccer, size: 17),
+                    label: const Text('Tag Training Venue',
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 12.5)),
+                  ),
+                ),
+              ],
+            ),
+            if (_pinLabel != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Row(children: [
+                  Icon(
+                    _pinLat != null ? Icons.location_on : Icons.info_outline,
+                    size: 15,
+                    color: _pinLat != null
+                        ? RadarTheme.radar
+                        : RadarTheme.textDim,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(_pinLabel!,
+                        style: const TextStyle(
+                            fontSize: 12, color: RadarTheme.textDim)),
+                  ),
+                ]),
+              ),
             const SizedBox(height: 16),
             FilledButton.icon(
               onPressed:
@@ -863,6 +1015,167 @@ class _ComposerSheetState extends ConsumerState<_ComposerSheet> {
               label: const Text('Publish to feed'),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------- venue picker
+
+/// 'Tag Training Venue' picker: established pitches and time slots from the
+/// live radar — your own sessions first, then other hosts' real venues —
+/// so a post can be pinned to a place scouts recognize on the map.
+class _VenuePickerSheet extends ConsumerWidget {
+  const _VenuePickerSheet();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final session = ref.watch(sessionProvider);
+    final events = ref.watch(radarEventsProvider).value ?? const <RadarEvent>[];
+    final df = DateFormat('EEE d MMM · HH:mm');
+    final mine = events
+        .where((e) => e.hostProfileId == session?.profileId)
+        .toList()..sort(_slotSort);
+    // Everything else with a real venue — established pitches to tag.
+    final others = events
+        .where((e) => e.hostProfileId != session?.profileId)
+        .toList()..sort(_slotSort);
+
+    return Container(
+      margin: const EdgeInsets.all(14),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+      decoration: BoxDecoration(
+        color: RadarTheme.panel,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: RadarTheme.stroke),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(children: [
+            const Icon(Icons.sports_soccer, color: RadarTheme.radar, size: 20),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Text('Tag a training venue or time slot',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w700, fontSize: 15.5)),
+            ),
+            IconButton(
+              onPressed: () => Navigator.pop(context),
+              icon: const Icon(Icons.close, size: 18),
+            ),
+          ]),
+          const SizedBox(height: 6),
+          const Text(
+            'Picking a slot pins the post to that venue\'s exact spot on the '
+            'live Radar map.',
+            style: TextStyle(fontSize: 12, color: RadarTheme.textDim),
+          ),
+          const SizedBox(height: 12),
+          if (mine.isEmpty && others.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Text(
+                'No venues on the radar yet — drop a Live Pin first (radar '
+                'icon in the header) and its venue will appear here.',
+                style: TextStyle(fontSize: 12.5, color: RadarTheme.textDim),
+              ),
+            )
+          else
+            Flexible(
+              child: ListView(
+                shrinkWrap: true,
+                children: [
+                  if (mine.isNotEmpty)
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 6),
+                      child: Text('YOUR TIME SLOTS',
+                          style: TextStyle(
+                              fontSize: 10.5,
+                              letterSpacing: 1.2,
+                              fontWeight: FontWeight.w700,
+                              color: RadarTheme.textDim)),
+                    ),
+                  for (final e in mine.take(4)) _venueTile(context, e, df),
+                  if (others.isNotEmpty)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 4, bottom: 6),
+                      child: Text('ESTABLISHED PITCHES ON THE RADAR',
+                          style: TextStyle(
+                              fontSize: 10.5,
+                              letterSpacing: 1.2,
+                              fontWeight: FontWeight.w700,
+                              color: RadarTheme.textDim)),
+                    ),
+                  for (final e in others.take(6)) _venueTile(context, e, df),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  static int _slotSort(RadarEvent a, RadarEvent b) {
+    final now = DateTime.now();
+    int rank(RadarEvent e) =>
+        e.isLive ? 0 : (e.startsAt.isAfter(now) ? 1 : 2);
+    final r = rank(a).compareTo(rank(b));
+    if (r != 0) return r;
+    return rank(a) == 2
+        ? b.startsAt.compareTo(a.startsAt)
+        : a.startsAt.compareTo(b.startsAt);
+  }
+
+  Widget _venueTile(BuildContext context, RadarEvent e, DateFormat df) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: RadarTheme.panelHigh,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => Navigator.pop(context, e),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(children: [
+              Icon(
+                e.isLive ? Icons.podcasts : Icons.schedule,
+                size: 17,
+                color:
+                    e.isLive ? RadarTheme.radar : RadarTheme.textDim,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(e.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600)),
+                    Text(
+                      '${df.format(e.startsAt)} · '
+                          '${e.safeLocationLabel()}',
+                      style: const TextStyle(
+                          fontSize: 11,
+                          color: RadarTheme.textDim),
+                    ),
+                  ],
+                ),
+              ),
+              if (e.isLive)
+                const Text('LIVE',
+                    style: TextStyle(
+                        color: RadarTheme.radar,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w800)),
+            ]),
+          ),
         ),
       ),
     );

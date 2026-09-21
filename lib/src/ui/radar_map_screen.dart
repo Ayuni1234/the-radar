@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../models/connection_request.dart';
 import '../models/enums.dart';
@@ -23,12 +24,43 @@ import 'shell.dart';
 class RadarMapScreen extends ConsumerStatefulWidget {
   const RadarMapScreen({super.key});
 
+  /// Feed → Radar deep link: focus the live map on a post's pin. Safe to
+  /// call when no RadarMapScreen is mounted (e.g. desktop rail layouts) —
+  /// it's a no-op there.
+  static void focusFromOutside(
+    BuildContext context, {
+    required double lat,
+    required double lon,
+    String? venue,
+  }) {
+    final state = context.findAncestorStateOfType<_RadarMapScreenState>();
+    state?._focusOnSpot(lat: lat, lon: lon, venue: venue);
+  }
+
   @override
   ConsumerState<RadarMapScreen> createState() => _RadarMapScreenState();
 }
 
 class _RadarMapScreenState extends ConsumerState<RadarMapScreen> {
   RadarEvent? _selected;
+
+  /// Coordinate set from a feed post deep link; the map flies to it.
+  ({double lat, double lon})? _focus;
+
+  void _focusOnSpot({
+    required double lat,
+    required double lon,
+    String? venue,
+  }) {
+    if (!mounted) return;
+    setState(() => _focus = (lat: lat, lon: lon));
+    if (venue == null || venue.isEmpty) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: RadarTheme.panelHigh,
+      content: Text('Focused on the pinned spot — $venue'),
+    ));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -157,6 +189,9 @@ class _RadarMapScreenState extends ConsumerState<RadarMapScreen> {
           // to the painted city canvas internally when tiles are unreachable.
           Positioned.fill(
             child: LiveEventMap(
+              focusPoint: _focus == null
+                  ? null
+                  : LatLng(_focus!.lat, _focus!.lon),
               liveEvents: live,
               scheduledEvents: scheduled,
               bounties: activeBounties,

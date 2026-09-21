@@ -23,6 +23,7 @@ class LiveEventMap extends StatefulWidget {
     required this.protectedEvents,
     required this.onSelectEvent,
     required this.onSelectBounty,
+    this.focusPoint,
   });
 
   final List<RadarEvent> liveEvents;
@@ -32,12 +33,33 @@ class LiveEventMap extends StatefulWidget {
   final ValueChanged<RadarEvent> onSelectEvent;
   final ValueChanged<StreamBounty> onSelectBounty;
 
+  /// When set (and changed), the map animates to center on this coordinate
+  /// at close zoom — used by feed → Radar deep links.
+  final LatLng? focusPoint;
+
   @override
   State<LiveEventMap> createState() => _LiveEventMapState();
 }
 
 class _LiveEventMapState extends State<LiveEventMap> {
   bool _tileLoadFailed = false;
+  final _mapController = MapController();
+  double? _focusedLat;
+  double? _focusedLon;
+
+  @override
+  void didUpdateWidget(covariant LiveEventMap oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final focus = widget.focusPoint;
+    if (focus != null &&
+        !_tileLoadFailed &&
+        (focus.latitude != _focusedLat || focus.longitude != _focusedLon)) {
+      // Deep-linked spot: fly in close so scouts can navigate to it.
+      _focusedLat = focus.latitude;
+      _focusedLon = focus.longitude;
+      _mapController.move(focus, 16);
+    }
+  }
 
   List<Marker> _eventMarkers(List<RadarEvent> events, Color color,
       {bool pulse = false}) {
@@ -100,9 +122,13 @@ class _LiveEventMapState extends State<LiveEventMap> {
     return Stack(
       children: [
         FlutterMap(
+          mapController: _mapController,
           options: MapOptions(
-            initialCenter: center,
-            initialZoom: allPoints.length > 1 ? 12 : 13,
+            initialCenter:
+                widget.focusPoint ?? center,
+            initialZoom: widget.focusPoint != null
+                ? 16
+                : (allPoints.length > 1 ? 12 : 13),
           ),
           children: [
             TileLayer(

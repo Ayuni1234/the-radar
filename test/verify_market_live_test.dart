@@ -12,6 +12,8 @@ import 'package:the_radar/src/ui/merchant_dashboard_screen.dart';
 import 'package:the_radar/src/ui/profile_hub_screen.dart';
 import 'package:the_radar/src/ui/radar_map_screen.dart';
 
+import 'helpers/mock_path_provider.dart';
+
 // End-to-end verification of the Market (PitchMarket) tab on the deployed
 // build configuration. Two independent pop-free scenarios, each capturing a
 // screenshot: feed → listing detail, and feed → merchant dashboard.
@@ -19,6 +21,8 @@ import 'package:the_radar/src/ui/radar_map_screen.dart';
 // Run:  flutter test test/verify_market_live_test.dart --name verify
 //       (add --update-goldens to (re)generate the captures)
 void main() {
+  mockPathProviderForMapCache();
+
   Future<ProviderContainer> signInAndLandOnRadar(WidgetTester tester) async {
     await tester.binding.setSurfaceSize(const Size(412, 892));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -140,6 +144,45 @@ void main() {
       await expectLater(
         find.byType(RadarApp),
         matchesGoldenFile('goldens/verify_5_hub.png'),
+      );
+    },
+  );
+
+  testWidgets(
+    'verify: composer location quick actions pin and deep-link a post',
+    tags: ['golden-capture'],
+    (tester) async {
+      await signInAndLandOnRadar(tester);
+
+      // Open the New Post composer.
+      await tester.tap(find.byIcon(Icons.edit_note));
+      await tester.pump(); // sheet transition
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(find.text('New post'), findsNWidgets(2));
+
+      // Both quick actions are present beneath the location field.
+      expect(find.text('Use Current Location'), findsOneWidget);
+      expect(find.text('Tag Training Venue'), findsOneWidget);
+
+      // Tag Training Venue picks a seeded slot and pins the post to it.
+      await tester.tap(find.text('Tag Training Venue'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(find.text('Tag a training venue or time slot'), findsOneWidget);
+
+      // Pick a seeded venue tile by its title (real coordinates behind it).
+      await tester.tap(find.text('Morning technical session (invite)'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      // The pin applied: label + area populated.
+      expect(find.textContaining('Venue · '), findsOneWidget);
+
+      await expectLater(
+        find.byType(RadarApp),
+        matchesGoldenFile('goldens/verify_6_composer_location.png'),
       );
     },
   );

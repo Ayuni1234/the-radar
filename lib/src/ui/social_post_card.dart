@@ -23,6 +23,7 @@ class SocialPostCard extends ConsumerWidget {
     required this.post,
     this.onOpenAuthor,
     this.onDelete,
+    this.onOpenMapDeepLink,
   });
 
   final FeedPost post;
@@ -30,6 +31,10 @@ class SocialPostCard extends ConsumerWidget {
 
   /// Shown only to the post's author (owner manage-own-rows rule).
   final VoidCallback? onDelete;
+
+  /// When provided, the Location Pin deep links straight to this spot on
+  /// the live Radar map; when null, the in-card map preview sheet opens.
+  final VoidCallback? onOpenMapDeepLink;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -74,13 +79,13 @@ class SocialPostCard extends ConsumerWidget {
           _ActionBar(
             post: post,
             linkedEvent: linkedEvent,
-            onOpenMap: () => _openMapSheet(context),
+            onOpenMap: onOpenMapDeepLink ?? () => _openMapSheet(context),
             onOpenSchedule: () => _openScheduleSheet(context, ref),
             onOpenChat: () => linkedEvent == null
                 ? _openScheduleSheet(context, ref)
                 : _openLiveSheet(context, linkedEvent),
           ),
-          _Caption(post: post, onOpenMap: () => _openMapSheet(context)),
+          _Caption(post: post, onOpenMap: onOpenMapDeepLink ?? () => _openMapSheet(context)),
         ],
       ),
     );
@@ -862,23 +867,29 @@ class _Caption extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              GestureDetector(
-                onTap: onOpenMap,
-                child: const Text(
-                  'View full location & schedule',
-                  style: TextStyle(
-                    color: RadarTheme.info,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    decoration: TextDecoration.underline,
-                    decorationColor: RadarTheme.info,
+              Flexible(
+                child: GestureDetector(
+                  onTap: onOpenMap,
+                  child: const Text(
+                    'View full location & schedule',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: RadarTheme.info,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      decoration: TextDecoration.underline,
+                      decorationColor: RadarTheme.info,
+                    ),
                   ),
                 ),
               ),
-              const Spacer(),
-              GestureDetector(
-                onTap: onOpenMap,
-                child: _MapLabelChip(label: post.areaName ?? 'Training area'),
+              const SizedBox(width: 8),
+              Flexible(
+                child: GestureDetector(
+                  onTap: onOpenMap,
+                  child: _MapLabelChip(label: post.areaName ?? 'Training area'),
+                ),
               ),
             ],
           ),

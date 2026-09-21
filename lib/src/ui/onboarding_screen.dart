@@ -38,10 +38,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   // Step 3 — profile. Prefilled from the Pi identity: the verified Pi
   // username seeds the display name, so there is no redundant manual
   // name-entry requirement (the field is optional and editable).
+  // NOTE: the text is captured at initState time — `ref` must not be
+  // touched from dispose-time lazy initializers.
   late final _nameCtrl = TextEditingController(text: _piDisplayName());
   final _bioCtrl = TextEditingController();
 
   String _piDisplayName() {
+    if (!mounted) return '';
     final auth = ref.read(authProvider).value;
     if (auth is AuthSignedIn) {
       return auth.session.displayName ?? auth.session.username;
