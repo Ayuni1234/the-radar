@@ -274,9 +274,10 @@ class _RoleStep extends StatelessWidget {
         crossAxisCount: wide ? 3 : 2,
         mainAxisSpacing: 10,
         crossAxisSpacing: 10,
-        // Taller cards on narrow surfaces: the role description wraps to
-        // 3 lines + icon without clipping (was 1.15, overflowed by 32px).
-        childAspectRatio: wide ? 1.35 : 0.92,
+        // Fixed cell height: aspect-ratio sizing produced cells too short
+        // for icon + label + 3-line description on narrow phones (32px
+        // overflow). 132/96 comfortably fits the card's content.
+        mainAxisExtent: wide ? 96 : 132,
       ),
       children: [
         for (final role in UserRole.values)
@@ -316,30 +317,34 @@ class _RoleCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: accent, width: selected ? 1.6 : 1),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(role.icon, size: 22, color: selected ? RadarTheme.pi : RadarTheme.textDim),
-              const SizedBox(height: 8),
-              Text(
-                role.label,
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                  color: selected ? RadarTheme.textPrimary : RadarTheme.textPrimary,
+          child: SingleChildScrollView(
+            // Scroll-if-tight: during AnimatedSwitcher transitions (or on
+            // very narrow cells) the content clips/scrolls instead of ever
+            // throwing a RenderFlex overflow.
+            physics: const NeverScrollableScrollPhysics(),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(role.icon, size: 22, color: selected ? RadarTheme.pi : RadarTheme.textDim),
+                const SizedBox(height: 8),
+                Text(
+                  role.label,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                    color: selected ? RadarTheme.textPrimary : RadarTheme.textPrimary,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Expanded(
-                child: Text(
+                const SizedBox(height: 4),
+                Text(
                   _roleDescriptions[role]!,
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontSize: 10.5, color: RadarTheme.textDim, height: 1.25),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

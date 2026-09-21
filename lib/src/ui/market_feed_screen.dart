@@ -306,39 +306,45 @@ class _FilterRow extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Row(children: [
-      OutlinedButton.icon(
-        style: OutlinedButton.styleFrom(
-          foregroundColor: filter.hasActiveFilters
-              ? RadarTheme.pi
-              : RadarTheme.textDim,
-          side: BorderSide(
-              color: filter.hasActiveFilters
-                  ? RadarTheme.pi.withValues(alpha: 0.6)
-                  : RadarTheme.stroke),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    // Horizontally scrollable so narrow phones never clip the filter strip
+    // when the Clear action joins the row (was a Spacer'd Row, overflowed).
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(children: [
+        OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: filter.hasActiveFilters
+                ? RadarTheme.pi
+                : RadarTheme.textDim,
+            side: BorderSide(
+                color: filter.hasActiveFilters
+                    ? RadarTheme.pi.withValues(alpha: 0.6)
+                    : RadarTheme.stroke),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          ),
+          onPressed: () => _openPriceSheet(context, ref),
+          icon: const Icon(Icons.tune, size: 16),
+          label: Text(_priceLabel(), style: const TextStyle(fontSize: 12.5)),
         ),
-        onPressed: () => _openPriceSheet(context, ref),
-        icon: const Icon(Icons.tune, size: 16),
-        label: Text(_priceLabel(), style: const TextStyle(fontSize: 12.5)),
-      ),
-      const SizedBox(width: 8),
-      FilterChip(
-        label: const Text('In stock >1', style: TextStyle(fontSize: 12)),
-        selected: filter.inStockOnly,
-        onSelected: (v) =>
-            ref.read(marketFilterProvider.notifier).setInStockOnly(v),
-        selectedColor: RadarTheme.pi.withValues(alpha: 0.35),
-        showCheckmark: false,
-        visualDensity: VisualDensity.compact,
-      ),
-      const Spacer(),
-      if (filter.hasActiveFilters)
-        TextButton(
-          onPressed: () => ref.read(marketFilterProvider.notifier).reset(),
-          child: const Text('Clear', style: TextStyle(fontSize: 12)),
+        const SizedBox(width: 8),
+        FilterChip(
+          label: const Text('In stock >1', style: TextStyle(fontSize: 12)),
+          selected: filter.inStockOnly,
+          onSelected: (v) =>
+              ref.read(marketFilterProvider.notifier).setInStockOnly(v),
+          selectedColor: RadarTheme.pi.withValues(alpha: 0.35),
+          showCheckmark: false,
+          visualDensity: VisualDensity.compact,
         ),
-    ]);
+        if (filter.hasActiveFilters) ...[
+          const SizedBox(width: 8),
+          TextButton(
+            onPressed: () => ref.read(marketFilterProvider.notifier).reset(),
+            child: const Text('Clear', style: TextStyle(fontSize: 12)),
+          ),
+        ],
+      ]),
+    );
   }
 
   String _priceLabel() {

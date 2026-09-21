@@ -25,7 +25,12 @@ class MerchantDashboardScreen extends ConsumerWidget {
           const Icon(Icons.store_mall_directory_outlined,
               color: RadarTheme.pi, size: 21),
           const SizedBox(width: 8),
-          const Text('Merchant dashboard'),
+          // Expanded: the middle toolbar slot can be well under 340px on
+          // narrow screens — the title ellipsizes instead of overflowing.
+          const Expanded(
+            child: Text('Merchant dashboard',
+                maxLines: 1, overflow: TextOverflow.ellipsis),
+          ),
         ]),
       ),
       body: shopAsync.isLoading
