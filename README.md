@@ -104,11 +104,22 @@ flutter build web --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY
 ### Backend setup
 
 1. Run `supabase/schema.sql` in the Supabase SQL editor.
-2. Deploy the edge functions:
+2. Link the CLI to your project once per machine (the link itself is not
+   committed; `supabase/config.toml` carries the local CLI config):
+   ```bash
+   npx supabase login
+   npx supabase link --project-ref YOUR_PROJECT_REF
+   ```
+3. Apply migrations (idempotent; includes the PitchMarket tables + RLS):
+   ```bash
+   npx supabase db push
+   ```
+4. Deploy the edge functions:
    ```bash
    supabase functions deploy pi-session
    supabase functions deploy pi-payment-approve
    supabase functions deploy pi-payment-complete
+   supabase functions deploy market-checkout
    supabase secrets set PI_API_KEY=your-pi-server-api-key
    ```
 3. Environment: `Pi.init({ version: '2.0' })` — the official v2.0 standard,
