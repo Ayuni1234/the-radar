@@ -7,6 +7,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      # Secrets aren't readable in step-level `if:`; map through job env.
+      SUPABASE_TOKEN_SET: ${{ secrets.SUPABASE_ACCESS_TOKEN != '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -18,6 +21,16 @@ jobs:
       # see dart_test.yaml for why).
       - name: Test
         run: flutter test --exclude-tags=golden-capture
+      # Apply pending Supabase migrations (PitchMarket tables today, future
+      # releases as they land in supabase/migrations) before publishing, so
+      # the app never ships ahead of its schema. Skipped when the token
+      # secret isn't configured. `yes |` defuses the interactive confirm
+      # (non-TTY runs auto-accept, belt-and-suspenders for CLI updates).
+      - name: Apply Supabase migrations
+        if: env.SUPABASE_TOKEN_SET == 'true'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: yes | npx --yes supabase db push --project-ref wmadurjharulfyyzzyes
       - run: flutter build web --release --wasm --base-href "/the-radar/" --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }} --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
       - uses: peaceiris/actions-gh-pages@v4
         with:
