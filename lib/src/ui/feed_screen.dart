@@ -800,7 +800,7 @@ class _ComposerSheetState extends ConsumerState<_ComposerSheet> {
   Future<void> _publish() async {
     if (_bodyCtrl.text.trim().isEmpty || _busy) return;
     setState(() => _busy = true);
-    final ok = await ref.read(feedPostsProvider.notifier).createPost(
+    final outcome = await ref.read(feedPostsProvider.notifier).createPost(
           kind: _kind,
           body: _bodyCtrl.text,
           mediaUrl: _mediaCtrl.text,
@@ -815,12 +815,26 @@ class _ComposerSheetState extends ConsumerState<_ComposerSheet> {
     setState(() => _busy = false);
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       behavior: SnackBarBehavior.floating,
-      backgroundColor: ok ? RadarTheme.panelHigh : RadarTheme.alert,
-      content: Text(ok
+      backgroundColor: outcome.success
+          ? RadarTheme.panelHigh
+          : RadarTheme.alert,
+      content: Text(outcome.success
           ? 'Posted to the feed'
-          : 'Could not publish — queued for sync when back online'),
+          : outcome.queued
+              ? '${outcome.message ?? 'Publish failed'} — saved and will retry automatically'
+              : 'Could not publish: ${outcome.message ?? 'unknown error'}'),
+      action: outcome.success || outcome.queued
+          ? null
+          : SnackBarAction(
+              label: 'RETRY',
+              textColor: Colors.white,
+              onPressed: () { _publish(); }),
     ));
-    Navigator.pop(context, ok);
+    if (outcome.success || outcome.queued) {
+      Navigator.pop(context, outcome.success);
+    }
+    // Hard-rejected publishes keep the composer open (draft intact) so the
+    // user can read the reason and retry or edit.
   }
 
   @override
@@ -1249,19 +1263,32 @@ class _LivePinSheetState extends ConsumerState<_LivePinSheet> {
       isMinorProtected: _involvesMinors,
     );
 
-    final ok = await ref.read(radarEventsProvider.notifier).createEvent(event);
+    final outcome =
+        await ref.read(radarEventsProvider.notifier).createEvent(event);
     if (!mounted) return;
     setState(() => _busy = false);
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       behavior: SnackBarBehavior.floating,
-      backgroundColor: ok ? RadarTheme.panelHigh : RadarTheme.alert,
-      content: Text(ok
+      backgroundColor: outcome.success
+          ? RadarTheme.panelHigh
+          : RadarTheme.alert,
+      content: Text(outcome.success
           ? _openNow
               ? 'Live pin dropped — scouts see you on the radar now'
               : 'Session scheduled for ${_fmtDay(start)}'
-          : 'Could not publish the pin — queued for sync'),
+          : outcome.queued
+              ? '${outcome.message ?? 'Pin not published'} — saved and will retry automatically'
+              : 'Could not publish the pin: ${outcome.message ?? 'unknown error'}'),
+      action: outcome.success || outcome.queued
+          ? null
+          : SnackBarAction(
+              label: 'RETRY',
+              textColor: Colors.white,
+              onPressed: () { _drop(); }),
     ));
-    Navigator.pop(context, ok);
+    if (outcome.success || outcome.queued) {
+      Navigator.pop(context, outcome.success);
+    }
   }
 
   @override

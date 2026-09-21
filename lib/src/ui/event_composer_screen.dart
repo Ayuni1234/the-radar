@@ -109,9 +109,10 @@ class _EventComposerScreenState extends ConsumerState<EventComposerScreen> {
       isMinorProtected: _targetsMinors,
     );
 
-    final ok = await ref.read(radarEventsProvider.notifier).createEvent(event);
+    final outcome =
+        await ref.read(radarEventsProvider.notifier).createEvent(event);
     if (!mounted) return;
-    if (ok) {
+    if (outcome.success) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         behavior: SnackBarBehavior.floating,
         backgroundColor: RadarTheme.panelHigh,
@@ -128,11 +129,23 @@ class _EventComposerScreenState extends ConsumerState<EventComposerScreen> {
       ));
       Navigator.of(context).pop(true);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      final queued = outcome.queued;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         behavior: SnackBarBehavior.floating,
         backgroundColor: RadarTheme.alert,
-        content: Text('Publication failed — check your connection and retry.'),
+        content: Text(queued
+            ? '${outcome.message ?? 'Publish failed'} — saved and will retry automatically'
+            : 'Could not publish: ${outcome.message ?? 'unknown error'}'),
+        action: queued
+            ? null
+            : SnackBarAction(
+                label: 'RETRY',
+                textColor: Colors.white,
+                onPressed: () { _publish(); }),
       ));
+      if (queued) Navigator.of(context).pop(false);
+      // Hard rejections keep the form open so the reason can be read and
+      // the draft fixed (e.g. a validation rule the server rejected).
     }
   }
 

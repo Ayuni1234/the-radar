@@ -99,15 +99,20 @@ class SyncService extends Notifier<SyncState> {
     );
   }
 
+  /// Resolve a connectivity signal into online/offline. Only an explicit
+  /// `none` from a *working* monitor flips the app offline; a monitor that
+  /// errors (tests, wrapper webviews) never does — the initial state stays
+  /// online and real write failures report through the repository instead.
+  static bool resolveOnline(ConnectivityResult r) =>
+      r != ConnectivityResult.none && SupabaseConfig.available;
+
   void _listenConnectivity() {
     _connSub?.cancel();
-    _connSub = Connectivity()
-        .onConnectivityChanged
-        .listen((results) {
+    final sub = Connectivity().onConnectivityChanged.listen((results) {
       final r = results.isEmpty
           ? ConnectivityResult.none
           : results.first;
-      final online = r != ConnectivityResult.none && SupabaseConfig.available;
+      final online = resolveOnline(r);
       final wifi = r == ConnectivityResult.wifi ||
           r == ConnectivityResult.ethernet;
       final wasOffline = !state.online;
@@ -117,6 +122,12 @@ class SyncService extends Notifier<SyncState> {
         flush();
       }
     });
+    // A subscription error (e.g. MissingPluginException in a test/plain
+    // browser host) must never flip the app into offline mode.
+    sub.onError((Object e) {
+      debugPrint('[Sync] connectivity monitor unavailable: $e');
+    });
+    _connSub = sub;
   }
 
   /// Queues a mutation for the backend (used when offline or on failure).
@@ -176,12 +187,14 @@ class SyncService extends Notifier<SyncState> {
   }
 
   Future<bool> _replay(SyncItem item) async {
-    // Demo stores replay locally; live mode re-fires through the repo.
+    // Demo stores replay locally; live mode re-fires the real payload.
     switch (item.kind) {
       case 'profile_edit':
         return RadarRepository.instance.replayProfileEdit();
       case 'event_create':
         return RadarRepository.instance.replayEventCreate();
+      case 'feed_post':
+        return RadarRepository.instance.replayFeedPost();
       default:
         // Unknown kinds cannot be replayed — drop them with a note.
         debugPrint('[Sync] unknown kind ${item.kind}, dropped');

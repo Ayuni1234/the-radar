@@ -9,6 +9,7 @@ import '../models/enums.dart';
 import '../models/feed_post.dart';
 import '../models/guardian_link.dart';
 import '../models/pi_payment.dart';
+import '../models/publish_outcome.dart';
 import '../models/radar_event.dart';
 import '../models/stream_bounty.dart';
 import '../models/user_profile.dart';
@@ -44,19 +45,6 @@ class RadarRepository {
     try {
       await SupabaseConfig.client
           .from('profiles')
-          .select('id')
-          .limit(1);
-      return true;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  Future<bool> replayEventCreate() async {
-    if (!_live) return true;
-    try {
-      await SupabaseConfig.client
-          .from('radar_events')
           .select('id')
           .limit(1);
       return true;
@@ -522,23 +510,85 @@ class RadarRepository {
   /// Publishes a feed post. The `enforce_feed_post_privacy` trigger fences
   /// minor-posters at the database level (coordinates nulled, coarse area
   /// only, media stripped).
-  Future<bool> createFeedPost(FeedPost post) async {
+  ///
+  /// Returns a [PublishOutcome]: server rejections surface their real
+  /// reason instead of being mislabeled as offline; only genuine
+  /// transport failures are queued in the outbox (the payload is kept for
+  /// [replayFeedPost]).
+  Future<PublishOutcome> createFeedPost(FeedPost post) async {
     if (!_live) {
       DemoSeed.feedPosts.insert(0, post);
-      return true;
+      return PublishOutcome.ok;
     }
+    // Client-generated ids ('post-…') are not uuids — let Postgres issue
+    // the primary key instead of failing the insert.
+    _pendingFeedPost = post;
     try {
       await SupabaseConfig.client.from('feed_posts').insert(post.toJson());
-      return true;
+      _pendingFeedPost = null;
+      return PublishOutcome.ok;
     } catch (e) {
       debugPrint('[RadarRepo] createFeedPost failed: $e');
-      Diagnostics.instance.log(
-          'sync', 'feed post failed — queued: ${post.kind.label}: $e');
-      SyncBridge.instance.onWriteFailed(
-          'feed_post', 'Publish ${post.kind.label.toLowerCase()}',
-          e.toString());
+      final reason = _publishFailureReason(e);
+      if (reason.$1) {
+        Diagnostics.instance.log(
+            'sync', 'feed post queued: ${post.kind.label}: $e');
+        SyncBridge.instance.onWriteFailed(
+            'feed_post', 'Publish ${post.kind.label.toLowerCase()}',
+            e.toString());
+        return PublishOutcome.queued(reason.$2);
+      }
+      _pendingFeedPost = null;
+      return PublishOutcome.rejected(reason.$2);
+    }
+  }
+
+  FeedPost? _pendingFeedPost;
+
+  /// Outbox replay for a queued feed post (real re-fire, not a probe).
+  Future<bool> replayFeedPost() async {
+    final post = _pendingFeedPost;
+    if (!_live) return post == null || true;
+    if (post == null) return true;
+    try {
+      await SupabaseConfig.client.from('feed_posts').insert(post.toJson());
+      _pendingFeedPost = null;
+      return true;
+    } catch (e) {
+      debugPrint('[RadarRepo] replayFeedPost failed: $e');
       return false;
     }
+  }
+
+  static final RegExp _uuidRe = RegExp(
+      r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-'
+      r'[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$');
+
+  /// Classifies a failed Supabase write. Returns `(retryable, message)`:
+  /// retryable ⇒ transport/offline (queue it); otherwise the server
+  /// rejected the write and the message is the human-readable reason.
+  (bool, String) _publishFailureReason(Object e) {
+    final raw = e.toString();
+    final lower = raw.toLowerCase();
+    // PostgREST error bodies carry a `message` field we can surface.
+    String message = raw.length > 220 ? '${raw.substring(0, 220)}…' : raw;
+    final msgMatch = RegExp('message["\']?\\s*[:=]\\s*["\']([^"\']+)')
+        .firstMatch(raw);
+    if (msgMatch != null) message = msgMatch.group(1)!;
+    message = message.replaceFirst(RegExp(r'^(Exception|PostgrestException)[:]?\s*'), '').trim();
+    if (message.isEmpty) message = 'Unknown server error';
+
+    const transportHints = [
+      'socketexception', 'clientexception', 'failed host lookup',
+      'connection', 'timeout', 'timed out', 'network', 'offline',
+      'connectionclosed', 'handshake',
+    ];
+    for (final h in transportHints) {
+      if (lower.contains(h)) {
+        return (true, 'No connection to the server');
+      }
+    }
+    return (false, message);
   }
 
   /// Deletes one of the viewer's own feed posts.
@@ -739,22 +789,60 @@ class RadarRepository {
     }
   }
 
-  Future<bool> upsertEvent(RadarEvent event) async {
+  Future<PublishOutcome> upsertEvent(RadarEvent event) async {
     if (!_live) {
       // Demo mode: keep the published event visible on the offline radar.
       DemoSeed.events.removeWhere((e) => e.id == event.id);
       DemoSeed.events.add(event);
-      return true;
+      return PublishOutcome.ok;
     }
+    // Client ids ('pin-…', 'evt-…') are not uuids — omit and let Postgres
+    // generate the primary key. Real uuid ids (server-issued) upsert fine.
+    final row = event.toJson();
+    if (!_uuidRe.hasMatch(event.id)) row.remove('id');
+    _pendingEvent = event;
     try {
-      await SupabaseConfig.client.from('radar_events').upsert(event.toJson());
-      return true;
+      await SupabaseConfig.client.from('radar_events').upsert(row);
+      _pendingEvent = null;
+      return PublishOutcome.ok;
     } catch (e) {
       debugPrint('[RadarRepo] upsertEvent failed: $e');
-      Diagnostics.instance.log('sync',
-          'event write failed — queued: ${event.title}: $e');
-      SyncBridge.instance.onWriteFailed(
-          'event_create', 'Publish “${event.title}”', e.toString());
+      final reason = _publishFailureReason(e);
+      if (reason.$1) {
+        Diagnostics.instance.log(
+            'sync', 'event write queued: ${event.title}: $e');
+        SyncBridge.instance.onWriteFailed(
+            'event_create', 'Publish “${event.title}”', e.toString());
+        return PublishOutcome.queued(reason.$2);
+      }
+      _pendingEvent = null;
+      return PublishOutcome.rejected(reason.$2);
+    }
+  }
+
+  RadarEvent? _pendingEvent;
+
+  /// Outbox replay for a queued radar pin/event (real re-fire).
+  Future<bool> replayEventCreate() async {
+    final event = _pendingEvent;
+    if (!_live) return true; // demo store already holds the data
+    if (event == null) {
+      // Legacy queue item: probe reachability so the item can be cleared.
+      try {
+        await SupabaseConfig.client.from('radar_events').select('id').limit(1);
+        return true;
+      } catch (_) {
+        return false;
+      }
+    }
+    final row = event.toJson();
+    if (!_uuidRe.hasMatch(event.id)) row.remove('id');
+    try {
+      await SupabaseConfig.client.from('radar_events').upsert(row);
+      _pendingEvent = null;
+      return true;
+    } catch (e) {
+      debugPrint('[RadarRepo] replayEventCreate failed: $e');
       return false;
     }
   }

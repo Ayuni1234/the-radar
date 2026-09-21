@@ -9,6 +9,7 @@ import '../models/enums.dart';
 import '../models/feed_post.dart' show FeedPost, FeedPostKind, distanceKm;
 import '../models/guardian_link.dart';
 import '../models/pi_payment.dart';
+import '../models/publish_outcome.dart';
 import '../models/radar_event.dart';
 import '../models/stream_bounty.dart';
 import '../models/user_profile.dart';
@@ -51,12 +52,12 @@ class RadarEventsController extends AsyncNotifier<List<RadarEvent>> {
     return events;
   }
 
-  Future<bool> createEvent(RadarEvent event) async {
-    final ok = await RadarRepository.instance.upsertEvent(event);
-    if (ok) {
+  Future<PublishOutcome> createEvent(RadarEvent event) async {
+    final outcome = await RadarRepository.instance.upsertEvent(event);
+    if (outcome.success) {
       ref.invalidateSelf();
     }
-    return ok;
+    return outcome;
   }
 }
 
@@ -780,8 +781,8 @@ class FeedPostsController extends AsyncNotifier<List<FeedPost>> {
     if (list.isNotEmpty) state = AsyncData(list);
   }
 
-  /// Publishes a post as the signed-in user; returns true on success.
-  Future<bool> createPost({
+  /// Publishes a post as the signed-in user.
+  Future<PublishOutcome> createPost({
     required FeedPostKind kind,
     required String body,
     String? mediaUrl,
@@ -794,7 +795,9 @@ class FeedPostsController extends AsyncNotifier<List<FeedPost>> {
   }) async {
     final session = ref.read(sessionProvider);
     final profileId = session?.profileId;
-    if (profileId == null) return false;
+    if (profileId == null) {
+      return PublishOutcome.blocked('You are not signed in — open your Profile hub and sign in first.');
+    }
     final post = FeedPost(
       id: 'post-${DateTime.now().microsecondsSinceEpoch}',
       authorProfileId: profileId,
@@ -812,9 +815,9 @@ class FeedPostsController extends AsyncNotifier<List<FeedPost>> {
       latitude: latitude,
       longitude: longitude,
     );
-    final ok = await RadarRepository.instance.createFeedPost(post);
-    if (ok) await refresh();
-    return ok;
+    final outcome = await RadarRepository.instance.createFeedPost(post);
+    if (outcome.success) await refresh();
+    return outcome;
   }
 
   Future<bool> deletePost(String postId) async {
