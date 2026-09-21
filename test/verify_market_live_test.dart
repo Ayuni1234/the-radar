@@ -9,6 +9,7 @@ import 'package:the_radar/src/models/enums.dart';
 import 'package:the_radar/src/state/auth_controller.dart';
 import 'package:the_radar/src/ui/market_detail_screen.dart';
 import 'package:the_radar/src/ui/merchant_dashboard_screen.dart';
+import 'package:the_radar/src/ui/profile_hub_screen.dart';
 import 'package:the_radar/src/ui/radar_map_screen.dart';
 
 // End-to-end verification of the Market (PitchMarket) tab on the deployed
@@ -51,8 +52,12 @@ void main() {
 
   Future<void> goToMarketTab(WidgetTester tester) async {
     // The shell's jump helper needs a context BELOW the shell (as nested
-    // screens use it).
-    HomeShell.goTo(tester.element(find.byType(RadarMapScreen)), 2);
+    // screens use it). Offstage tabs stay mounted in the IndexedStack, so
+    // the radar screen is found with skipOffstage: false.
+    HomeShell.goTo(
+      tester.element(find.byType(RadarMapScreen, skipOffstage: false)),
+      2,
+    );
     await tester.pump(const Duration(milliseconds: 600));
     await tester.pump(const Duration(milliseconds: 400));
   }
@@ -105,6 +110,36 @@ void main() {
       await expectLater(
         find.byType(RadarApp),
         matchesGoldenFile('goldens/verify_4_merchant.png'),
+      );
+    },
+  );
+
+  testWidgets(
+    'verify: profile hub consolidates secondary features',
+    tags: ['golden-capture'],
+    (tester) async {
+      await signInAndLandOnRadar(tester);
+
+      // Media-first: the app must open on the Feed.
+      expect(find.text('Latest posts'), findsOneWidget);
+
+      // Jump to the Profile hub (5-tab nav: Feed, Radar, Market, Inbox,
+      // Profile) and confirm the consolidated management entries.
+      HomeShell.goTo(
+        tester.element(find.byType(RadarMapScreen, skipOffstage: false)),
+        4,
+      );
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.byType(ProfileHubScreen), findsOneWidget);
+      expect(find.text('My Football CV'), findsOneWidget);
+      expect(find.text('Players Directory'), findsOneWidget);
+      expect(find.text('Pi Wallet & Orders'), findsOneWidget);
+      expect(find.text('My Shop & Sales'), findsOneWidget);
+      expect(find.text('Safety Center'), findsOneWidget);
+      await expectLater(
+        find.byType(RadarApp),
+        matchesGoldenFile('goldens/verify_5_hub.png'),
       );
     },
   );

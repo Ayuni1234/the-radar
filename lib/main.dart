@@ -3,29 +3,27 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'src/state/auth_controller.dart';
 import 'src/ui/connections_screen.dart';
-import 'src/ui/cv_editor_screen.dart';
 import 'src/ui/feed_screen.dart';
 import 'src/ui/login_screen.dart';
 import 'src/ui/market_feed_screen.dart';
 import 'src/ui/onboarding_screen.dart';
-import 'src/ui/payments_screen.dart';
-import 'src/ui/profiles_screen.dart';
+import 'src/ui/profile_hub_screen.dart';
 import 'src/ui/radar_map_screen.dart';
 import 'src/ui/radar_theme.dart';
-import 'src/ui/safeguarding_screen.dart';
 import 'src/ui/settings_screen.dart';
 import 'src/ui/shell.dart';
 
-/// Main navigation destinations (shared by the rail and IndexedStack).
+/// Main navigation destinations (shared by the rail and bottom bar).
+///
+/// Media-first: the Feed is the opening tab. Secondary/management areas
+/// (CV, Players directory, Pi Wallet, merchant sales, Safety Center) are
+/// consolidated inside the Profile hub instead of crowding the bottom bar.
 final List<(String, IconData, Widget)> _destinations = [
-  ('Radar', Icons.radar, const RadarMapScreen()),
   ('Feed', Icons.dynamic_feed, const FeedScreen()),
+  ('Radar', Icons.radar, const RadarMapScreen()),
   ('Market', Icons.storefront, const MarketFeedScreen()),
-  ('Players', Icons.groups, const ProfilesScreen()),
   ('Inbox', Icons.connect_without_contact, const ConnectionsScreen()),
-  ('My CV', Icons.badge_outlined, const CvEditorScreen()),
-  ('Pi Wallet', Icons.account_balance_wallet, const PaymentsScreen()),
-  ('Safety', Icons.shield_outlined, const SafeguardingScreen()),
+  ('Profile', Icons.person, const ProfileHubScreen()),
 ];
 
 

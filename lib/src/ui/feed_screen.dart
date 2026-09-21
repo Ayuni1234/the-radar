@@ -13,6 +13,7 @@ import 'event_detail_screen.dart';
 import '../../main.dart' show HomeShell;
 import 'player_cv_screen.dart';
 import 'radar_theme.dart';
+import 'safeguarding_screen.dart';
 import 'shell.dart';
 import 'social_post_card.dart';
 
@@ -122,7 +123,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                   tooltip: 'Open the Radar map',
                   icon: const Icon(Icons.travel_explore,
                       size: 21, color: RadarTheme.textDim),
-                  onPressed: () => HomeShell.goTo(context, 0),
+                  onPressed: () => HomeShell.goTo(context, 1),
                 ),
                 IconButton(
                   tooltip: 'Notifications',
@@ -161,7 +162,10 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                   tooltip: 'Safeguarding centre',
                   icon: const Icon(Icons.shield_outlined,
                       size: 21, color: RadarTheme.textDim),
-                  onPressed: () => HomeShell.goTo(context, 7),
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                        builder: (_) => const SafeguardingScreen()),
+                  ),
                 ),
                 IconButton(
                   tooltip: 'Filter feed',

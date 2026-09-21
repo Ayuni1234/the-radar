@@ -8,6 +8,7 @@ import 'package:the_radar/main.dart';
 import 'package:the_radar/src/models/enums.dart';
 import 'package:the_radar/src/state/auth_controller.dart';
 import 'package:the_radar/src/ui/city_map_canvas.dart';
+import 'package:the_radar/src/ui/radar_map_screen.dart';
 
 // Golden-style capture: signs in through the auth controller (bypassing the
 // onboarding wizard's phone-width overflows), lands on the Radar tab and
@@ -63,6 +64,16 @@ void main() {
     drainExceptions();
 
     expect(find.text('LIVE RADAR'), findsOneWidget);
+    // Feed-first: the app opens on the Feed; switch to the Radar tab for
+    // the map capture (its screen stays mounted in the IndexedStack).
+    HomeShell.goTo(
+      tester.element(find.byType(RadarMapScreen, skipOffstage: false)),
+      1,
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(milliseconds: 300));
+    drainExceptions();
+
     expect(find.byType(CityMapCanvas), findsOneWidget);
 
     await expectLater(
