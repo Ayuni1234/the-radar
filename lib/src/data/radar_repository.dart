@@ -575,7 +575,7 @@ class RadarRepository {
     if (post == null) return true;
     try {
       final row = post.toJson()
-        ..['id'] = 'pending:${post.id.split('-').last}';
+        ..['id'] = pendingReplayId(post); // uuid-shaped, deterministic
       await _withTimeout(
           SupabaseConfig.client.from('feed_posts').upsert(row));
       _pendingFeedPost = null;
@@ -597,12 +597,46 @@ class RadarRepository {
       r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-'
       r'[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$');
 
-  /// Deterministic outbox replay id for a client-draft post
-  /// (`post-<micros>`). Exposed for tests — the unique-violation path of
-  /// [replayFeedPost] relies on it.
+  /// Deterministic, collision-resistant uuid (v4-shaped, hash-derived) for
+  /// outbox replay ids. Only 32-bit-safe integer ops are used so the hash
+  /// is identical on VM, web (dart2js/dart2wasm) and mobile.
+  ///
+  /// Why not a `pending:…` text id: feed_posts.id and radar_events.id are
+  /// uuid columns — a non-uuid id would be rejected with 22P02 and the
+  /// queued mutation would replay forever without ever succeeding.
   @visibleForTesting
-  static String pendingReplayId(FeedPost post) =>
-      'pending:${post.id.split('-').last}';
+  static String deterministicUuid(String seed) {
+    var a = 0x9E3779B9, b = 0x85EBCA6B, c = 0xC2B2AE35, d = 0x27D4EB2F;
+    for (var i = 0; i < seed.length; i++) {
+      final cu = seed.codeUnitAt(i);
+      a = (a ^ cu) & 0xFFFFFFFF;
+      b = (b + ((a << 7) & 0xFFFFFFFF) + i) & 0xFFFFFFFF;
+      c = (c ^ ((b >> 3) ^ cu)) & 0xFFFFFFFF;
+      d = (d + ((c << 11) & 0xFFFFFFFF) ^ (a >> 5)) & 0xFFFFFFFF;
+    }
+    a = (a ^ (b >> 16)) & 0xFFFFFFFF;
+    b = (b ^ ((c << 5) & 0xFFFFFFFF)) & 0xFFFFFFFF;
+    c = (c ^ (d >> 7)) & 0xFFFFFFFF;
+    d = (d ^ ((a << 13) & 0xFFFFFFFF)) & 0xFFFFFFFF;
+    String hex(int v) => (v & 0xFFFFFFFF).toRadixString(16).padLeft(8, '0');
+    final raw = '${hex(a)}${hex(b)}${hex(c)}${hex(d)}';
+    // 8-4-4-4-12 with version 4 and an RFC-4122 variant nibble.
+    return '${raw.substring(0, 8)}-${raw.substring(8, 12)}-'
+        '4${raw.substring(13, 16)}-8${raw.substring(17, 20)}-'
+        '${raw.substring(20, 32)}';
+  }
+
+  /// Whether [s] is a uuid — the shape Postgres uuid columns accept.
+  @visibleForTesting
+  static bool isValidUuid(String s) => _uuidRe.hasMatch(s);
+
+  /// Deterministic outbox replay id for a client-draft post
+  /// (`post-<micros>`). A valid uuid so the replay upsert is accepted, and
+  /// stable so a replay after a timed-out-but-landed write collides on the
+  /// same row (unique-violation ⇒ idempotent success) instead of
+  /// duplicating. Exposed for tests.
+  @visibleForTesting
+  static String pendingReplayId(FeedPost post) => deterministicUuid(post.id);
 
   /// Failure classifier — exposed for tests. Returns `(retryable, message)`
   /// exactly as the publish paths consume it.
@@ -933,7 +967,8 @@ class RadarRepository {
     if (!_uuidRe.hasMatch(event.id)) {
       // Deterministic replay id: a timed-out attempt that actually landed
       // server-side makes the re-upsert a no-op instead of a duplicate.
-      row['id'] = 'pending:${event.id.split('-').last}';
+      // Must be uuid-shaped — the column rejects anything else.
+      row['id'] = deterministicUuid(event.id);
     }
 
     try {

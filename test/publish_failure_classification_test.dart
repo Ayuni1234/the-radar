@@ -161,15 +161,15 @@ void main() {
   });
 
   group('idempotent outbox replay ids', () {
-    test('client draft ids map to stable pending:<micros> ids', () {
-      expect(
-        RadarRepository.pendingReplayId(draft('post-1726950000123456')),
-        'pending:1726950000123456',
-      );
+    test('client draft ids map to stable uuid replay ids', () {
+      final id = RadarRepository.pendingReplayId(draft('post-1726950000123456'));
+      // The replay upsert targets a uuid PK column — a non-uuid id would
+      // be rejected (22P02) and the outbox would never clear.
+      expect(RadarRepository.isValidUuid(id), isTrue, reason: id);
       // Stability matters: two replays must collide on the same row.
       expect(
         RadarRepository.pendingReplayId(draft('post-1726950000123456')),
-        RadarRepository.pendingReplayId(draft('post-1726950000123456')),
+        id,
       );
     });
 
