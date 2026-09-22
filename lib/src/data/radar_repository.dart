@@ -27,7 +27,23 @@ class RadarRepository {
 
   static final RadarRepository instance = RadarRepository._();
 
+  /// Hard deadline for one write round-trip (insert / upsert / storage
+  /// upload). Without this a hung request — captive portal, dropped radio,
+  /// stalled socket — would leave the composer spinning forever with no
+  /// outcome at all; now it resolves as a queueable transport failure.
+  static const Duration _writeTimeout = Duration(seconds: 20);
+
   bool get _live => SupabaseConfig.available;
+
+  /// Applies [_writeTimeout] to a Supabase request. On expiry the returned
+  /// future completes with the error object below, which
+  /// [_publishFailureReason] classifies as a transport failure (queueable).
+  Future<T> _withTimeout<T>(Future<T> request) {
+    return request.timeout(_writeTimeout, onTimeout: () {
+      throw TimeoutException(
+          'request exceeded ${_writeTimeout.inSeconds}s — transport stalled');
+    });
+  }
 
   /// Diagnostics hook: nothing persistent is cached client-side today
   /// (providers refetch on invalidation); demo stores reset instead.
@@ -524,7 +540,8 @@ class RadarRepository {
     // the primary key instead of failing the insert.
     _pendingFeedPost = post;
     try {
-      await SupabaseConfig.client.from('feed_posts').insert(post.toJson());
+      await _withTimeout(
+          SupabaseConfig.client.from('feed_posts').insert(post.toJson()));
       _pendingFeedPost = null;
       return PublishOutcome.ok;
     } catch (e) {
@@ -546,16 +563,32 @@ class RadarRepository {
   FeedPost? _pendingFeedPost;
 
   /// Outbox replay for a queued feed post (real re-fire, not a probe).
+  ///
+  /// Idempotent: if a timed-out request actually landed server-side, a
+  /// blind re-insert would create a duplicate post. Re-inserts collide on
+  /// the same deterministic `pending:<micros>` id instead — the duplicate
+  /// attempt fails with a unique-violation, which counts as success and
+  /// clears the outbox.
   Future<bool> replayFeedPost() async {
     final post = _pendingFeedPost;
     if (!_live) return post == null || true;
     if (post == null) return true;
     try {
-      await SupabaseConfig.client.from('feed_posts').insert(post.toJson());
+      final row = post.toJson()
+        ..['id'] = 'pending:${post.id.split('-').last}';
+      await _withTimeout(
+          SupabaseConfig.client.from('feed_posts').upsert(row));
       _pendingFeedPost = null;
       return true;
     } catch (e) {
       debugPrint('[RadarRepo] replayFeedPost failed: $e');
+      final duplicate = e is PostgrestException &&
+          (e.code == '23505' || // unique_violation (id already stored)
+              e.message.toLowerCase().contains('duplicate key'));
+      if (duplicate) {
+        _pendingFeedPost = null;
+        return true; // already stored — nothing left to replay
+      }
       return false;
     }
   }
@@ -564,31 +597,92 @@ class RadarRepository {
       r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-'
       r'[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$');
 
+  /// Deterministic outbox replay id for a client-draft post
+  /// (`post-<micros>`). Exposed for tests — the unique-violation path of
+  /// [replayFeedPost] relies on it.
+  @visibleForTesting
+  static String pendingReplayId(FeedPost post) =>
+      'pending:${post.id.split('-').last}';
+
+  /// Failure classifier — exposed for tests. Returns `(retryable, message)`
+  /// exactly as the publish paths consume it.
+  @visibleForTesting
+  static (bool, String) classifyFailure(Object e) =>
+      instance._publishFailureReason(e);
+
   /// Classifies a failed Supabase write. Returns `(retryable, message)`:
   /// retryable ⇒ transport/offline (queue it); otherwise the server
   /// rejected the write and the message is the human-readable reason.
   (bool, String) _publishFailureReason(Object e) {
     final raw = e.toString();
     final lower = raw.toLowerCase();
-    // PostgREST error bodies carry a `message` field we can surface.
-    String message = raw.length > 220 ? '${raw.substring(0, 220)}…' : raw;
-    final msgMatch = RegExp('message["\']?\\s*[:=]\\s*["\']([^"\']+)')
-        .firstMatch(raw);
-    if (msgMatch != null) message = msgMatch.group(1)!;
-    message = message.replaceFirst(RegExp(r'^(Exception|PostgrestException)[:]?\s*'), '').trim();
-    if (message.isEmpty) message = 'Unknown server error';
 
+    // Transport problems are the ONLY retryable class. They queue into the
+    // outbox and replay automatically, so the message tells the user what
+    // will happen instead of pretending the post was published.
     const transportHints = [
       'socketexception', 'clientexception', 'failed host lookup',
       'connection', 'timeout', 'timed out', 'network', 'offline',
-      'connectionclosed', 'handshake',
+      'connectionclosed', 'handshake', 'transport stalled',
     ];
     for (final h in transportHints) {
       if (lower.contains(h)) {
-        return (true, 'No connection to the server');
+        return (
+          true,
+          'The server could not be reached — your post is saved and will '
+          'publish automatically once the connection is back.'
+        );
       }
     }
-    return (false, message);
+
+    // Everything below is a definitive server answer: retrying verbatim
+    // fails identically, so surface the real reason with a next step.
+    // Typed Supabase exceptions carry a clean `message` — prefer it over
+    // regex-parsing the toString() dump.
+    String message;
+    if (e is PostgrestException) {
+      message = e.message;
+    } else if (e is StorageException) {
+      message = e.message;
+    } else {
+      message = raw.length > 220 ? '${raw.substring(0, 220)}…' : raw;
+      final msgMatch = RegExp('["\']?message["\']?\\s*[:=]\\s*["\']([^"\']+)')
+          .firstMatch(raw);
+      if (msgMatch != null) message = msgMatch.group(1)!;
+    }
+    message = message
+        .replaceFirst(
+            RegExp(r'^(Exception|PostgrestException|StorageException)[:]?\s*'),
+            '')
+        .trim();
+    if (message.isEmpty) message = 'Unknown server error';
+
+    final action = _serverHint(message, lower, e);
+    return (false, action == null ? message : '$message. $action');
+  }
+
+  /// Maps known server rejections to an actionable next step for the
+  /// composer banner / snackbar.
+  String? _serverHint(String message, String lower, Object e) {
+    final code = e is PostgrestException ? (e.code ?? '') : '';
+    if (code == '23503' || lower.contains('foreign key')) {
+      return 'Your sign-in session may have expired — reopen the app and try '
+          'again.';
+    }
+    if (code == '42501' || lower.contains('row-level security')) {
+      return 'You are not allowed to publish this — sign in again or check '
+          'your profile role.';
+    }
+    if (code == '23514' ||
+        lower.contains('violates check constraint') ||
+        lower.contains('validation')) {
+      return 'Adjust the content (length, media size or kind) and retry.';
+    }
+    if (lower.contains('does not exist') || code == '42703') {
+      return 'The app version looks outdated — hard-refresh (Ctrl+Shift+R) '
+          'to pick up the latest build.';
+    }
+    return null;
   }
 
   /// Deletes one of the viewer's own feed posts.
@@ -802,7 +896,8 @@ class RadarRepository {
     if (!_uuidRe.hasMatch(event.id)) row.remove('id');
     _pendingEvent = event;
     try {
-      await SupabaseConfig.client.from('radar_events').upsert(row);
+      await _withTimeout(
+          SupabaseConfig.client.from('radar_events').upsert(row));
       _pendingEvent = null;
       return PublishOutcome.ok;
     } catch (e) {
@@ -834,11 +929,16 @@ class RadarRepository {
       } catch (_) {
         return false;
       }
+    }    final row = event.toJson();
+    if (!_uuidRe.hasMatch(event.id)) {
+      // Deterministic replay id: a timed-out attempt that actually landed
+      // server-side makes the re-upsert a no-op instead of a duplicate.
+      row['id'] = 'pending:${event.id.split('-').last}';
     }
-    final row = event.toJson();
-    if (!_uuidRe.hasMatch(event.id)) row.remove('id');
+
     try {
-      await SupabaseConfig.client.from('radar_events').upsert(row);
+      await _withTimeout(
+          SupabaseConfig.client.from('radar_events').upsert(row));
       _pendingEvent = null;
       return true;
     } catch (e) {

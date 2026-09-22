@@ -49,6 +49,10 @@ class MediaUploadException implements Exception {
 ///   additional 200 MB size guard applies (long videos are too big).
 /// * Images: jpg/png/webp up to 10 MB.
 /// * Offline/demo mode: no storage backend — the caller posts caption-only.
+///
+/// Every failure path throws [MediaUploadException] with an actionable,
+/// user-facing reason — never a bare transport dump and never a silent
+/// fallthrough to a caption-only post.
 class MediaUploadService {
   MediaUploadService._();
   static final MediaUploadService instance = MediaUploadService._();
@@ -57,15 +61,32 @@ class MediaUploadService {
   static const _maxImageBytes = 10 * 1024 * 1024;
   static const _maxIoVideoBytes = 200 * 1024 * 1024;
 
+  /// Hard deadline for one storage round-trip. A hung upload must fail
+  /// with a clear message instead of spinning the composer forever.
+  static const _uploadTimeout = Duration(seconds: 60);
+
   /// Opens the device picker, applies the validation rules and uploads.
-  /// Returns null when the user cancels or Supabase isn't available.
+  /// Returns null only when the user cancels the picker or demo mode is
+  /// active; every failure surfaces as [MediaUploadException].
   Future<MediaUploadResult?> pickAndUpload({bool video = true}) async {
-    final picked = await FilePicker.platform.pickFiles(
-      type: video ? FileType.video : FileType.image,
-      // Web must hold the bytes (probe + upload); IO streams from the path.
-      withData: kIsWeb,
-    );
-    final file = picked?.files.single;
+    final List<PlatformFile> pickedFiles;
+    try {
+      final picked = await FilePicker.platform.pickFiles(
+        type: video ? FileType.video : FileType.image,
+        // Web must hold the bytes (probe + upload); IO streams from the path.
+        withData: kIsWeb,
+      );
+      pickedFiles = picked?.files ?? const <PlatformFile>[];
+    } catch (e) {
+      // e.g. MissingPluginException in a wrapper webview — the picker is
+      // unavailable, which previously fell through as a silent cancel.
+      debugPrint('[Media] picker failed: $e');
+      throw MediaUploadException(
+        'The file picker is unavailable on this device/browser — paste a '
+        'video or image link instead.',
+      );
+    }
+    final file = pickedFiles.isEmpty ? null : pickedFiles.first;
     if (file == null) return null; // User cancelled.
 
     if (video) {
@@ -91,9 +112,20 @@ class MediaUploadService {
       return null;
     }
 
-    final bytes = await readFileBytes(file);
+    Uint8List? bytes;
+    try {
+      bytes = await readFileBytes(file);
+    } catch (e) {
+      debugPrint('[Media] reading "${file.name}" failed: $e');
+      throw MediaUploadException(
+          'Could not read "${file.name}" — the file may have moved. '
+          'Pick it again.');
+    }
     if (bytes == null) {
-      throw MediaUploadException('Could not read the selected file.');
+      throw MediaUploadException(
+          'Could not read "${file.name}" (${(file.size / (1024 * 1024))
+                  .toStringAsFixed(1)} MB) — the file may have moved. '
+          'Pick it again.');
     }
     double? probed;
     if (video && kIsWeb) {
@@ -129,9 +161,25 @@ class MediaUploadService {
             objectName,
             bytes,
             fileOptions: const FileOptions(cacheControl: '3600', upsert: false),
-          );
+          ).timeout(_uploadTimeout, onTimeout: () {
+        throw MediaUploadException(
+          'The upload took too long — check your connection (or switch to '
+          'Wi-Fi) and try a shorter clip.',
+        );
+      });
+    } on MediaUploadException {
+      rethrow; // Timeout above already carries an actionable message.
     } on StorageException catch (e) {
-      throw MediaUploadException('Upload failed: ${e.message}');
+      throw MediaUploadException(
+          _storageFailureMessage(e, file.size));
+    } catch (e) {
+      // Transport-level failure (SocketException, ClientException, …) —
+      // previously this escaped as a bare dump or vanished silently.
+      debugPrint('[Media] upload of "$objectName" failed: $e');
+      throw MediaUploadException(
+        'Upload failed — the server could not be reached. Check your '
+        'connection and try again; the post text is kept.',
+      );
     }
 
     return MediaUploadResult(
@@ -142,4 +190,34 @@ class MediaUploadService {
       durationSeconds: video ? probedSeconds?.ceil() : null,
     );
   }
+
+  /// Maps a Supabase Storage failure to a specific, actionable message —
+  /// never a bare "Upload failed: status" dump. Exposed for tests.
+  @visibleForTesting
+  static String storageFailureMessage(StorageException e, int fileSizeBytes) =>
+      instance._storageFailureMessage(e, fileSizeBytes);
+
+  String _storageFailureMessage(StorageException e, int fileSizeBytes) {
+    // storage_client surfaces the HTTP status as a string (or null when
+    // the request never got a response — i.e. offline / stalled).
+    final status = int.tryParse(e.statusCode ?? '') ?? 0;
+    if (status == 413) {
+      return 'That file is too large for the server '
+              '(${(fileSizeBytes / (1024 * 1024)).toStringAsFixed(1)} MB) — '
+              'use a shorter clip or smaller image.';
+    }
+    if (status == 403) {
+      return 'Upload rejected: the media storage rules denied it. Your '
+              'session may have expired — reopen the app and try again.';
+    }
+    if (status == 409 || e.message.toLowerCase().contains('exists')) {
+      return 'An upload with that name already exists — wait a second and '
+              'try again.';
+    }
+    if (status == 0) {
+      return 'Upload failed — the media server could not be reached. Check '
+              'your connection and try again.';
+    }
+    return 'Upload failed (${e.statusCode ?? 'unknown status'}): '
+        '${e.message}';  }
 }
