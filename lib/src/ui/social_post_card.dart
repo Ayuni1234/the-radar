@@ -125,6 +125,7 @@ class SocialPostCard extends ConsumerWidget {
       builder: (_) => _ScheduleSheet(
         playerName: post.authorName,
         sessions: upcoming,
+        postSchedule: post.hasSchedule ? post.scheduledAt : null,
       ),
     );
   }
@@ -318,12 +319,18 @@ class _MediaHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isLive = linkedEvent?.isLive ?? false;
-    final upcoming = !isLive &&
-        linkedEvent != null &&
-        linkedEvent!.startsAt.isAfter(DateTime.now());
-    final countdown = upcoming
-        ? _countdown(linkedEvent!.startsAt)
-        : null;
+    // Countdown priority: the post's own attached schedule (what the poster
+    // pinned to *this* post) beats the poster's next radar event; a live
+    // event always wins the badge.
+    final DateTime? countdownAt = isLive
+        ? null
+        : post.hasSchedule
+            ? post.scheduledAt
+            : (linkedEvent != null &&
+                    linkedEvent!.startsAt.isAfter(DateTime.now())
+                ? linkedEvent!.startsAt
+                : null);
+    final countdown = countdownAt == null ? null : _countdown(countdownAt);
 
     return AspectRatio(
       aspectRatio: 16 / 9,
@@ -627,6 +634,17 @@ class _ActionBar extends StatelessWidget {
     final event = linkedEvent;
     final isLive = event?.isLive ?? false;
 
+    // Calendar pill: prefer the post's own attached schedule, then the
+    // poster's next live/upcoming session.
+    String? when;
+    if (post.hasSchedule) {
+      when = _when(post.scheduledAt!);
+    } else if (event != null && event.isLive) {
+      when = 'Live right now';
+    } else if (event != null && event.startsAt.isAfter(DateTime.now())) {
+      when = _when(event.startsAt);
+    }
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
       child: Row(
@@ -649,8 +667,7 @@ class _ActionBar extends StatelessWidget {
             child: _ActionPill(
               icon: Icons.calendar_month_outlined,
               title: 'Calendar',
-              subtitle:
-                  event == null ? 'No sessions yet' : _when(event),
+              subtitle: when ?? 'No sessions yet',
               tooltip: 'Upcoming training dates & times',
               accent: RadarTheme.gold,
               onTap: onOpenSchedule,
@@ -680,9 +697,7 @@ class _ActionBar extends StatelessWidget {
     return spot.length > 12 ? '${spot.substring(0, 12)}…' : spot;
   }
 
-  String _when(RadarEvent e) {
-    if (e.isLive) return 'Live right now';
-    final d = e.startsAt;
+  String _when(DateTime d) {
     final now = DateTime.now();
     final day = d.day == now.day
         ? 'Today'
@@ -1094,10 +1109,18 @@ class _MapPreviewSheet extends StatelessWidget {
 // -------------------------------------------------------- schedule sheet
 
 class _ScheduleSheet extends StatelessWidget {
-  const _ScheduleSheet({required this.playerName, required this.sessions});
+  const _ScheduleSheet({
+    required this.playerName,
+    required this.sessions,
+    this.postSchedule,
+  });
 
   final String playerName;
   final List<RadarEvent> sessions;
+
+  /// The post's own attached training/match time — shown when the author
+  /// has no published radar sessions so the sheet still matches the pill.
+  final DateTime? postSchedule;
 
   @override
   Widget build(BuildContext context) {
@@ -1130,7 +1153,16 @@ class _ScheduleSheet extends StatelessWidget {
             ),
           ]),
           const SizedBox(height: 10),
-          if (sessions.isEmpty)
+          if (sessions.isEmpty && postSchedule != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 18),
+              child: Text(
+                'This post is scheduled for ${DateFormat('EEE d MMM · HH:mm').format(postSchedule!)} — '
+                'no other sessions published yet.',
+                style: const TextStyle(color: RadarTheme.textDim, fontSize: 12.5),
+              ),
+            )
+          else if (sessions.isEmpty)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 18),
               child: Text(
