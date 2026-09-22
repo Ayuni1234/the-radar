@@ -39,6 +39,7 @@ class FeedPost {
     this.areaName,
     this.latitude,
     this.longitude,
+    this.scheduledAt,
     this.isMinorPoster = false,
   });
 
@@ -66,10 +67,19 @@ class FeedPost {
   final String? areaName;
   final double? latitude;
   final double? longitude;
+
+  /// Optional training/match schedule attached to the post — rendered on
+  /// the card's Calendar pill and as a countdown chip on the media hero.
+  final DateTime? scheduledAt;
+
   final bool isMinorPoster;
 
   bool get hasMedia => mediaUrl != null && mediaUrl!.isNotEmpty;
   bool get hasLocation => latitude != null && longitude != null;
+
+  /// True when the post carries an upcoming training/match schedule.
+  bool get hasSchedule =>
+      scheduledAt != null && scheduledAt!.isAfter(DateTime.now());
 
   /// True when [mediaUrl] is a device-uploaded video (≤ 3 min highlight).
   bool get isDeviceVideo => mediaKind == 'device_video';
@@ -88,6 +98,7 @@ class FeedPost {
         'area_name': (areaName?.isEmpty ?? true) ? null : areaName,
         'latitude': latitude,
         'longitude': longitude,
+        'scheduled_at': scheduledAt?.toIso8601String(),
       };
 
   factory FeedPost.fromJson(Map<String, Object?> json) {
@@ -113,6 +124,8 @@ class FeedPost {
       areaName: str(json['area_name']),
       latitude: (json['latitude'] as num?)?.toDouble(),
       longitude: (json['longitude'] as num?)?.toDouble(),
+      scheduledAt: DateTime.tryParse(json['scheduled_at']?.toString() ?? '')
+          ?.toLocal(),
       isMinorPoster: json['is_minor_poster'] as bool? ?? false,
     );
   }

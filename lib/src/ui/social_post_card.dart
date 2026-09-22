@@ -24,6 +24,7 @@ class SocialPostCard extends ConsumerWidget {
     this.onOpenAuthor,
     this.onDelete,
     this.onOpenMapDeepLink,
+    this.onReport,
   });
 
   final FeedPost post;
@@ -35,6 +36,11 @@ class SocialPostCard extends ConsumerWidget {
   /// When provided, the Location Pin deep links straight to this spot on
   /// the live Radar map; when null, the in-card map preview sheet opens.
   final VoidCallback? onOpenMapDeepLink;
+
+  /// When provided, shows a Report flag — files a moderation report
+  /// against this post (content_reports; reporters stay anonymous to the
+  /// reported account). Hidden when null (e.g. tests, non-feed contexts).
+  final VoidCallback? onReport;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -74,6 +80,7 @@ class SocialPostCard extends ConsumerWidget {
             post: post,
             onOpenAuthor: onOpenAuthor,
             onDelete: onDelete,
+            onReport: onReport,
           ),
           _MediaHero(post: post, linkedEvent: linkedEvent),
           _ActionBar(
@@ -139,11 +146,13 @@ class _CardHeader extends StatelessWidget {
     required this.post,
     this.onOpenAuthor,
     this.onDelete,
+    this.onReport,
   });
 
   final FeedPost post;
   final VoidCallback? onOpenAuthor;
   final VoidCallback? onDelete;
+  final VoidCallback? onReport;
 
   static const _roleIcons = {
     'player': Icons.sports_soccer,
@@ -268,6 +277,14 @@ class _CardHeader extends StatelessWidget {
               ),
             ),
           ),
+          if (onReport != null)
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              tooltip: 'Report post',
+              icon: const Icon(Icons.flag_outlined,
+                  size: 18, color: RadarTheme.textDim),
+              onPressed: onReport,
+            ),
           if (onDelete != null)
             IconButton(
               visualDensity: VisualDensity.compact,

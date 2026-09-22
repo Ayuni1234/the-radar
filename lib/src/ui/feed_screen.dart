@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../diagnostics/diagnostics.dart';
 import '../models/enums.dart';
+import '../models/content_report.dart';
 import '../models/feed_post.dart';
 import '../models/radar_event.dart';
 import '../models/stream_bounty.dart';
@@ -12,6 +14,7 @@ import '../state/radar_providers.dart';
 import 'event_detail_screen.dart';
 import '../../main.dart' show HomeShell;
 import '../data/location_service.dart';
+import '../data/radar_repository.dart';
 import 'radar_map_screen.dart';
 import '../data/media_upload_service.dart';
 import 'player_cv_screen.dart';
@@ -254,8 +257,13 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                     child: SocialPostCard(
                       post: posts[i],
                       onOpenAuthor: () => _openAuthor(posts[i]),
-                      onDelete: () => _confirmDelete(posts[i]),
+                      onDelete:
+                          ref.read(sessionProvider)?.profileId ==
+                                  posts[i].authorProfileId
+                              ? () => _confirmDelete(posts[i])
+                              : null,
                       onOpenMapDeepLink: () => _openPostOnRadar(posts[i]),
+                      onReport: () => _openReportSheet(posts[i]),
                     ),
                   ),
                 ),
@@ -338,6 +346,10 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
 
   Future<void> _confirmDelete(FeedPost post) async {
     final session = ref.read(sessionProvider);
+    if (session != null && session.profileId != post.authorProfileId) {
+      await _openReportSheet(post);
+      return;
+    }
     if (session?.profileId != post.authorProfileId) return;
     final ok = await showDialog<bool>(
       context: context,
@@ -358,6 +370,48 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     );
     if (ok == true) {
       await ref.read(feedPostsProvider.notifier).deletePost(post.id);
+    }
+  }
+
+  /// Report-content flow: reason picker + optional details, filed against
+  /// the post through content_reports (RLS: reporter = self).
+  Future<void> _openReportSheet(FeedPost post) async {
+    final result =
+        await showModalBottomSheet<(ContentReportReason, String)>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _ReportSheet(
+        targetLabel:
+            '${post.authorName}\'s ${post.kind.label.toLowerCase()} post',
+      ),
+    );
+    if (result == null || !mounted) return;
+    final (reason, details) = result;
+    final session = ref.read(sessionProvider);
+    if (session == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: RadarTheme.alert,
+        content: Text('Sign in to report content.'),
+      ));
+      return;
+    }
+    final (id, error) = await RadarRepository.instance.createContentReport(
+      targetType: 'feed_post',
+      targetId: post.id,
+      reason: reason,
+      details: details,
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: error != null ? RadarTheme.alert : RadarTheme.panelHigh,
+      content: Text(error ??
+          'Report received — our moderation team will review it. Thank you.'),
+    ));
+    if (id != null) {
+      Diagnostics.instance.log('moderation', 'report filed: $id ($reason)');
     }
   }
 
@@ -650,6 +704,10 @@ class _ComposerSheetState extends ConsumerState<_ComposerSheet> {
   String? _uploadedMediaKind;
   int? _uploadedDurationSeconds;
 
+  /// Optional training/match schedule attached to the post — feeds the
+  /// card's Calendar pill and the countdown chip on the media hero.
+  DateTime? _schedule;
+
   // Location tagging: precise GPS pin (lat/lon) captured via quick actions.
   bool _locating = false;
   double? _pinLat;
@@ -691,6 +749,28 @@ class _ComposerSheetState extends ConsumerState<_ComposerSheet> {
         _pinLabel = e.reason;
       });
     }
+  }
+
+  /// Training Schedule — date first, then time. `null` clears it.
+  Future<void> _pickSchedule() async {
+    final now = DateTime.now();
+    final initial = _schedule ?? now.add(const Duration(days: 1));
+    final date = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(now.year, now.month, now.day),
+      lastDate: now.add(const Duration(days: 365)),
+    );
+    if (date == null || !mounted) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(initial),
+    );
+    if (time == null || !mounted) return;
+    setState(() {
+      _schedule =
+          DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    });
   }
 
   /// 'Tag Training Venue' — pick one of the poster's scheduled venues.
@@ -810,6 +890,7 @@ class _ComposerSheetState extends ConsumerState<_ComposerSheet> {
           areaName: _areaCtrl.text,
           latitude: _pinLat,
           longitude: _pinLon,
+          scheduledAt: _schedule,
         );
     if (!mounted) return;
     setState(() => _busy = false);
@@ -967,6 +1048,18 @@ class _ComposerSheetState extends ConsumerState<_ComposerSheet> {
                 prefixIcon: Icon(Icons.place_outlined, size: 20),
               ),
             ),
+            if (ref.watch(authProvider).value is AuthSignedIn &&
+                (ref.watch(authProvider).value as AuthSignedIn)
+                    .session
+                    .isMinor)
+              const Padding(
+                padding: EdgeInsets.only(top: 6),
+                child: Text(
+                  'Protected account: the map pin stays private — your post '
+                  'shows the area label only.',
+                  style: TextStyle(fontSize: 11.5, color: RadarTheme.gold),
+                ),
+              ),
             const SizedBox(height: 8),
             // Quick actions: precise GPS pin or a known venue/time slot.
             Row(
@@ -1016,6 +1109,67 @@ class _ComposerSheetState extends ConsumerState<_ComposerSheet> {
                   ),
                 ]),
               ),
+            const SizedBox(height: 14),
+            // Training Schedule — the dedicated date & time section for
+            // upcoming sessions/matches, saved onto the post itself.
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: RadarTheme.panelHigh,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: _schedule != null
+                      ? RadarTheme.gold.withValues(alpha: 0.55)
+                      : RadarTheme.stroke,
+                ),
+              ),
+              child: Row(children: [
+                Icon(
+                  Icons.event_available,
+                  size: 20,
+                  color: _schedule != null
+                      ? RadarTheme.gold
+                      : RadarTheme.textDim,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Training Schedule',
+                          style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700)),
+                      Text(
+                        _schedule == null
+                            ? 'Add a date & time for scouts to plan around'
+                            : DateFormat('EEE d MMM · HH:mm')
+                                .format(_schedule!),
+                        style: TextStyle(
+                            fontSize: 11.5,
+                            color: _schedule != null
+                                ? RadarTheme.gold
+                                : RadarTheme.textDim),
+                      ),
+                    ],
+                  ),
+                ),
+                OutlinedButton.icon(
+                  onPressed: _busy ? null : _pickSchedule,
+                  icon: const Icon(Icons.edit_calendar_outlined, size: 16),
+                  label: Text(_schedule == null ? 'Set' : 'Change',
+                      style: const TextStyle(fontSize: 12)),
+                ),
+                if (_schedule != null)
+                  IconButton(
+                    tooltip: 'Clear schedule',
+                    onPressed: _busy
+                        ? null
+                        : () => setState(() => _schedule = null),
+                    icon: const Icon(Icons.close, size: 16),
+                  ),
+              ]),
+            ),
             const SizedBox(height: 16),
             FilledButton.icon(
               onPressed:
@@ -1684,6 +1838,133 @@ class _FilterSheetState extends State<_FilterSheet> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Reason picker for the report-content flow. Returns
+/// `(reason, detailsText)` — the details text is already trimmed and may
+/// be empty — or null if dismissed.
+class _ReportSheet extends StatefulWidget {
+  const _ReportSheet({required this.targetLabel});
+
+  final String targetLabel;
+
+  @override
+  State<_ReportSheet> createState() => _ReportSheetState();
+}
+
+class _ReportSheetState extends State<_ReportSheet> {
+  ContentReportReason? _reason;
+  final _detailsCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _detailsCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.all(14),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+      decoration: BoxDecoration(
+        color: RadarTheme.panel,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: RadarTheme.stroke),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(children: [
+            const Icon(Icons.flag_outlined, color: RadarTheme.gold, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text('Report ${widget.targetLabel}',
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w700, fontSize: 15.5)),
+            ),
+            IconButton(
+              onPressed: () => Navigator.pop(context),
+              icon: const Icon(Icons.close, size: 18),
+            ),
+          ]),
+          const SizedBox(height: 4),
+          const Text(
+            'Tell us what is wrong. Reports go to the moderation team; '
+            'the reported account is not told who filed it.',
+            style: TextStyle(color: RadarTheme.textDim, fontSize: 12),
+          ),
+          const SizedBox(height: 12),
+          for (final reason in ContentReportReason.values)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(10),
+                onTap: () => setState(() => _reason = reason),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: _reason == reason
+                        ? RadarTheme.gold.withValues(alpha: 0.10)
+                        : RadarTheme.panelHigh,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: _reason == reason
+                          ? RadarTheme.gold.withValues(alpha: 0.5)
+                          : RadarTheme.stroke,
+                    ),
+                  ),
+                  child: Row(children: [
+                    Icon(
+                      _reason == reason
+                          ? Icons.radio_button_checked
+                          : Icons.radio_button_off,
+                      size: 16,
+                      color: _reason == reason
+                          ? RadarTheme.gold
+                          : RadarTheme.textDim,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(reason.label,
+                          style: const TextStyle(fontSize: 13)),
+                    ),
+                  ]),
+                ),
+              ),
+            ),
+          const SizedBox(height: 6),
+          TextField(
+            controller: _detailsCtrl,
+            maxLines: 2,
+            maxLength: 400,
+            style: const TextStyle(fontSize: 13),
+            decoration: const InputDecoration(
+              hintText: 'Optional details for the moderators…',
+              counterText: '',
+              isDense: true,
+            ),
+          ),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            style: FilledButton.styleFrom(
+              backgroundColor:
+                  _reason == null ? RadarTheme.stroke : RadarTheme.radar,
+            ),
+            onPressed: _reason == null
+                ? null
+                : () => Navigator.pop(
+                    context, (_reason!, _detailsCtrl.text.trim())),
+            icon: const Icon(Icons.send_outlined, size: 16),
+            label: const Text('Send report'),
+          ),
+        ],
       ),
     );
   }

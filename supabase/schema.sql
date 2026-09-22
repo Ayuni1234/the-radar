@@ -28,6 +28,7 @@ create table if not exists public.profiles (
   video_showcase_urls text[] not null default '{}',
   club_affiliation  text,
   is_minor          boolean not null default false,
+  is_admin          boolean not null default false,  -- moderation capability; set only by operator SQL
   geohash_area      text,                            -- coarse area label (minors: only this)
   rating            numeric(3,2) not null default 0,
   avatar_url        text,
@@ -61,6 +62,7 @@ alter table public.profiles add column if not exists football_cv         text;
 alter table public.profiles add column if not exists video_showcase_urls text[] not null default '{}';
 alter table public.profiles add column if not exists club_affiliation    text;
 alter table public.profiles add column if not exists is_minor            boolean not null default false;
+alter table public.profiles add column if not exists is_admin            boolean not null default false;
 alter table public.profiles add column if not exists geohash_area        text;
 alter table public.profiles add column if not exists rating              numeric(3,2) not null default 0;
 alter table public.profiles add column if not exists avatar_url          text;
@@ -691,12 +693,18 @@ create table if not exists public.feed_posts (
   body text not null,
   media_url text,
   media_platform text,
+  media_kind text check (media_kind in ('link','device_video','device_photo')),
+  media_duration_s integer check (media_duration_s is null or media_duration_s <= 180),
   area_name text,
   latitude double precision,
   longitude double precision,
+  scheduled_at timestamptz,                      -- optional training/match schedule on the post
   is_minor_poster boolean not null default false,
   created_at timestamptz not null default now()
 );
+create index if not exists feed_posts_scheduled_at_idx
+  on public.feed_posts (scheduled_at)
+  where scheduled_at is not null;
 alter table public.feed_posts enable row level security;
 drop policy if exists "feed posts are readable" on public.feed_posts;
 create policy "feed posts are readable" on public.feed_posts
@@ -706,25 +714,28 @@ create policy "authors manage own posts" on public.feed_posts
   for all using (author_profile_id = auth.uid());
 
 -- Trigger: mirror the profile's minor state on every post and fence it.
+-- Minor policy: exact coordinates never leave the DB; external media
+-- links are stripped; device uploads to our moderated `feed-media`
+-- bucket stay (reportable through content_reports); the poster-authored
+-- coarse area label persists.
 create or replace function public.enforce_feed_post_privacy()
 returns trigger as $$
 declare
   poster_is_minor boolean := false;
-  poster_area text;
 begin
-  select p.is_minor,
-         coalesce(nullif(btrim(coalesce(p.geohash_area, '')), ''),
-                  nullif(btrim(coalesce(p.city, '')), ''), 'Region withheld')
-    into poster_is_minor, poster_area
+  select coalesce(p.is_minor, false)
+    into poster_is_minor
   from public.profiles p where p.id = new.author_profile_id;
 
-  new.is_minor_poster := coalesce(poster_is_minor, false);
-  if new.is_minor_poster then
-    new.area_name := poster_area;      -- coarse regional label only
+  new.is_minor_poster := poster_is_minor;
+
+  if poster_is_minor then
     new.latitude := null;              -- no coordinates leave the DB
     new.longitude := null;
-    new.media_url := null;             -- no external media for minors
-    new.media_platform := null;
+    if new.media_kind is null or new.media_kind = 'link' then
+      new.media_url := null;           -- external links stripped
+      new.media_platform := null;
+    end if;
   end if;
   return new;
 end;
@@ -846,5 +857,60 @@ begin
 end;
 $$ language plpgsql security definer;
 grant execute on function public.release_bounty(uuid) to authenticated;
+
+-- ============================================================
+-- CONTENT REPORTS — report-content flow (posts, events, listings).
+-- Any authenticated user files a report as themselves; reporters read
+-- only their own reports; admins (profiles.is_admin, granted by
+-- operator SQL only) read all and own the status workflow.
+-- ============================================================
+create table if not exists public.content_reports (
+  id uuid primary key default gen_random_uuid(),
+  reporter_profile_id uuid not null default auth.uid()
+    references public.profiles(id) on delete cascade,
+  target_type text not null
+    check (target_type in ('feed_post', 'radar_event', 'market_listing')),
+  target_id uuid not null,
+  reason text not null
+    check (reason in ('spam','abuse','inappropriate_media',
+                      'misleading','minor_safety','other')),
+  details text,
+  status text not null default 'open'
+    check (status in ('open','reviewing','resolved','dismissed')),
+  created_at timestamptz not null default now(),
+  reviewed_at timestamptz,
+  reviewed_by uuid references public.profiles(id)
+);
+alter table public.content_reports enable row level security;
+
+create unique index if not exists content_reports_one_open_per_target
+  on public.content_reports (reporter_profile_id, target_type, target_id)
+  where status = 'open';
+create index if not exists content_reports_open_idx
+  on public.content_reports (status, created_at);
+
+drop policy if exists "reporters file own reports" on public.content_reports;
+create policy "reporters file own reports" on public.content_reports
+  for insert to authenticated
+  with check (reporter_profile_id = auth.uid());
+
+drop policy if exists "own reports or admin" on public.content_reports;
+create policy "own reports or admin" on public.content_reports
+  for select using (
+    reporter_profile_id = auth.uid()
+    or exists (
+      select 1 from public.profiles p
+      where p.id = auth.uid() and p.is_admin
+    )
+  );
+
+drop policy if exists "admins moderate reports" on public.content_reports;
+create policy "admins moderate reports" on public.content_reports
+  for update using (
+    exists (
+      select 1 from public.profiles p
+      where p.id = auth.uid() and p.is_admin
+    )
+  );
 
 alter publication supabase_realtime add table public.stream_bounties;

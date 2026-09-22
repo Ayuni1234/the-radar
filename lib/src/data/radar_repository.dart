@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../analytics/tracking_session.dart';
 import '../models/connection_request.dart';
+import '../models/content_report.dart';
 import '../models/enums.dart';
 import '../models/feed_post.dart';
 import '../models/guardian_link.dart';
@@ -637,6 +638,64 @@ class RadarRepository {
   /// duplicating. Exposed for tests.
   @visibleForTesting
   static String pendingReplayId(FeedPost post) => deterministicUuid(post.id);
+
+  // ---------------------------------------------------------------- reports
+
+  /// Files a content report (feed post / radar event / market listing)
+  /// into `content_reports`. RLS stamps the reporter (`auth.uid()`), so
+  /// the client never sends an identity.
+  ///
+  /// Returns `(reportId, error)` — exactly one is non-null. A duplicate
+  /// open report (one open report per reporter per target, enforced by the
+  /// `content_reports_one_open_per_target` partial unique index) is a
+  /// definitive server answer, not a transport failure: it surfaces as a
+  /// friendly error instead of being queued for replay, because replaying
+  /// it would fail identically forever.
+  Future<(String?, String?)> createContentReport({
+    required String targetType,
+    required String targetId,
+    required ContentReportReason reason,
+    String? details,
+  }) async {
+    if (!_live) {
+      Diagnostics.instance.log('moderation', 'report filed (demo): $reason');
+      return ('demo-report', null);
+    }
+    final payload = ContentReport(
+      id: '',
+      reporterProfileId: '',
+      targetType: targetType,
+      targetId: targetId,
+      reason: reason,
+      details: details,
+      status: 'open',
+      createdAt: DateTime.now(),
+    ).toJson();
+    try {
+      final res = await _withTimeout(SupabaseConfig.client
+          .from('content_reports')
+          .insert(payload)
+          .select('id')
+          .single());
+      final id = (res['id'] ?? '').toString();
+      Diagnostics.instance.log('moderation', 'report filed: $id ($reason)');
+      return (id, null);
+    } catch (e) {
+      debugPrint('[RadarRepo] createContentReport failed: $e');
+      if (e is PostgrestException && e.code == '23505') {
+        return (
+          null,
+          'You already reported this — it is still awaiting review by the '
+          'moderation team.'
+        );
+      }
+      return (
+        null,
+        'Could not file the report right now — check your connection and '
+        'try again.'
+      );
+    }
+  }
 
   /// Failure classifier — exposed for tests. Returns `(retryable, message)`
   /// exactly as the publish paths consume it.

@@ -792,6 +792,7 @@ class FeedPostsController extends AsyncNotifier<List<FeedPost>> {
     String? areaName,
     double? latitude,
     double? longitude,
+    DateTime? scheduledAt,
   }) async {
     final session = ref.read(sessionProvider);
     final profileId = session?.profileId;
@@ -814,6 +815,7 @@ class FeedPostsController extends AsyncNotifier<List<FeedPost>> {
       areaName: (areaName?.trim().isEmpty ?? true) ? null : areaName!.trim(),
       latitude: latitude,
       longitude: longitude,
+      scheduledAt: scheduledAt,
     );
     final outcome = await RadarRepository.instance.createFeedPost(post);
     if (outcome.success) await refresh();
