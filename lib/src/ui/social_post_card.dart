@@ -9,10 +9,14 @@ import '../models/radar_event.dart';
 import '../state/radar_providers.dart';
 import 'radar_theme.dart';
 
-/// A social-feed post card in the "ops-room" visual language: role avatar +
-/// handle header, a 16:9 pitch-tinted media hero (live badge / countdown),
-/// a custom action bar (location · schedule · live stream), the caption, and
-/// a street-map snippet card giving the area physical context.
+/// A social-feed post card in the "ops-room" visual language, laid out the
+/// Instagram way: avatar + handle header, edge-to-edge 4:5 portrait media
+/// (no letterboxing, no inner gutters), the caption and action pills sitting
+/// cleanly beneath with comfortable padding.
+///
+/// [framed] renders the boxed panel variant (rounded border — used by the
+/// moderation queue where the card sits inside a sheet); the feed passes
+/// `framed: false` for the premium full-bleed edge-to-edge look.
 ///
 /// Tapping the location action opens the map preview sheet; the schedule
 /// action opens the upcoming-sessions sheet; the live button opens the
@@ -25,6 +29,7 @@ class SocialPostCard extends ConsumerWidget {
     this.onDelete,
     this.onOpenMapDeepLink,
     this.onReport,
+    this.framed = true,
   });
 
   final FeedPost post;
@@ -41,6 +46,10 @@ class SocialPostCard extends ConsumerWidget {
   /// against this post (content_reports; reporters stay anonymous to the
   /// reported account). Hidden when null (e.g. tests, non-feed contexts).
   final VoidCallback? onReport;
+
+  /// Boxed panel look (rounded border) for embedded contexts; `false` gives
+  /// the feed's full-bleed, edge-to-edge treatment.
+  final bool framed;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -69,8 +78,9 @@ class SocialPostCard extends ConsumerWidget {
     return Container(
       decoration: BoxDecoration(
         color: RadarTheme.panel,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: RadarTheme.stroke),
+        borderRadius:
+            framed ? BorderRadius.circular(18) : BorderRadius.zero,
+        border: framed ? Border.all(color: RadarTheme.stroke) : null,
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
@@ -332,8 +342,10 @@ class _MediaHero extends StatelessWidget {
                 : null);
     final countdown = countdownAt == null ? null : _countdown(countdownAt);
 
+    // Instagram-style portrait canvas: the media (photo or painted pitch)
+    // fills a 4:5 frame edge-to-edge — no letterbox bands, no inner gutters.
     return AspectRatio(
-      aspectRatio: 16 / 9,
+      aspectRatio: 4 / 5,
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -734,6 +746,9 @@ class _ActionPill extends StatelessWidget {
     this.live = false,
   });
 
+  // Tap-target floor for the refreshed action row.
+  static const double _minHeight = 44;
+
   final IconData icon;
   final String title;
   final String subtitle;
@@ -761,20 +776,24 @@ class _ActionPill extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(14),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
-            child: Row(
-              children: [
-                iconBadge ??
-                    Container(
-                      width: 30,
-                      height: 30,
-                      decoration: BoxDecoration(
-                        color: accent.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(9),
+            // Comfortable tappability: taller pills, more breathing room
+            // around the two-line label.
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: _minHeight),
+              child: Row(
+                children: [
+                  iconBadge ??
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: accent.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(icon, size: 17, color: accent),
                       ),
-                      child: Icon(icon, size: 16, color: accent),
-                    ),
-                const SizedBox(width: 8),
+                  const SizedBox(width: 8),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -798,6 +817,7 @@ class _ActionPill extends StatelessWidget {
                   ),
                 ),
               ],
+              ),
             ),
           ),
         ),
@@ -901,17 +921,26 @@ class _Caption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Instagram caption layout: bold handle first, then the body, on the
+    // same line when it fits and wrapping naturally when it doesn't.
+    final handle = TextSpan(
+      text: '${post.authorName} ',
+      style: const TextStyle(
+          color: RadarTheme.textPrimary,
+          fontSize: 13.5,
+          fontWeight: FontWeight.w800),
+    );
     return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            post.body,
+          Text.rich(
+            TextSpan(children: [handle, TextSpan(text: post.body)]),
             style: const TextStyle(
-                color: RadarTheme.textPrimary, fontSize: 13.5, height: 1.45),
+                color: RadarTheme.textPrimary, fontSize: 13.5, height: 1.5),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [

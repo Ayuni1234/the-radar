@@ -253,19 +253,28 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                 ),
                 SliverList.builder(
                   itemCount: posts.length,
-                  itemBuilder: (context, i) => Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                    child: SocialPostCard(
-                      post: posts[i],
-                      onOpenAuthor: () => _openAuthor(posts[i]),
-                      onDelete:
-                          ref.read(sessionProvider)?.profileId ==
-                                  posts[i].authorProfileId
-                              ? () => _confirmDelete(posts[i])
-                              : null,
-                      onOpenMapDeepLink: () => _openPostOnRadar(posts[i]),
-                      onReport: () => _openReportSheet(posts[i]),
-                    ),
+                  itemBuilder: (context, i) => Column(
+                    children: [
+                      SocialPostCard(
+                        // Edge-to-edge, Instagram-style: no card gutters —
+                        // the media runs the full width of the screen.
+                        framed: false,
+                        post: posts[i],
+                        onOpenAuthor: () => _openAuthor(posts[i]),
+                        onDelete:
+                            ref.read(sessionProvider)?.profileId ==
+                                    posts[i].authorProfileId
+                                ? () => _confirmDelete(posts[i])
+                                : null,
+                        onOpenMapDeepLink: () => _openPostOnRadar(posts[i]),
+                        onReport: () => _openReportSheet(posts[i]),
+                      ),
+                      if (i != posts.length - 1)
+                        Container(
+                          height: 1,
+                          color: RadarTheme.stroke.withValues(alpha: 0.55),
+                        ),
+                    ],
                   ),
                 ),
               ],

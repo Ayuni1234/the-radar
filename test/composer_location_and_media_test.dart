@@ -310,6 +310,94 @@ void main() {
     });
   });
 
+  group('feed card edge-to-edge layout (Instagram-style)', () {
+    FeedPost post({bool media = false}) => FeedPost(
+          id: 'p1',
+          authorProfileId: 'a1',
+          authorName: 'Scout',
+          authorRole: 'player',
+          kind: FeedPostKind.highlight,
+          body: 'Tactical shape looked sharp today.',
+          createdAt: DateTime(2026, 9, 23),
+          areaName: 'Limbe — Omnisport Annex',
+          mediaUrl: media
+              ? 'https://example.supabase.co/storage/v1/object/public/'
+                  'feed-media/u1/1.jpg'
+              : null,
+          mediaPlatform: media ? 'device photo' : null,
+          mediaKind: media ? 'device_photo' : null,
+        );
+
+    Future<void> pumpCard(WidgetTester tester, FeedPost post,
+        {bool framed = false}) async {
+      tester.view.physicalSize = const Size(400, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(ProviderScope(
+        child: MaterialApp(
+          theme: RadarTheme.dark,
+          home: Scaffold(
+            body: SingleChildScrollView(child: SocialPostCard(
+              post: post,
+              framed: framed,
+            )),
+          ),
+        ),
+      ));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+    }
+
+    testWidgets('media runs edge-to-edge at a 4:5 portrait ratio',
+        (tester) async {
+      await pumpCard(tester, post());
+
+      final media = tester.getRect(find.byType(AspectRatio));
+      expect(media.left, 0,
+          reason: 'the media container must touch the screen edge — no '
+              'letterboxing or inner gutters');
+      expect(media.width, 400);
+      expect(media.height, 500,
+          reason: '4:5 portrait canvas, like the premium feed layouts');
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('caption and actions sit padded beneath the media',
+        (tester) async {
+      await pumpCard(tester, post());
+
+      final mediaBottom = tester.getRect(find.byType(AspectRatio)).bottom;
+      final caption = tester.getRect(find.text(
+          'Scout Tactical shape looked sharp today.'));
+      final pill = tester.getRect(find.text('Location Pin'));
+
+      // Caption starts below the media, inset from the screen edge.
+      expect(caption.top, greaterThan(mediaBottom));
+      expect(caption.left, greaterThan(8),
+          reason: 'comfortable padding, not overlapping the media edge');
+      // The action row is inset too, and well above the screen bottom.
+      expect(pill.top, greaterThan(mediaBottom));
+      expect(pill.left, greaterThan(8));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('framed variant keeps the boxed panel look', (tester) async {
+      await pumpCard(tester, post(), framed: true);
+
+      final container = tester.widget<Container>(
+        find
+            .descendant(
+              of: find.byType(SocialPostCard),
+              matching: find.byType(Container),
+            )
+            .first,
+      );
+      final decoration = container.decoration! as BoxDecoration;
+      expect(decoration.border, isNotNull);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
   group('composer layout (scrollable form)', () {
     testWidgets('publish button stays reachable on a small viewport',
         (tester) async {
