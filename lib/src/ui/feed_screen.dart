@@ -982,10 +982,13 @@ class _ComposerSheetState extends ConsumerState<_ComposerSheet> {
           color: RadarTheme.panel,
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+        child: SingleChildScrollView(
+          // The form is long — the sheet must scroll so the location row
+          // and the publish button stay reachable when the keyboard is up.
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
             const Text('New post',
                 style: TextStyle(
                     color: RadarTheme.textPrimary,
@@ -1225,7 +1228,8 @@ class _ComposerSheetState extends ConsumerState<_ComposerSheet> {
                   : const Icon(Icons.publish, size: 18),
               label: const Text('Publish to feed'),
             ),
-          ],
+            ],
+          ),
         ),
       ),
     );

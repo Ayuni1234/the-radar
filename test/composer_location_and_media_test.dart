@@ -307,6 +307,39 @@ void main() {
     });
   });
 
+  group('composer layout (scrollable form)', () {
+    testWidgets('publish button stays reachable on a small viewport',
+        (tester) async {
+      // A short phone viewport — the long form must scroll instead of
+      // overflowing (overflow throws FlutterError in tests).
+      tester.view.physicalSize = const Size(400, 640);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await pumpComposerWithGpsFailure(
+        tester,
+        null,
+        failure: const LocationException('unused — GPS never queried'),
+      );
+
+      // The primary action lives at the very bottom of the form: scroll
+      // it into view and confirm it is actually hittable.
+      await tester.scrollUntilVisible(
+        find.text('Publish to feed'),
+        200,
+        scrollable: find.descendant(
+          of: find.byType(DraggableScrollableSheet).evaluate().isNotEmpty
+              ? find.byType(DraggableScrollableSheet)
+              : find.byType(Scrollable).first,
+          matching: find.byType(Scrollable),
+        ).first,
+      );
+      expect(find.text('Publish to feed'), findsOneWidget);
+      await tester.tap(find.text('Publish to feed'));
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(tester.takeException(), isNull);
+    });
+  });
+
   group('live coarse location label (privacy-aware fallback)', () {
     test('nearby fixes resolve to the nearest known city', () {
       expect(coarseFixLabel(4.06, 9.75), 'near Douala');
