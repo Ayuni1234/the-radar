@@ -376,16 +376,8 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
   /// Report-content flow: reason picker + optional details, filed against
   /// the post through content_reports (RLS: reporter = self).
   Future<void> _openReportSheet(FeedPost post) async {
-    final result =
-        await showModalBottomSheet<(ContentReportReason, String)>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _ReportSheet(
-        targetLabel:
-            '${post.authorName}\'s ${post.kind.label.toLowerCase()} post',
-      ),
-    );
+    final result = await openReportSheet(context,
+        targetLabel: '${post.authorName}\'s ${post.kind.label.toLowerCase()} post');
     if (result == null || !mounted) return;
     final (reason, details) = result;
     final session = ref.read(sessionProvider);
@@ -1331,6 +1323,20 @@ class MediaPreviewCard extends StatelessWidget {
   }
 }
 
+/// Public report-sheet entry point — returns the filed report, or null
+/// when the sheet was dismissed. Exposed for tests and reuse.
+Future<(ContentReportReason, String)?> openReportSheet(
+  BuildContext context, {
+  required String targetLabel,
+}) async {
+  return showModalBottomSheet<(ContentReportReason, String)>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) => _ReportSheet(targetLabel: targetLabel),
+  );
+}
+
 // ---------------------------------------------------------------- venue picker
 
 /// 'Tag Training Venue' picker: established pitches and time slots from the
@@ -1595,10 +1601,13 @@ class _LivePinSheetState extends ConsumerState<_LivePinSheet> {
         color: RadarTheme.panel,
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
+      child: SingleChildScrollView(
+        // Live/scheduled pin form is tall — scrolls on small screens and
+        // above the keyboard so 'Drop live pin' stays reachable.
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
           Row(children: [
             const Icon(Icons.my_location, color: RadarTheme.radar, size: 20),
             const SizedBox(width: 8),
@@ -1738,7 +1747,8 @@ class _LivePinSheetState extends ConsumerState<_LivePinSheet> {
                     size: 18),
             label: Text(_openNow ? 'Drop live pin' : 'Schedule session'),
           ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -2017,10 +2027,13 @@ class _ReportSheetState extends State<_ReportSheet> {
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: RadarTheme.stroke),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
+      child: SingleChildScrollView(
+        // Six reason rows + details field + submit — scrolls instead of
+        // clipping on short viewports or when the keyboard is up.
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
           Row(children: [
             const Icon(Icons.flag_outlined, color: RadarTheme.gold, size: 20),
             const SizedBox(width: 8),
@@ -2106,7 +2119,8 @@ class _ReportSheetState extends State<_ReportSheet> {
             icon: const Icon(Icons.send_outlined, size: 16),
             label: const Text('Send report'),
           ),
-        ],
+          ],
+        ),
       ),
     );
   }

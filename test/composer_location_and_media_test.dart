@@ -10,10 +10,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:the_radar/src/data/location_service.dart';
 import 'package:the_radar/src/data/media_upload_service.dart';
 import 'package:the_radar/src/data/video_thumbnail.dart';
+import 'package:the_radar/src/models/content_report.dart';
 import 'package:the_radar/src/models/feed_post.dart';
 import 'package:the_radar/src/state/auth_controller.dart'
     show RadarSession, coarseFixLabel, sessionProvider;
 import 'package:the_radar/src/ui/feed_screen.dart';
+import 'package:the_radar/src/ui/profiles_screen.dart';
 import 'package:the_radar/src/ui/radar_theme.dart';
 import 'package:the_radar/src/ui/social_post_card.dart';
 
@@ -425,6 +427,86 @@ void main() {
       expect(find.textContaining('Approximate location'), findsOneWidget);
       // The area field is prefilled with the live coarse label.
       expect(find.widgetWithText(TextField, 'near Douala'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('sheet overflow audit (long forms scroll to their submit)', () {
+    Future<void> pumpOpener(
+      WidgetTester tester,
+      void Function(BuildContext) open,
+    ) async {
+      tester.view.physicalSize = const Size(400, 640);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(ProviderScope(
+        child: MaterialApp(
+          theme: RadarTheme.dark,
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => Center(
+                child: OutlinedButton(
+                  onPressed: () => open(context),
+                  child: const Text('open'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ));
+      await tester.pump();
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('report sheet scrolls to Send report and submits',
+        (tester) async {
+      (ContentReportReason, String)? filed;
+      await pumpOpener(tester, (context) async {
+        filed = await openReportSheet(context,
+            targetLabel: "Scout's highlight post");
+      });
+
+      // The six reason rows push the submit below the fold on this
+      // viewport — the form must scroll, not clip.
+      await tester.scrollUntilVisible(
+        find.text('Send report'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.text('Spam or scam'));
+      await tester.pump();
+      await tester.tap(find.text('Send report'));
+      await tester.pumpAndSettle();
+
+      expect(filed, isNotNull);
+      expect(filed!.$1, ContentReportReason.spam);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('connection sheet scrolls to Send request and submits',
+        (tester) async {
+      ConnectionSheetDraft? sent;
+      await pumpOpener(tester, (context) async {
+        sent = await openConnectionSheet(
+          context,
+          targetName: 'Ada',
+          canInvite: false,
+        );
+      });
+
+      await tester.scrollUntilVisible(
+        find.text('Send request'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.enterText(find.byType(TextField), 'Hi Ada!');
+      await tester.pump();
+      await tester.tap(find.text('Send request'));
+      await tester.pumpAndSettle();
+
+      expect(sent, isNotNull);
+      expect(sent!.message, 'Hi Ada!');
       expect(tester.takeException(), isNull);
     });
   });

@@ -612,6 +612,31 @@ class ProfileDetailSheet extends ConsumerWidget {
   }
 }
 
+/// Public connection-sheet entry point (the P2P request form). Returns
+/// the draft when submitted, or null when dismissed. Exposed for tests.
+Future<ConnectionSheetDraft?> openConnectionSheet(
+  BuildContext context, {
+  required String targetName,
+  required bool canInvite,
+  RadarEvent? event,
+  ConnectionType initialType = ConnectionType.contact,
+}) async {
+  return showModalBottomSheet<ConnectionSheetDraft>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: RadarTheme.panel,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+    ),
+    builder: (sheetCtx) => _ConnectionSheet(
+      targetName: targetName,
+      canInvite: canInvite,
+      event: event,
+      initialType: initialType,
+    ),
+  );
+}
+
 /// Opens the P2P connection request sheet (Module 4): contact request,
 /// trial invite or trial application, with a short message. When [event]
 /// is set, the sheet is event-scoped — organizers invite the player to
@@ -633,25 +658,19 @@ Future<void> requestConnection(
       session?.role == UserRole.club ||
       session?.role == UserRole.academy;
 
-  final result = await showModalBottomSheet<_ConnectionDraft>(
-    context: context,
-    backgroundColor: RadarTheme.panel,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
-    ),
-    builder: (sheetCtx) => _ConnectionSheet(
-      targetName: target.bestName,
-      canInvite: isOrganizer && target.role == UserRole.player,
-      event: event,
-      initialType: initialType ??
-          (event != null
-              ? (isOrganizer && target.role == UserRole.player
-                  ? ConnectionType.trialInvite
-                  : event.type == RadarEventType.trial
-                      ? ConnectionType.trialApplication
-                      : ConnectionType.contact)
-              : ConnectionType.contact),
-    ),
+  final result = await openConnectionSheet(
+    context,
+    targetName: target.bestName,
+    canInvite: isOrganizer && target.role == UserRole.player,
+    event: event,
+    initialType: initialType ??
+        (event != null
+            ? (isOrganizer && target.role == UserRole.player
+                ? ConnectionType.trialInvite
+                : event.type == RadarEventType.trial
+                    ? ConnectionType.trialApplication
+                    : ConnectionType.contact)
+            : ConnectionType.contact),
   );
   if (result == null || !context.mounted) return;
 
@@ -771,8 +790,8 @@ class _ConsentWallDialog extends StatelessWidget {
 
 // --------------------------------------------------------- connection sheet
 /// What the user chose in the connection sheet.
-class _ConnectionDraft {
-  const _ConnectionDraft(this.type, this.message, [this.eventId]);
+class ConnectionSheetDraft {
+  const ConnectionSheetDraft(this.type, this.message, [this.eventId]);
 
   final ConnectionType type;
   final String? message;
@@ -810,8 +829,9 @@ class _ConnectionSheetState extends State<_ConnectionSheet> {
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+      child: SingleChildScrollView(
+        // Chips + message field + submit — scrolls above the keyboard.
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -877,7 +897,7 @@ class _ConnectionSheetState extends State<_ConnectionSheet> {
                 minimumSize: const Size.fromHeight(46),
               ),
               onPressed: () => Navigator.of(context).pop(
-                _ConnectionDraft(
+                ConnectionSheetDraft(
                   _type,
                   _messageCtrl.text.trim().isEmpty
                       ? null
