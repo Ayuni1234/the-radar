@@ -4,11 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../models/content_report.dart';
 import '../models/enums.dart';
 import '../models/guardian_link.dart';
 import '../models/user_profile.dart';
 import '../state/auth_controller.dart';
 import '../state/radar_providers.dart';
+import 'moderation_queue_screen.dart';
 import 'radar_theme.dart';
 import 'shell.dart';
 
@@ -62,6 +64,12 @@ class SafeguardingScreen extends ConsumerWidget {
                 style: TextStyle(color: RadarTheme.textDim, fontSize: 13),
               ),
               const SizedBox(height: 18),
+
+              // -------------------------------------------- moderation (admin)
+              if (session?.isAdmin ?? false) ...[
+                const _AdminQueueCard(),
+                const SizedBox(height: 18),
+              ],
 
               // ------------------------------------------------ geofencing
               _GeofenceCard(isMinor: isMinor),
@@ -129,6 +137,72 @@ class SafeguardingScreen extends ConsumerWidget {
 }
 
 // ------------------------------------------------------------------ panels
+
+/// Admin entry point into the moderation queue. Only rendered for
+/// profiles.is_admin (granted by operator SQL) — RLS makes the queue
+/// itself harmless for everyone else.
+class _AdminQueueCard extends ConsumerWidget {
+  const _AdminQueueCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final reports = ref.watch(contentReportsProvider).value;
+    final openCount = reports
+        ?.where((r) =>
+            r.status == ContentReportStatus.open ||
+            r.status == ContentReportStatus.reviewing)
+        .length;
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => const ModerationQueueScreen()),
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: RadarTheme.panel,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: RadarTheme.gold.withValues(alpha: 0.45)),
+        ),
+        child: Row(children: [
+          const Icon(Icons.gavel_outlined, color: RadarTheme.gold, size: 22),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Moderation queue',
+                    style:
+                        TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5)),
+                const SizedBox(height: 3),
+                Text(
+                  'Review reported posts, events and listings.',
+                  style:
+                      const TextStyle(color: RadarTheme.textDim, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          if (openCount != null && openCount > 0)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+              decoration: BoxDecoration(
+                color: RadarTheme.gold.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text('$openCount',
+                  style: const TextStyle(
+                      color: RadarTheme.gold,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800)),
+            ),
+          const SizedBox(width: 4),
+          const Icon(Icons.chevron_right, color: RadarTheme.textDim),
+        ]),
+      ),
+    );
+  }
+}
 
 class _Panel extends StatelessWidget {
   const _Panel({required this.child});

@@ -27,6 +27,7 @@ class RadarSession {
     this.needsOnboarding = false,
     this.role = UserRole.player,
     this.isMinor = false,
+    this.isAdmin = false,
     this.viewerLatitude,
     this.viewerLongitude,
   });
@@ -58,6 +59,10 @@ class RadarSession {
   /// guardian-consent gates across the UI.
   final bool isMinor;
 
+  /// Moderation capability — mirrored from `profiles.is_admin` at sign-in.
+  /// Granted only by operator SQL; the app never writes the column.
+  final bool isAdmin;
+
   /// Approximate viewer position derived from the profile's regional base
   /// (city → representative coordinates). Used for radius filters and live
   /// pins; deliberately NOT device GPS so no extra permission is needed.
@@ -76,6 +81,7 @@ class RadarSession {
     bool? needsOnboarding,
     UserRole? role,
     bool? isMinor,
+    bool? isAdmin,
     double? viewerLatitude,
     double? viewerLongitude,
   }) =>
@@ -91,6 +97,7 @@ class RadarSession {
         needsOnboarding: needsOnboarding ?? this.needsOnboarding,
         role: role ?? this.role,
         isMinor: isMinor ?? this.isMinor,
+        isAdmin: isAdmin ?? this.isAdmin,
         viewerLatitude: viewerLatitude ?? this.viewerLatitude,
         viewerLongitude: viewerLongitude ?? this.viewerLongitude,
       );
@@ -244,6 +251,7 @@ class AuthController extends AsyncNotifier<AuthState> {
       needsOnboarding: profile.needsOnboarding,
       role: profile.role,
       isMinor: profile.isMinor,
+      isAdmin: profile.isAdmin,
       viewerLatitude: regionCoordinates(profile.country, profile.city).$1,
       viewerLongitude: regionCoordinates(profile.country, profile.city).$2,
     );

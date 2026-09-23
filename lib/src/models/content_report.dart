@@ -28,18 +28,36 @@ class ContentReport {
   /// Optional free-text context from the reporter.
   final String? details;
 
-  /// 'open' | 'reviewing' | 'resolved' | 'dismissed'
-  final String status;
+  final ContentReportStatus status;
   final DateTime createdAt;
   final DateTime? reviewedAt;
   final String? reviewedBy;
 
-  bool get isOpen => status == 'open' || status == 'reviewing';
+  bool get isOpen => status == ContentReportStatus.open ||
+      status == ContentReportStatus.reviewing;
+
+  ContentReport copyWith({
+    ContentReportStatus? status,
+    DateTime? reviewedAt,
+    String? reviewedBy,
+  }) =>
+      ContentReport(
+        id: id,
+        reporterProfileId: reporterProfileId,
+        targetType: targetType,
+        targetId: targetId,
+        reason: reason,
+        details: details,
+        status: status ?? this.status,
+        createdAt: createdAt,
+        reviewedAt: reviewedAt ?? this.reviewedAt,
+        reviewedBy: reviewedBy ?? this.reviewedBy,
+      );
 
   Map<String, Object?> toJson() => {
         'target_type': targetType,
         'target_id': targetId,
-        'reason': reason.name,
+        'reason': reason.db,
         if (details != null && details!.trim().isNotEmpty)
           'details': details!.trim(),
       };
@@ -52,7 +70,7 @@ class ContentReport {
       targetId: (json['target_id'] ?? '').toString(),
       reason: ContentReportReason.tryParse(json['reason']),
       details: json['details']?.toString(),
-      status: (json['status'] ?? 'open').toString(),
+      status: ContentReportStatus.tryParse(json['status']),
       createdAt: DateTime.tryParse(json['created_at']?.toString() ?? '')
               ?.toLocal() ??
           DateTime.now(),
@@ -63,20 +81,45 @@ class ContentReport {
   }
 }
 
-/// Curated reason set — mirrors the DB check constraint exactly.
-enum ContentReportReason {
-  spam('Spam or scam'),
-  abuse('Harassment or abuse'),
-  inappropriateMedia('Inappropriate media'),
-  misleading('Misleading or fake content'),
-  minorSafety('Minor safety concern'),
-  other('Something else');
+/// Report lifecycle — mirrors the DB check constraint exactly.
+enum ContentReportStatus {
+  open('Open', 'Just filed, waiting for first look'),
+  reviewing('Reviewing', 'A moderator is on it'),
+  resolved('Resolved', 'Action was taken'),
+  dismissed('Dismissed', 'Closed with no action needed');
 
-  const ContentReportReason(this.label);
+  const ContentReportStatus(this.label, this.hint);
+  final String label;
+  final String hint;
+
+  static ContentReportStatus tryParse(Object? raw) => values.firstWhere(
+        (s) => s.name == raw.toString(),
+        orElse: () => ContentReportStatus.open,
+      );
+}
+
+/// Curated reason set — mirrors the DB check constraint exactly. The
+/// snake-case [db] token is what travels to Postgres (the constraint lists
+/// 'inappropriate_media'/'minor_safety', which cannot be Dart enum names).
+enum ContentReportReason {
+  spam('Spam or scam', 'spam'),
+  abuse('Harassment or abuse', 'abuse'),
+  inappropriateMedia('Inappropriate media', 'inappropriate_media'),
+  misleading('Misleading or fake content', 'misleading'),
+  minorSafety('Minor safety concern', 'minor_safety'),
+  other('Something else', 'other');
+
+  const ContentReportReason(this.label, this.db);
   final String label;
 
-  static ContentReportReason tryParse(Object? raw) => values.firstWhere(
-        (r) => r.name == raw.toString(),
-        orElse: () => ContentReportReason.other,
-      );
+  /// The wire/DB token — the exact string in the check constraint.
+  final String db;
+
+  static ContentReportReason tryParse(Object? raw) {
+    final s = raw.toString();
+    return values.firstWhere(
+      (r) => r.db == s || r.name == s,
+      orElse: () => ContentReportReason.other,
+    );
+  }
 }

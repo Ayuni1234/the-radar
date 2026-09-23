@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' show RealtimeChannel;
 
 import '../data/radar_repository.dart';
 import '../models/connection_request.dart';
+import '../models/content_report.dart';
 import '../models/enums.dart';
 import '../models/feed_post.dart' show FeedPost, FeedPostKind, distanceKm;
 import '../models/guardian_link.dart';
@@ -826,6 +827,63 @@ class FeedPostsController extends AsyncNotifier<List<FeedPost>> {
     final ok = await RadarRepository.instance.deleteFeedPost(postId);
     if (ok) await refresh();
     return ok;
+  }
+}
+
+// ------------------------------------------------------------ content reports
+
+/// The moderation queue: every report RLS lets the viewer see. Reporters
+/// get their own filings back; admins (profiles.is_admin) get the full
+/// queue — that read path is what powers the moderation screen.
+final contentReportsProvider =
+    AsyncNotifierProvider<ContentReportsController, List<ContentReport>>(
+        ContentReportsController.new);
+
+class ContentReportsController
+    extends AsyncNotifier<List<ContentReport>> {
+  @override
+  Future<List<ContentReport>> build() =>
+      RadarRepository.instance.fetchContentReports();
+
+  Future<void> refresh() async {
+    final list = await RadarRepository.instance.fetchContentReports();
+    if (list.isNotEmpty) state = AsyncData(list);
+  }
+
+  /// Advances a report through the workflow (open → reviewing →
+  /// resolved/dismissed). Optimistically applies the change so the card
+  /// responds instantly; a failed write rolls the state back. Returns the
+  /// human-readable error, or null on success.
+  Future<String?> setStatus(
+    ContentReport report,
+    ContentReportStatus status,
+  ) async {
+    final previous = state.value ?? const <ContentReport>[];
+    void apply(List<ContentReport> next) {
+      state = AsyncData(next);
+    }
+
+    List<ContentReport> withReport(ContentReport updated) => [
+          for (final r in previous)
+            if (r.id == updated.id) updated else r,
+        ];
+
+    final closing = status == ContentReportStatus.resolved ||
+        status == ContentReportStatus.dismissed;
+    apply(withReport(report.copyWith(
+      status: status,
+      reviewedAt:
+          closing ? (report.reviewedAt ?? DateTime.now()) : report.reviewedAt,
+    )));
+
+    final updated = await RadarRepository.instance
+        .updateContentReportStatus(report, status);
+    if (updated == null) {
+      apply(previous); // roll back — the write failed
+      return 'Could not update the report — check your connection.';
+    }
+    apply(withReport(updated));
+    return null;
   }
 }
 

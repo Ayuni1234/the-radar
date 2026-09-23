@@ -1,5 +1,6 @@
 import '../analytics/tracking_session.dart';
 import '../models/connection_request.dart';
+import '../models/content_report.dart';
 import '../models/enums.dart';
 import '../models/feed_post.dart';
 import '../models/market.dart';
@@ -314,6 +315,76 @@ class DemoSeed {
     return List.of(_demoRequests);
   }
 
+  // --------------------------------------------------------- content reports
+
+  static final List<ContentReport> contentReports = _seedReports();
+
+  /// Demo moderation queue: a spread of open/reviewing/closed reports
+  /// against seeded posts, so the queue screen is explorable offline.
+  static List<ContentReport> _seedReports() => <ContentReport>[
+        ContentReport(
+          id: 'demo-report-1',
+          reporterProfileId: 'demo-player-1',
+          targetType: 'feed_post',
+          targetId: 'demo-feed-1',
+          reason: ContentReportReason.spam,
+          details: 'Same highlight posted across five academies — '
+              'looks like an aggregator account.',
+          status: ContentReportStatus.open,
+          createdAt: DateTime.now().subtract(const Duration(hours: 3)),
+        ),
+        ContentReport(
+          id: 'demo-report-2',
+          reporterProfileId: 'demo-scout-1',
+          targetType: 'feed_post',
+          targetId: 'demo-feed-2',
+          reason: ContentReportReason.minorSafety,
+          status: ContentReportStatus.reviewing,
+          createdAt: DateTime.now().subtract(const Duration(hours: 26)),
+        ),
+        ContentReport(
+          id: 'demo-report-3',
+          reporterProfileId: 'demo-parent-1',
+          targetType: 'radar_event',
+          targetId: 'demo-event-1',
+          reason: ContentReportReason.misleading,
+          details: 'Advertised as a trial with scouts attending — none '
+              'appeared at the last two editions.',
+          status: ContentReportStatus.open,
+          createdAt: DateTime.now().subtract(const Duration(hours: 50)),
+        ),
+        ContentReport(
+          id: 'demo-report-4',
+          reporterProfileId: 'demo-club-1',
+          targetType: 'market_listing',
+          targetId: 'demo-listing-2',
+          reason: ContentReportReason.other,
+          details: 'Boots listed at 3× retail; several buyers never received '
+              'their orders.',
+          status: ContentReportStatus.dismissed,
+          createdAt: DateTime.now().subtract(const Duration(days: 5)),
+          reviewedAt: DateTime.now().subtract(const Duration(days: 4)),
+          reviewedBy: 'demo-scout-1',
+        ),
+      ];
+
+  /// Applies a status change to a demo report in place; true if found.
+  static bool setReportStatus(
+    String id,
+    ContentReportStatus status,
+    DateTime? reviewedAt,
+  ) {
+    for (var i = 0; i < contentReports.length; i++) {
+      final r = contentReports[i];
+      if (r.id == id) {
+        contentReports[i] =
+            r.copyWith(status: status, reviewedAt: reviewedAt);
+        return true;
+      }
+    }
+    return false;
+  }
+
   /// Diagnostics: restores the demo stores to their seeded state.
   static void resetDemoStores() {
     _demoRequestsFor = null;
@@ -332,6 +403,9 @@ class DemoSeed {
       ..addAll(_seedMarketListings());
     marketOrders.clear();
     marketSales.clear();
+    contentReports
+      ..clear()
+      ..addAll(_seedReports());
   }
 
   /// Applies a status change to a demo request in place; true if found.

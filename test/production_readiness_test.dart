@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:the_radar/src/data/radar_repository.dart';
+import 'package:the_radar/src/models/content_report.dart';
 import 'package:the_radar/src/models/feed_post.dart';
 import 'package:the_radar/src/models/radar_event.dart';
 import 'package:the_radar/src/models/enums.dart';
@@ -277,6 +278,98 @@ void main() {
         'username': 'legacy',
       });
       expect(legacy.isPublic, isTrue);
+    });
+
+    test('never writes is_admin (operator-SQL-only capability)', () {
+      final admin = UserProfile.fromJson({
+        'id': '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+        'pi_uid': 'pi-3',
+        'username': 'ops',
+        'is_admin': true,
+      });
+      expect(admin.isAdmin, isTrue, reason: 'parsed for the queue gate');
+      expect(admin.toJson().containsKey('is_admin'), isFalse,
+          reason: 'a client write path would be a privilege-escalation hole');
+    });
+  });
+
+  group('ContentReport payload matches the content_reports schema', () {
+    // The check constraint in 0004_feed_schedule_and_reports.sql is the
+    // authority: an unlisted token is a hard Postgres reject on filing.
+    const dbReasons = {
+      'spam', 'abuse', 'inappropriate_media', 'misleading',
+      'minor_safety', 'other',
+    };
+    const dbStatuses = {'open', 'reviewing', 'resolved', 'dismissed'};
+    const insertableColumns = {
+      'target_type', 'target_id', 'reason', 'details',
+    };
+
+    test('reason travels as the exact DB check-constraint token', () {
+      for (final reason in ContentReportReason.values) {
+        expect(dbReasons, contains(reason.db),
+            reason: '${reason.name}.db must match the check constraint');
+      }
+      expect(dbReasons, hasLength(ContentReportReason.values.length));
+      final payload = ContentReport(
+        id: '',
+        reporterProfileId: '',
+        targetType: 'feed_post',
+        targetId: '0f0e8a52-1c96-4a4a-9f9e-9c93c1a4b7d1',
+        reason: ContentReportReason.minorSafety,
+        status: ContentReportStatus.open,
+        createdAt: DateTime.now(),
+      ).toJson();
+      expect(payload['reason'], 'minor_safety');
+      expect(payload.containsKey('reporter_profile_id'), isFalse,
+          reason: 'RLS/default stamps the reporter; the client never does');
+      expect(payload.keys, contains('target_type'));
+      expect(payload.keys, contains('target_id'));
+    });
+
+    test('insert payload carries only client-ownable columns', () {
+      final payload = ContentReport(
+        id: 'x',
+        reporterProfileId: 'y',
+        targetType: 'radar_event',
+        targetId: '0f0e8a52-1c96-4a4a-9f9e-9c93c1a4b7d1',
+        reason: ContentReportReason.spam,
+        details: '  tick spam  ',
+        status: ContentReportStatus.open,
+        createdAt: DateTime.now(),
+      ).toJson();
+      expect(payload.keys, unorderedEquals(insertableColumns));
+      expect(payload['details'], 'tick spam');
+    });
+
+    test('every status round-trips through fromJson', () {
+      for (final status in ContentReportStatus.values) {
+        expect(dbStatuses, contains(status.name));
+        final r = ContentReport.fromJson({
+          'id': '0f0e8a52-1c96-4a4a-9f9e-9c93c1a4b7d1',
+          'reporter_profile_id': '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+          'target_type': 'feed_post',
+          'target_id': '0f0e8a52-1c96-4a4a-9f9e-9c93c1a4b7d1',
+          'reason': 'spam',
+          'status': status.name,
+          'created_at': DateTime.now().toIso8601String(),
+        });
+        expect(r.status, status);
+      }
+    });
+
+    test('unknown status/reason values fail safe to actionable defaults', () {
+      final r = ContentReport.fromJson({
+        'id': '0f0e8a52-1c96-4a4a-9f9e-9c93c1a4b7d1',
+        'target_type': 'feed_post',
+        'target_id': '0f0e8a52-1c96-4a4a-9f9e-9c93c1a4b7d1',
+        'reason': 'not_a_real_reason',
+        'status': 'not_a_real_status',
+        'created_at': DateTime.now().toIso8601String(),
+      });
+      expect(r.status, ContentReportStatus.open,
+          reason: 'an unknown token must not silently close a report');
+      expect(r.reason, ContentReportReason.other);
     });
   });
 }

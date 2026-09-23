@@ -22,6 +22,7 @@ class UserProfile {
     this.videoShowcaseUrls = const [],
     this.clubAffiliation,
     this.isMinor = false,
+    this.isAdmin = false,
     this.geohashArea,
     this.rating = 0,
     this.avatarUrl,
@@ -61,6 +62,11 @@ class UserProfile {
 
   /// Safeguarding flag — minors get location masking everywhere.
   final bool isMinor;
+
+  /// Moderation capability (profiles.is_admin). Granted only by operator
+  /// SQL — the app never writes this column; [toJson] omits it so a stolen
+  /// client payload cannot escalate privileges.
+  final bool isAdmin;
 
   /// Coarse area token (e.g. city district) used instead of coordinates
   /// for approximate locations.
@@ -123,6 +129,7 @@ class UserProfile {
       videoShowcaseUrls: stringList(json['video_showcase_urls']),
       clubAffiliation: json['club_affiliation']?.toString(),
       isMinor: json['is_minor'] as bool? ?? false,
+      isAdmin: json['is_admin'] as bool? ?? false,
       geohashArea: json['geohash_area']?.toString(),
       rating: (json['rating'] as num?)?.toDouble() ?? 0,
       avatarUrl: json['avatar_url']?.toString(),
@@ -151,6 +158,7 @@ class UserProfile {
         'video_showcase_urls': videoShowcaseUrls,
         if (clubAffiliation != null) 'club_affiliation': clubAffiliation,
         'is_minor': isMinor,
+        // is_admin deliberately absent — operator-SQL-only capability.
         if (geohashArea != null) 'geohash_area': geohashArea,
         'rating': rating,
         if (avatarUrl != null) 'avatar_url': avatarUrl,
@@ -179,6 +187,7 @@ class UserProfile {
     List<String>? videoShowcaseUrls,
     String? clubAffiliation,
     bool? isMinor,
+    bool? isAdmin,
     String? geohashArea,
     double? rating,
     String? avatarUrl,
@@ -206,6 +215,7 @@ class UserProfile {
         videoShowcaseUrls: videoShowcaseUrls ?? this.videoShowcaseUrls,
         clubAffiliation: clubAffiliation ?? this.clubAffiliation,
         isMinor: isMinor ?? this.isMinor,
+        isAdmin: isAdmin ?? this.isAdmin,
         geohashArea: geohashArea ?? this.geohashArea,
         rating: rating ?? this.rating,
         avatarUrl: avatarUrl ?? this.avatarUrl,

@@ -668,7 +668,7 @@ class RadarRepository {
       targetId: targetId,
       reason: reason,
       details: details,
-      status: 'open',
+      status: ContentReportStatus.open,
       createdAt: DateTime.now(),
     ).toJson();
     try {
@@ -694,6 +694,57 @@ class RadarRepository {
         'Could not file the report right now — check your connection and '
         'try again.'
       );
+    }
+  }
+
+  /// All content reports, newest first. RLS does the filtering: reporters
+  /// see their own, admins see everything (the queue), so an empty result
+  /// for a non-admin viewer is the server's answer, not an error.
+  Future<List<ContentReport>> fetchContentReports() async {
+    if (!_live) return List.of(DemoSeed.contentReports);
+    try {
+      final res = await SupabaseConfig.client
+          .from('content_reports')
+          .select()
+          .order('created_at', ascending: false)
+          .limit(200);
+      return res.map<ContentReport>((e) => ContentReport.fromJson(e)).toList();
+    } catch (e) {
+      debugPrint('[RadarRepo] fetchContentReports failed: $e');
+      return const [];
+    }
+  }
+
+  /// Advances the status workflow (open → reviewing → resolved/dismissed).
+  /// Stamps `reviewed_at` on first close. Admin-only by RLS; updates the
+  /// demo store when offline. Returns the updated report, or null if the
+  /// write failed (the queue keeps the previous state and shows an error).
+  Future<ContentReport?> updateContentReportStatus(
+    ContentReport report,
+    ContentReportStatus status,
+  ) async {
+    final closing =
+        status == ContentReportStatus.resolved ||
+        status == ContentReportStatus.dismissed;
+    final reviewedAt =
+        closing && report.reviewedAt == null ? DateTime.now() : report.reviewedAt;
+    if (!_live) {
+      DemoSeed.setReportStatus(report.id, status, reviewedAt);
+      return report.copyWith(status: status, reviewedAt: reviewedAt);
+    }
+    try {
+      await _withTimeout(SupabaseConfig.client
+          .from('content_reports')
+          .update({
+            'status': status.name,
+            if (reviewedAt != null)
+              'reviewed_at': reviewedAt.toUtc().toIso8601String(),
+          })
+          .eq('id', report.id));
+      return report.copyWith(status: status, reviewedAt: reviewedAt);
+    } catch (e) {
+      debugPrint('[RadarRepo] updateContentReportStatus failed: $e');
+      return null;
     }
   }
 
