@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../supabase/supabase_config.dart';
 import 'media_duration_probe.dart';
 import 'read_file_bytes.dart';
+import 'video_thumbnail.dart';
 
 /// The strict highlight-reel cap: videos longer than this are rejected so
 /// scouts can review concise clips before committing to a live session.
@@ -180,7 +181,8 @@ class MediaUploadService {
     }
 
     // Visual preview for the composer card: the image itself, or a poster
-    // frame probed off the video blob (null → UI shows a video placeholder).
+    // frame from the video — canvas frame-grab on web, native extraction on
+    // mobile (null → UI shows a video placeholder).
     Uint8List? previewBytes;
     double? probed;
     if (video && kIsWeb) {
@@ -198,7 +200,10 @@ class MediaUploadService {
           '${(probed / 60).toStringAsFixed(1)} min.',
         );
       }
-    } else if (!video) {
+    } else if (video) {
+      // Mobile/desktop: native extractor (null → placeholder card).
+      previewBytes = await extractNativeVideoFrame(file);
+    } else {
       previewBytes = bytes;
     }
 

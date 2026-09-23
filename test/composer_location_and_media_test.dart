@@ -1,4 +1,5 @@
 import 'dart:convert' show base64Decode;
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
@@ -8,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:the_radar/src/data/location_service.dart';
 import 'package:the_radar/src/data/media_upload_service.dart';
+import 'package:the_radar/src/data/video_thumbnail.dart';
 import 'package:the_radar/src/models/feed_post.dart';
 import 'package:the_radar/src/state/auth_controller.dart';
 import 'package:the_radar/src/ui/feed_screen.dart';
@@ -204,6 +206,29 @@ void main() {
       // Mirrors the composer rule in both directions: exactly one media
       // source survives — a staged pick XOR a pasted link.
       expect(link.text, isEmpty);
+    });
+  });
+
+  group('native video frame extraction (mobile preview parity)', () {
+    test('pathless pick degrades to null without throwing', () async {
+      final frame = await extractNativeVideoFrame(
+          PlatformFile(name: 'clip.mp4', size: 4096));
+      expect(frame, isNull);
+    });
+
+    test('unavailable native bindings degrade to the placeholder, not a crash',
+        () async {
+      // The test VM has no registered method-channel handler for the
+      // extractor (and desktop/web builds have no implementation at all);
+      // it must swallow that and return null so the composer shows the
+      // icon placeholder instead of crashing the pick flow.
+      final dir = await Directory.systemTemp.createTemp('radar_thumb');
+      addTearDown(() => dir.delete(recursive: true));
+      final video = File('${dir.path}/clip.mp4')
+        ..writeAsBytesSync(List.filled(64, 1));
+      final frame = await extractNativeVideoFrame(
+          PlatformFile(name: 'clip.mp4', size: 64, path: video.path));
+      expect(frame, isNull);
     });
   });
 
