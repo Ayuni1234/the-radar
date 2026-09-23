@@ -887,6 +887,31 @@ class _ComposerSheetState extends ConsumerState<_ComposerSheet> {
         mediaPlatform = res.durationSeconds != null
             ? 'device video · ${res.durationSeconds! ~/ 60}:${(res.durationSeconds! % 60).toString().padLeft(2, '0')}'
             : 'device photo';
+      } on MediaUploadRetryableException catch (e) {
+        // Transport is down — queue the whole publish (media + post) in the
+        // outbox; it replays automatically when connectivity returns.
+        if (!mounted) return;
+        final outcome = await ref.read(feedPostsProvider.notifier).createPost(
+              kind: _kind,
+              body: _bodyCtrl.text,
+              mediaPlatform: _platform,
+              areaName: _areaCtrl.text,
+              latitude: _pinLat,
+              longitude: _pinLon,
+              scheduledAt: _schedule,
+              pendingMedia: e.pending,
+            );
+        if (!mounted) return;
+        setState(() => _busy = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: RadarTheme.panelHigh,
+          content: Text(
+              '${outcome.message ?? 'Saved offline'} — media and post will '
+              'upload automatically when you are back online'),
+        ));
+        Navigator.pop(context, false);
+        return;
       } on MediaUploadException catch (e) {
         if (!mounted) return;
         setState(() {

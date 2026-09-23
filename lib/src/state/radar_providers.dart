@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show RealtimeChannel;
 
+import '../data/media_upload_service.dart' show PendingMediaUpload;
 import '../data/radar_repository.dart';
 import '../models/connection_request.dart';
 import '../models/content_report.dart';
@@ -794,6 +795,10 @@ class FeedPostsController extends AsyncNotifier<List<FeedPost>> {
     double? latitude,
     double? longitude,
     DateTime? scheduledAt,
+
+    /// Validated device upload that failed to reach storage on a transport
+    /// error — staged so the outbox replays media upload + post together.
+    PendingMediaUpload? pendingMedia,
   }) async {
     final session = ref.read(sessionProvider);
     final profileId = session?.profileId;
@@ -818,7 +823,8 @@ class FeedPostsController extends AsyncNotifier<List<FeedPost>> {
       longitude: longitude,
       scheduledAt: scheduledAt,
     );
-    final outcome = await RadarRepository.instance.createFeedPost(post);
+    final outcome = await RadarRepository.instance
+        .createFeedPost(post, pendingMedia: pendingMedia);
     if (outcome.success) await refresh();
     return outcome;
   }

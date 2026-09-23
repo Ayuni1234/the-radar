@@ -80,6 +80,38 @@ class MediaUploadException implements Exception {
   String toString() => reason;
 }
 
+/// A validated media upload that could not reach storage because of a
+/// transport failure — kept intact for the outbox so the whole publish
+/// (media + post) replays automatically when connectivity returns.
+class PendingMediaUpload {
+  const PendingMediaUpload({
+    required this.media,
+    required this.objectName,
+    required this.mediaPlatform,
+    required this.mediaKind,
+    required this.durationSeconds,
+  });
+
+  /// The picked file + bytes, still in memory from the pick.
+  final PickedMedia media;
+
+  /// Deterministic storage path from the failed attempt — reused on replay
+  /// so a timed-out-but-landed upload collides (upsert) instead of
+  /// duplicating.
+  final String objectName;
+  final String mediaPlatform;
+  final String mediaKind;
+  final int? durationSeconds;
+}
+
+/// Transport-class upload failure carrying the pending upload for the
+/// outbox. The composer treats it as "the publish can still queue" rather
+/// than a hard error.
+class MediaUploadRetryableException extends MediaUploadException {
+  MediaUploadRetryableException(super.reason, this.pending);
+  final PendingMediaUpload pending;
+}
+
 /// Device media uploads → Supabase Storage (`feed-media` bucket, public).
 ///
 /// * Video: hard [maxVideoDuration] limit of 3 minutes. On web the duration
@@ -232,6 +264,19 @@ class MediaUploadService {
     final ext = (file.extension ?? (video ? 'mp4' : 'jpg')).toLowerCase();
     final uid = client.auth.currentUser?.id ?? 'anon';
     final objectName = '$uid/${DateTime.now().millisecondsSinceEpoch}.$ext';
+    final durationSeconds = video ? probedSeconds?.ceil() : null;
+    final platformLabel = video
+        ? (durationSeconds != null
+            ? 'device video · ${durationSeconds ~/ 60}:${(durationSeconds % 60).toString().padLeft(2, '0')}'
+            : 'device video')
+        : 'device photo';
+    PendingMediaUpload pendingFor(String reason) => PendingMediaUpload(
+          media: media,
+          objectName: objectName,
+          mediaPlatform: platformLabel,
+          mediaKind: video ? 'device_video' : 'device_photo',
+          durationSeconds: durationSeconds,
+        );
 
     try {
       await client.storage.from(_bucket).uploadBinary(
@@ -244,18 +289,24 @@ class MediaUploadService {
           'Wi-Fi) and try a shorter clip.',
         );
       });
-    } on MediaUploadException {
-      rethrow; // Timeout above already carries an actionable message.
+    } on MediaUploadException catch (e) {
+      // The only MediaUploadException thrown in this scope is the timeout
+      // above — a transport failure, so the publish can still queue.
+      throw MediaUploadRetryableException(e.reason, pendingFor(e.reason));
     } on StorageException catch (e) {
-      throw MediaUploadException(
-          _storageFailureMessage(e, file.size));
+      final reason = _storageFailureMessage(e, file.size);
+      if (_storageFailureIsRetryable(e)) {
+        throw MediaUploadRetryableException(reason, pendingFor(reason));
+      }
+      throw MediaUploadException(reason);
     } catch (e) {
       // Transport-level failure (SocketException, ClientException, …) —
       // previously this escaped as a bare dump or vanished silently.
       debugPrint('[Media] upload of "$objectName" failed: $e');
-      throw MediaUploadException(
+      throw MediaUploadRetryableException(
         'Upload failed — the server could not be reached. Check your '
         'connection and try again; the post text is kept.',
+        pendingFor('transport failure'),
       );
     }
 
@@ -263,8 +314,55 @@ class MediaUploadService {
       publicUrl: client.storage.from(_bucket).getPublicUrl(objectName),
       platform: video ? 'radar-video' : 'radar-image',
       mediaKind: video ? 'device_video' : 'device_photo',
-      durationSeconds: video ? probedSeconds?.ceil() : null,
+      durationSeconds: durationSeconds,
       previewBytes: previewBytes,
+    );
+  }
+
+  /// Outbox replay leg: pushes a previously failed upload to its
+  /// pre-computed storage path. Upsert semantics — a timed-out-but-landed
+  /// first attempt collides on the same object instead of duplicating.
+  /// Throws [MediaUploadRetryableException] (carrying [pending] back) while
+  /// the transport is still down so the caller keeps everything staged;
+  /// [MediaUploadException] for definitive rejections (drop from the
+  /// outbox — replaying would fail identically).
+  Future<MediaUploadResult> uploadPending(PendingMediaUpload pending) async {
+    final media = pending.media;
+    final client = SupabaseConfig.client;
+    try {
+      await client.storage.from(_bucket).uploadBinary(
+            pending.objectName,
+            media.bytes,
+            fileOptions: const FileOptions(cacheControl: '3600', upsert: true),
+          ).timeout(_uploadTimeout, onTimeout: () {
+        throw MediaUploadException(
+          'The upload took too long — check your connection (or switch to '
+          'Wi-Fi) and try a shorter clip.',
+        );
+      });
+    } on MediaUploadException catch (e) {
+      throw MediaUploadRetryableException(e.reason, pending);
+    } on StorageException catch (e) {
+      final reason = _storageFailureMessage(e, media.file.size);
+      if (_storageFailureIsRetryable(e)) {
+        throw MediaUploadRetryableException(reason, pending);
+      }
+      throw MediaUploadException(reason);
+    } catch (e) {
+      debugPrint(
+          '[Media] pending upload of "${pending.objectName}" failed: $e');
+      throw MediaUploadRetryableException(
+        'Upload failed — the server could not be reached. Check your '
+        'connection and try again; the post text is kept.',
+        pending,
+      );
+    }
+    return MediaUploadResult(
+      publicUrl: client.storage.from(_bucket).getPublicUrl(pending.objectName),
+      platform: media.isVideo ? 'radar-video' : 'radar-image',
+      mediaKind: pending.mediaKind,
+      durationSeconds: pending.durationSeconds,
+      previewBytes: media.previewBytes,
     );
   }
 
@@ -273,6 +371,18 @@ class MediaUploadService {
   @visibleForTesting
   static String storageFailureMessage(StorageException e, int fileSizeBytes) =>
       instance._storageFailureMessage(e, fileSizeBytes);
+
+  /// Whether a storage failure is a transport-class problem worth queuing
+  /// (offline/stalled → status 0, or a 5xx). 4xx rejections (size, storage
+  /// rules, conflicts) would fail identically on retry. Exposed for tests.
+  @visibleForTesting
+  static bool storageFailureIsRetryable(StorageException e) =>
+      instance._storageFailureIsRetryable(e);
+
+  bool _storageFailureIsRetryable(StorageException e) {
+    final status = int.tryParse(e.statusCode ?? '') ?? 0;
+    return status == 0 || status >= 500;
+  }
 
   String _storageFailureMessage(StorageException e, int fileSizeBytes) {
     // storage_client surfaces the HTTP status as a string (or null when

@@ -13,6 +13,11 @@ class SyncBridge {
     _listeners.add(listener);
   }
 
+  void removeListener(
+      void Function(String kind, String label, String? error) listener) {
+    _listeners.remove(listener);
+  }
+
   void onWriteFailed(String kind, String label, String? error) {
     for (final l in _listeners) {
       l(kind, label, error);

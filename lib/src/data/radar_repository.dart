@@ -18,6 +18,7 @@ import '../supabase/supabase_config.dart';
 import '../diagnostics/diagnostics.dart';
 import '../sync/sync_bridge.dart';
 import 'demo_seed.dart';
+import 'media_upload_service.dart';
 
 /// Data layer for profiles and radar events.
 ///
@@ -532,10 +533,31 @@ class RadarRepository {
   /// reason instead of being mislabeled as offline; only genuine
   /// transport failures are queued in the outbox (the payload is kept for
   /// [replayFeedPost]).
-  Future<PublishOutcome> createFeedPost(FeedPost post) async {
+  ///
+  /// When the post carries a device upload whose storage push failed on a
+  /// transport error, [pendingMedia] keeps the validated file staged and
+  /// the whole publish — media upload + post insert — replays
+  /// automatically when connectivity returns.
+  Future<PublishOutcome> createFeedPost(FeedPost post,
+      {PendingMediaUpload? pendingMedia}) async {
     if (!_live) {
       DemoSeed.feedPosts.insert(0, post);
       return PublishOutcome.ok;
+    }
+    // Device upload still unreached (transport failure): stage the whole
+    // publish — media + post — and let [replayFeedPost] push the media
+    // first, then the post. Inserting caption-only now would be permanent
+    // (there is no post-update path), so the post only lands once its
+    // media does.
+    if (pendingMedia != null) {
+      _pendingFeedPost = post;
+      _pendingFeedPostMedia = pendingMedia;
+      Diagnostics.instance.log(
+          'sync', 'feed post staged with media: ${post.kind.label}');
+      SyncBridge.instance.onWriteFailed(
+          'feed_post', 'Publish ${post.kind.label.toLowerCase()}',
+          'media upload pending');
+      return PublishOutcome.queued('Media saved offline');
     }
     // Client-generated ids ('post-…') are not uuids — let Postgres issue
     // the primary key instead of failing the insert.
@@ -544,6 +566,7 @@ class RadarRepository {
       await _withTimeout(
           SupabaseConfig.client.from('feed_posts').insert(post.toJson()));
       _pendingFeedPost = null;
+      _pendingFeedPostMedia = null;
       return PublishOutcome.ok;
     } catch (e) {
       debugPrint('[RadarRepo] createFeedPost failed: $e');
@@ -557,13 +580,31 @@ class RadarRepository {
         return PublishOutcome.queued(reason.$2);
       }
       _pendingFeedPost = null;
+      _pendingFeedPostMedia = null;
       return PublishOutcome.rejected(reason.$2);
     }
   }
 
   FeedPost? _pendingFeedPost;
 
+  /// Clears the pending publish slots between tests (the repository is a
+  /// singleton; pending state must not leak across test cases).
+  @visibleForTesting
+  void resetPendingForTesting() {
+    _pendingFeedPost = null;
+    _pendingFeedPostMedia = null;
+  }
+
+  /// Staged device upload for [_pendingFeedPost] — uploaded first during
+  /// replay so the post insert lands with its media URL already known.
+  PendingMediaUpload? _pendingFeedPostMedia;
+
   /// Outbox replay for a queued feed post (real re-fire, not a probe).
+  ///
+  /// When the publish queued with a staged device upload, replay first
+  /// pushes the media to storage (keeping its pre-computed object name) and
+  /// injects the resolved CDN URL + tags into the post payload — the post
+  /// lands complete, not caption-only.
   ///
   /// Idempotent: if a timed-out request actually landed server-side, a
   /// blind re-insert would create a duplicate post. Re-inserts collide on
@@ -577,9 +618,32 @@ class RadarRepository {
     try {
       final row = post.toJson()
         ..['id'] = pendingReplayId(post); // uuid-shaped, deterministic
+
+      // Leg 1 — the staged media (if any). Transport still down: rethrow a
+      // retryable error so the outbox keeps everything staged for the next
+      // connectivity window; definitive storage rejection: drop the media
+      // and publish caption-only rather than looping forever.
+      final media = _pendingFeedPostMedia;
+      if (media != null) {
+        try {
+          final res = await MediaUploadService.instance.uploadPending(media);
+          row['media_url'] = res.publicUrl;
+          row['media_platform'] = res.platform.isEmpty ? null : res.platform;
+          row['media_kind'] = res.mediaKind;
+          row['media_duration_s'] = res.durationSeconds;
+        } on MediaUploadRetryableException {
+          rethrow;
+        } on MediaUploadException catch (e) {
+          debugPrint('[RadarRepo] pending media rejected — publishing '
+              'caption-only: $e');
+          _pendingFeedPostMedia = null;
+        }
+      }
+
       await _withTimeout(
           SupabaseConfig.client.from('feed_posts').upsert(row));
       _pendingFeedPost = null;
+      _pendingFeedPostMedia = null;
       return true;
     } catch (e) {
       debugPrint('[RadarRepo] replayFeedPost failed: $e');
@@ -588,6 +652,7 @@ class RadarRepository {
               e.message.toLowerCase().contains('duplicate key'));
       if (duplicate) {
         _pendingFeedPost = null;
+        _pendingFeedPostMedia = null;
         return true; // already stored — nothing left to replay
       }
       return false;

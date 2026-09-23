@@ -27,10 +27,19 @@ class SupabaseConfig {
   static bool _initialized = false;
   static bool _available = false;
 
+  /// Test seam: when set, [client] hands back this instance instead of the
+  /// initialized singleton (and [available] reports true) so integration
+  /// tests can point the data layer at a local fake backend. Never set in
+  /// production code.
+  @visibleForTesting
+  static SupabaseClient? debugClientOverride;
+
   /// True once `initialize()` succeeded with real credentials.
-  static bool get available => _available;
+  static bool get available => _available || debugClientOverride != null;
 
   static SupabaseClient get client {
+    final override = debugClientOverride;
+    if (override != null) return override;
     assert(_available,
         'Supabase is not configured. Set SUPABASE_URL / SUPABASE_ANON_KEY.');
     return Supabase.instance.client;
