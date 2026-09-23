@@ -830,8 +830,10 @@ class _ConnectionSheetState extends State<_ConnectionSheet> {
   Widget build(BuildContext context) {
     return SafeArea(
       child: SingleChildScrollView(
-        // Chips + message field + submit — scrolls above the keyboard.
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+        // Chips + message field + submit — scrolls above the keyboard, with
+        // inset padding so the focused field clears the keyboard itself.
+        padding: EdgeInsets.fromLTRB(20, 18, 20,
+            18 + MediaQuery.viewInsetsOf(context).bottom),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,

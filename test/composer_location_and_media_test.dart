@@ -434,14 +434,23 @@ void main() {
   group('sheet overflow audit (long forms scroll to their submit)', () {
     Future<void> pumpOpener(
       WidgetTester tester,
-      void Function(BuildContext) open,
-    ) async {
+      void Function(BuildContext) open, {
+      double keyboardInset = 0,
+    }) async {
       tester.view.physicalSize = const Size(400, 640);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
+      // The fake inset is injected at MaterialApp.builder level so pushed
+      // modal routes (the sheets) see it, exactly like a real keyboard.
       await tester.pumpWidget(ProviderScope(
         child: MaterialApp(
           theme: RadarTheme.dark,
+          builder: (_, navigator) => MediaQuery(
+            data: MediaQueryData(
+              viewInsets: EdgeInsets.only(bottom: keyboardInset),
+            ),
+            child: navigator ?? const SizedBox.shrink(),
+          ),
           home: Scaffold(
             body: Builder(
               builder: (context) => Center(
@@ -458,6 +467,34 @@ void main() {
       await tester.tap(find.text('open'));
       await tester.pumpAndSettle();
     }
+
+    testWidgets('keyboard inset reserves its height in the sheet scroll',
+        (tester) async {
+      Future<double> maxExtent(double inset) async {
+        await pumpOpener(tester, (context) async {
+          await openReportSheet(context,
+              targetLabel: "Scout's highlight post");
+        }, keyboardInset: inset);
+        return tester
+            .state<ScrollableState>(find.byType(Scrollable).first)
+            .position
+            .maxScrollExtent;
+      }
+
+      final withoutKeyboard = await maxExtent(0);
+      final withKeyboard = await maxExtent(220);
+      expect(withKeyboard - withoutKeyboard, 220);
+
+      // Scrolled to the end, the submit rests above the fake keyboard line.
+      await tester.drag(find.byType(Scrollable).first, const Offset(0, -500));
+      await tester.pumpAndSettle();
+      await tester.drag(find.byType(Scrollable).first, const Offset(0, -500));
+      await tester.pumpAndSettle();
+      final submitBottom =
+          tester.getBottomRight(find.text('Send report')).dy;
+      expect(submitBottom, lessThan(640 - 220));
+      expect(tester.takeException(), isNull);
+    });
 
     testWidgets('report sheet scrolls to Send report and submits',
         (tester) async {

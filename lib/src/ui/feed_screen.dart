@@ -961,15 +961,9 @@ class _ComposerSheetState extends ConsumerState<_ComposerSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final view = View.of(context);
-    final bottom = view.physicalSize.height /
-        view.devicePixelRatio *
-        MediaQuery.of(context).viewInsets.bottom /
-        view.physicalSize.height;
-    return Padding(
-      padding: EdgeInsets.only(bottom: bottom * view.physicalSize.height),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+    return Container(
+        padding: EdgeInsets.fromLTRB(20, 16, 20,
+            24 + MediaQuery.viewInsetsOf(context).bottom),
         decoration: const BoxDecoration(
           color: RadarTheme.panel,
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -1223,7 +1217,6 @@ class _ComposerSheetState extends ConsumerState<_ComposerSheet> {
             ],
           ),
         ),
-      ),
     );
   }
 }
@@ -1596,7 +1589,8 @@ class _LivePinSheetState extends ConsumerState<_LivePinSheet> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+      padding: EdgeInsets.fromLTRB(
+          20, 16, 20, 24 + MediaQuery.viewInsetsOf(context).bottom),
       decoration: const BoxDecoration(
         color: RadarTheme.panel,
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -2021,7 +2015,8 @@ class _ReportSheetState extends State<_ReportSheet> {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.all(14),
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+      padding: EdgeInsets.fromLTRB(
+          16, 16, 16, 20 + MediaQuery.viewInsetsOf(context).bottom),
       decoration: BoxDecoration(
         color: RadarTheme.panel,
         borderRadius: BorderRadius.circular(20),

@@ -765,7 +765,8 @@ class _PostBountySheetState extends ConsumerState<_PostBountySheet> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+      padding: EdgeInsets.fromLTRB(
+          20, 16, 20, 24 + MediaQuery.viewInsetsOf(context).bottom),
       decoration: const BoxDecoration(
         color: RadarTheme.panel,
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
