@@ -337,7 +337,23 @@ class _MediaHero extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          const _PitchCanvas(),
+          // Device-uploaded photos render for real; every other media type
+          // keeps the painted floodlit-pitch backdrop.
+          if (post.isDevicePhoto)
+            Image.network(
+              post.mediaUrl!,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => const _PitchCanvas(),
+              loadingBuilder: (context, child, progress) {
+                if (progress?.cumulativeBytesLoaded ==
+                    progress?.expectedTotalBytes) {
+                  return child;
+                }
+                return const _PitchCanvas();
+              },
+            )
+          else
+            const _PitchCanvas(),
           if (post.hasMedia)
             Positioned(
               left: 12,

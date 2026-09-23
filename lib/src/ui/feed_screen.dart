@@ -416,13 +416,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
   }
 
   Future<void> _openComposer() async {
-    final result = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => const _ComposerSheet(),
-    );
-    if (result == true) {
+    if (await openPostComposer(context)) {
       await ref.read(feedPostsProvider.notifier).refresh();
     }
   }
@@ -694,15 +688,18 @@ class _ComposerSheet extends ConsumerStatefulWidget {
 
 class _ComposerSheetState extends ConsumerState<_ComposerSheet> {
   final _bodyCtrl = TextEditingController();
-  final _mediaCtrl = TextEditingController();
+  final _linkCtrl = TextEditingController();
   final _areaCtrl = TextEditingController();
   FeedPostKind _kind = FeedPostKind.highlight;
   bool _busy = false;
+
+  /// True while the pick/prepare step runs (probe + byte read).
   bool _uploading = false;
   String? _uploadError;
-  String? _uploadedPlatform;
-  String? _uploadedMediaKind;
-  int? _uploadedDurationSeconds;
+
+  /// Staged device media — validated and read with preview bytes, uploaded
+  /// to Supabase Storage when the post publishes.
+  PickedMedia? _pickedMedia;
 
   /// Optional training/match schedule attached to the post — feeds the
   /// card's Calendar pill and the countdown chip on the media hero.
@@ -744,9 +741,29 @@ class _ComposerSheetState extends ConsumerState<_ComposerSheet> {
       });
     } on LocationException catch (e) {
       if (!mounted) return;
+      // Graceful degradation — GPS can stall indoors or under canopy; never
+      // hard-block the composer. Fall back to the profile's regional base
+      // (e.g. "Limbe, Cameroon") so the post still carries an honest,
+      // useful location.
+      final session = ref.read(sessionProvider);
+      final region = (session?.regionLabel ?? '').trim();
+      final fallback = region.isNotEmpty ? region : 'Limbe, Cameroon';
       setState(() {
         _locating = false;
-        _pinLabel = e.reason;
+        if (_pinLat == null) {
+          final lat = session?.viewerLatitude;
+          final lon = session?.viewerLongitude;
+          if (lat != null && lon != null) {
+            _pinLat = lat;
+            _pinLon = lon;
+          }
+        }
+        _pinLabel = _pinLat == null
+            ? '$e — tagged your region ($fallback) instead.'
+            : 'Region default · $fallback — GPS fix unavailable ($e)';
+        if (_areaCtrl.text.trim().isEmpty) {
+          _areaCtrl.text = fallback;
+        }
       });
     }
   }
@@ -790,7 +807,7 @@ class _ComposerSheetState extends ConsumerState<_ComposerSheet> {
   }
 
   String? get _platform {
-    final url = _mediaCtrl.text.trim().toLowerCase();
+    final url = _linkCtrl.text.trim().toLowerCase();
     if (url.isEmpty) return null;
     for (final host in _platforms.keys) {
       if (url.contains(host)) return _platforms[host];
@@ -798,26 +815,28 @@ class _ComposerSheetState extends ConsumerState<_ComposerSheet> {
     return 'External link';
   }
 
-  Future<void> _uploadVideo() async {
+  /// Device media selection — validates the pick and captures a real
+  /// preview (the image itself, or a poster frame probed from the video).
+  /// The actual Supabase Storage upload happens at publish time so a lost
+  /// connection can never leave a published draft pointing at a missing
+  /// file.
+  Future<void> _pickMedia({required bool video}) async {
     setState(() {
       _uploading = true;
       _uploadError = null;
     });
     try {
-      final res = await MediaUploadService.instance.pickAndUpload(video: true);
+      final picked = await MediaUploadService.instance.pick(video: video);
       if (!mounted) return;
-      if (res == null) {
+      if (picked == null) {
         setState(() => _uploading = false);
         return;
       }
       setState(() {
         _uploading = false;
-        _mediaCtrl.text = res.publicUrl;
-        _uploadedMediaKind = res.mediaKind;
-        _uploadedDurationSeconds = res.durationSeconds;
-        _uploadedPlatform = res.durationSeconds != null
-            ? 'device video · ${res.durationSeconds! ~/ 60}:${(res.durationSeconds! % 60).toString().padLeft(2, '0')}'
-            : 'device photo';
+        _pickedMedia = picked;
+        // One media per post: a device upload replaces a pasted link.
+        _linkCtrl.clear();
       });
     } on MediaUploadException catch (e) {
       if (!mounted) return;
@@ -829,42 +848,8 @@ class _ComposerSheetState extends ConsumerState<_ComposerSheet> {
       if (!mounted) return;
       setState(() {
         _uploading = false;
-        _uploadError = 'Upload failed — check your connection and retry.';
-      });
-    }
-  }
-
-  Future<void> _uploadImage() async {
-    setState(() {
-      _uploading = true;
-      _uploadError = null;
-    });
-    try {
-      final res =
-          await MediaUploadService.instance.pickAndUpload(video: false);
-      if (!mounted) return;
-      if (res == null) {
-        setState(() => _uploading = false);
-        return;
-      }
-      setState(() {
-        _uploading = false;
-        _mediaCtrl.text = res.publicUrl;
-        _uploadedMediaKind = res.mediaKind;
-        _uploadedDurationSeconds = null;
-        _uploadedPlatform = 'device photo';
-      });
-    } on MediaUploadException catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _uploading = false;
-        _uploadError = e.reason;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _uploading = false;
-        _uploadError = 'Upload failed — check your connection and retry.';
+        _uploadError =
+            'Could not prepare the media — pick it again and retry.';
       });
     }
   }
@@ -872,7 +857,7 @@ class _ComposerSheetState extends ConsumerState<_ComposerSheet> {
   @override
   void dispose() {
     _bodyCtrl.dispose();
-    _mediaCtrl.dispose();
+    _linkCtrl.dispose();
     _areaCtrl.dispose();
     super.dispose();
   }
@@ -880,13 +865,47 @@ class _ComposerSheetState extends ConsumerState<_ComposerSheet> {
   Future<void> _publish() async {
     if (_bodyCtrl.text.trim().isEmpty || _busy) return;
     setState(() => _busy = true);
+
+    // Upload the staged device media first — a failure keeps the composer
+    // open with the draft intact so the user can read the reason and retry.
+    String mediaUrl = '';
+    String? mediaPlatform;
+    String? mediaKind;
+    int? mediaDuration;
+    final picked = _pickedMedia;
+    if (picked != null) {
+      try {
+        final res = await MediaUploadService.instance.upload(picked);
+        mediaUrl = res.publicUrl;
+        mediaKind = res.mediaKind;
+        mediaDuration = res.durationSeconds;
+        mediaPlatform = res.durationSeconds != null
+            ? 'device video · ${res.durationSeconds! ~/ 60}:${(res.durationSeconds! % 60).toString().padLeft(2, '0')}'
+            : 'device photo';
+      } on MediaUploadException catch (e) {
+        if (!mounted) return;
+        setState(() {
+          _busy = false;
+          _uploadError = e.reason;
+        });
+        return;
+      } catch (_) {
+        if (!mounted) return;
+        setState(() {
+          _busy = false;
+          _uploadError = 'Upload failed — check your connection and retry.';
+        });
+        return;
+      }
+    }
+
     final outcome = await ref.read(feedPostsProvider.notifier).createPost(
           kind: _kind,
           body: _bodyCtrl.text,
-          mediaUrl: _mediaCtrl.text,
-          mediaPlatform: _uploadedMediaKind != null ? _uploadedPlatform : _platform,
-          mediaKind: _uploadedMediaKind,
-          mediaDurationSeconds: _uploadedDurationSeconds,
+          mediaUrl: mediaUrl,
+          mediaPlatform: mediaKind != null ? mediaPlatform : _platform,
+          mediaKind: mediaKind,
+          mediaDurationSeconds: mediaDuration,
           areaName: _areaCtrl.text,
           latitude: _pinLat,
           longitude: _pinLon,
@@ -970,16 +989,15 @@ class _ComposerSheetState extends ConsumerState<_ComposerSheet> {
             ),
             const SizedBox(height: 10),
             TextField(
-              controller: _mediaCtrl,
+              controller: _linkCtrl,
               style: const TextStyle(color: RadarTheme.textPrimary),
               decoration: const InputDecoration(
                 hintText: '…or paste a highlight link (YouTube / Vimeo)',
                 prefixIcon: Icon(Icons.link, size: 20),
               ),
               onChanged: (_) => setState(() {
-                // A hand-pasted link replaces any device upload metadata.
-                _uploadedMediaKind = null;
-                _uploadedDurationSeconds = null;
+                // A hand-pasted link replaces any staged device upload.
+                if (_linkCtrl.text.trim().isNotEmpty) _pickedMedia = null;
               }),
             ),
             const SizedBox(height: 10),
@@ -989,7 +1007,8 @@ class _ComposerSheetState extends ConsumerState<_ComposerSheet> {
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: _busy || _uploading ? null : _uploadVideo,
+                    onPressed:
+                        _busy || _uploading ? null : () => _pickMedia(video: true),
                     icon: _uploading
                         ? const SizedBox(
                             width: 14,
@@ -1003,7 +1022,9 @@ class _ComposerSheetState extends ConsumerState<_ComposerSheet> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: _busy || _uploading ? null : _uploadImage,
+                    onPressed: _busy || _uploading
+                        ? null
+                        : () => _pickMedia(video: false),
                     icon: const Icon(Icons.image, size: 18),
                     label: const Text('Upload photo',
                         overflow: TextOverflow.ellipsis),
@@ -1011,23 +1032,14 @@ class _ComposerSheetState extends ConsumerState<_ComposerSheet> {
                 ),
               ],
             ),
-            if (_uploadedPlatform != null)
+            if (_pickedMedia != null)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
-                child: Row(
-                  children: [
-                    const Icon(Icons.check_circle,
-                        size: 16, color: RadarTheme.radar),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        'Media attached ($_uploadedPlatform) — it publishes '
-                        'with your post',
-                        style: const TextStyle(
-                            fontSize: 12, color: RadarTheme.radar),
-                      ),
-                    ),
-                  ],
+                child: MediaPreviewCard(
+                  media: _pickedMedia!,
+                  onRemove: _busy || _uploading
+                      ? null
+                      : () => setState(() => _pickedMedia = null),
                 ),
               ),
             if (_uploadError != null)
@@ -1172,8 +1184,9 @@ class _ComposerSheetState extends ConsumerState<_ComposerSheet> {
             ),
             const SizedBox(height: 16),
             FilledButton.icon(
-              onPressed:
-                  _bodyCtrl.text.trim().isEmpty || _busy ? null : _publish,
+              onPressed: _bodyCtrl.text.trim().isEmpty || _busy || _uploading
+                  ? null
+                  : _publish,
               icon: _busy
                   ? const SizedBox(
                       width: 16,
@@ -1184,6 +1197,101 @@ class _ComposerSheetState extends ConsumerState<_ComposerSheet> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Public composer entry point — opens the New Post sheet. Exposed for
+/// tests and reuse outside [FeedScreen]. Returns true when a post was
+/// published.
+Future<bool> openPostComposer(BuildContext context) async {
+  final result = await showModalBottomSheet<bool>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) => const _ComposerSheet(),
+  );
+  return result == true;
+}
+
+// ---------------------------------------------------------------- media preview
+
+/// Visual preview card for a staged device upload — shows the actual image
+/// (or the video's probed poster frame) instead of a raw storage URL. The
+/// file itself uploads to Supabase Storage when the post publishes. Public
+/// so the composer tests can drive it directly.
+class MediaPreviewCard extends StatelessWidget {
+  const MediaPreviewCard({super.key, required this.media, this.onRemove});
+
+  final PickedMedia media;
+  final VoidCallback? onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final preview = media.previewBytes;
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: RadarTheme.panelHigh,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: RadarTheme.stroke),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: Container(
+              width: 96,
+              height: 64,
+              color: const Color(0xFF0C241A),
+              child: preview != null
+                  ? Image.memory(preview,
+                      width: 96, height: 64, fit: BoxFit.cover, gaplessPlayback: true)
+                  : Icon(
+                      media.isVideo
+                          ? Icons.videocam_outlined
+                          : Icons.image_outlined,
+                      size: 28,
+                      color: RadarTheme.textDim,
+                    ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  media.isVideo
+                      ? (media.durationSeconds != null
+                          ? 'Video · ${(media.durationSeconds! / 60).floor()}:${(media.durationSeconds! % 60).toString().padLeft(2, '0')}'
+                          : 'Video')
+                      : 'Photo',
+                  style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      color: RadarTheme.textPrimary),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  media.isVideo
+                      ? 'Poster preview — uploads with your post'
+                      : 'Uploads with your post',
+                  style: const TextStyle(
+                      fontSize: 11.5, color: RadarTheme.textDim),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'Remove media',
+            onPressed: onRemove,
+            icon: const Icon(Icons.close, size: 18),
+            color: RadarTheme.textDim,
+          ),
+        ],
       ),
     );
   }

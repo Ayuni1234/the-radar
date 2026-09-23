@@ -30,6 +30,7 @@ class RadarSession {
     this.isAdmin = false,
     this.viewerLatitude,
     this.viewerLongitude,
+    this.regionLabel,
   });
 
   final String piUid;
@@ -69,6 +70,11 @@ class RadarSession {
   final double? viewerLatitude;
   final double? viewerLongitude;
 
+  /// Human-readable regional base from onboarding/settings (e.g.
+  /// "Limbe, Cameroon"). Drives the graceful region default when device
+  /// GPS fails in the post composer.
+  final String? regionLabel;
+
   RadarSession copyWith({
     String? piUid,
     String? username,
@@ -84,6 +90,7 @@ class RadarSession {
     bool? isAdmin,
     double? viewerLatitude,
     double? viewerLongitude,
+    String? regionLabel,
   }) =>
       RadarSession(
         piUid: piUid ?? this.piUid,
@@ -100,6 +107,7 @@ class RadarSession {
         isAdmin: isAdmin ?? this.isAdmin,
         viewerLatitude: viewerLatitude ?? this.viewerLatitude,
         viewerLongitude: viewerLongitude ?? this.viewerLongitude,
+        regionLabel: regionLabel ?? this.regionLabel,
       );
 }
 
@@ -254,6 +262,7 @@ class AuthController extends AsyncNotifier<AuthState> {
       isAdmin: profile.isAdmin,
       viewerLatitude: regionCoordinates(profile.country, profile.city).$1,
       viewerLongitude: regionCoordinates(profile.country, profile.city).$2,
+      regionLabel: _regionLabelFor(profile.country, profile.city),
     );
   }
 
@@ -319,6 +328,7 @@ class AuthController extends AsyncNotifier<AuthState> {
       needsOnboarding: false,
       role: updated.role,
       isMinor: updated.isMinor,
+      regionLabel: _regionLabelFor(updated.country, updated.city),
     );
     state = AsyncData(AuthSignedIn(next));
     return next;
@@ -378,7 +388,10 @@ class AuthController extends AsyncNotifier<AuthState> {
       if (idx >= 0) DemoSeed.profiles[idx] = updated;
     }
 
-    final next = session.copyWith(role: updated.role);
+    final next = session.copyWith(
+      role: updated.role,
+      regionLabel: _regionLabelFor(updated.country, updated.city),
+    );
     state = AsyncData(AuthSignedIn(next));
     return null;
   }
@@ -524,6 +537,16 @@ final sessionProvider = Provider<RadarSession?>((ref) {
   final auth = ref.watch(authProvider).value;
   return auth is AuthSignedIn ? auth.session : null;
 });
+
+/// Human-readable regional base ("City, Country"), tolerating either half
+/// being blank or both. Consumed by the composer's GPS-failure fallback.
+String? _regionLabelFor(String? country, String? city) {
+  final c = city?.trim(), co = country?.trim();
+  if (c == null || c.isEmpty) {
+    return (co == null || co.isEmpty) ? null : co;
+  }
+  return (co == null || co.isEmpty) ? c : '$c, $co';
+}
 
 /// Representative coordinates for a viewer's regional base (country + city).
 /// Coarse by design: city-level resolution only, used for radius filtering

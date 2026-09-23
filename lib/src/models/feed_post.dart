@@ -84,6 +84,10 @@ class FeedPost {
   /// True when [mediaUrl] is a device-uploaded video (≤ 3 min highlight).
   bool get isDeviceVideo => mediaKind == 'device_video';
 
+  /// True when [mediaUrl] is a device-uploaded photo — the feed card can
+  /// render it directly as an image.
+  bool get isDevicePhoto => mediaKind == 'device_photo';
+
   Map<String, Object?> toJson() => {
         'author_profile_id': authorProfileId,
         'author_name': authorName,
