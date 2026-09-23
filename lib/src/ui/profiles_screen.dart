@@ -13,6 +13,7 @@ import '../state/radar_providers.dart';
 import 'player_cv_screen.dart';
 import 'radar_theme.dart';
 import 'search_screen.dart';
+import 'sheet_scaffold.dart';
 import 'shell.dart';
 
 /// Searchable directory of players, scouts, clubs, academies, agents,
@@ -828,27 +829,34 @@ class _ConnectionSheetState extends State<_ConnectionSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: SingleChildScrollView(
-        // Chips + message field + submit — scrolls above the keyboard, with
-        // inset padding so the focused field clears the keyboard itself.
-        padding: EdgeInsets.fromLTRB(20, 18, 20,
-            18 + MediaQuery.viewInsetsOf(context).bottom),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'Connect with ${widget.targetName}',
-              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              'Your message goes to their inbox. Contact details stay '
-              'private until they accept.',
-              style: TextStyle(fontSize: 12.5, color: RadarTheme.textDim),
-            ),
-            const SizedBox(height: 16),
+    return SheetScaffold(
+      title: 'Connect with ${widget.targetName}',
+      subtitle: 'Your message goes to their inbox. Contact details stay '
+          'private until they accept.',
+      footer: FilledButton.icon(
+        style: FilledButton.styleFrom(
+          backgroundColor: RadarTheme.pi,
+          foregroundColor: Colors.white,
+          minimumSize: const Size.fromHeight(46),
+        ),
+        onPressed: () => Navigator.of(context).pop(
+          ConnectionSheetDraft(
+            _type,
+            _messageCtrl.text.trim().isEmpty
+                ? null
+                : _messageCtrl.text.trim(),
+            // Attach the event for event-scoped requests.
+            widget.event != null &&
+                    (_type == ConnectionType.trialInvite ||
+                        _type == ConnectionType.trialApplication)
+                ? widget.event!.id
+                : null,
+          ),
+        ),
+        icon: const Icon(Icons.send_outlined, size: 17),
+        label: const Text('Send request'),
+      ),
+      children: [
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -891,33 +899,7 @@ class _ConnectionSheetState extends State<_ConnectionSheet> {
                 border: OutlineInputBorder(),
               ),
             ),
-            const SizedBox(height: 14),
-            FilledButton.icon(
-              style: FilledButton.styleFrom(
-                backgroundColor: RadarTheme.pi,
-                foregroundColor: Colors.white,
-                minimumSize: const Size.fromHeight(46),
-              ),
-              onPressed: () => Navigator.of(context).pop(
-                ConnectionSheetDraft(
-                  _type,
-                  _messageCtrl.text.trim().isEmpty
-                      ? null
-                      : _messageCtrl.text.trim(),
-                  // Attach the event for event-scoped requests.
-                  widget.event != null &&
-                          (_type == ConnectionType.trialInvite ||
-                              _type == ConnectionType.trialApplication)
-                      ? widget.event!.id
-                      : null,
-                ),
-              ),
-              icon: const Icon(Icons.send_outlined, size: 17),
-              label: const Text('Send request'),
-            ),
-          ],
-        ),
-      ),
+      ],
     );
   }
 }

@@ -5,6 +5,7 @@ import '../models/market.dart';
 import '../models/market_sales.dart';
 import '../state/market_providers.dart';
 import 'radar_theme.dart';
+import 'sheet_scaffold.dart';
 import 'shell.dart';
 
 /// Merchant Dashboard — register a shop, publish gear with Pi pricing and
@@ -810,28 +811,27 @@ class _AddListingSheetState extends ConsumerState<_AddListingSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.fromLTRB(
-          20, 16, 20, 16 + MediaQuery.viewInsetsOf(context).bottom),
-      decoration: const BoxDecoration(
-        color: RadarTheme.panel,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    return SheetScaffold(
+      title: 'Add new equipment',
+      icon: Icons.add_business,
+      iconColor: RadarTheme.pi,
+      showClose: false,
+      footer: FilledButton.icon(
+        style: FilledButton.styleFrom(
+          backgroundColor: RadarTheme.pi,
+          foregroundColor: Colors.white,
+        ),
+        onPressed: _busy ? null : _submit,
+        icon: _busy
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: Colors.white))
+            : const Icon(Icons.publish, size: 18),
+        label: const Text('Publish listing'),
       ),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(children: [
-              const Icon(Icons.add_business, color: RadarTheme.pi, size: 20),
-              const SizedBox(width: 8),
-              const Text('Add new equipment',
-                  style: TextStyle(
-                      color: RadarTheme.textPrimary,
-                      fontSize: 16.5,
-                      fontWeight: FontWeight.w700)),
-            ]),
-            const SizedBox(height: 14),
+      children: [
             TextField(
               controller: _titleCtrl,
               style: const TextStyle(color: RadarTheme.textPrimary),
@@ -906,25 +906,7 @@ class _AddListingSheetState extends ConsumerState<_AddListingSheet> {
                   style:
                       const TextStyle(color: RadarTheme.alert, fontSize: 12.5)),
             ],
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              style: FilledButton.styleFrom(
-                backgroundColor: RadarTheme.pi,
-                foregroundColor: Colors.white,
-              ),
-              onPressed: _busy ? null : _submit,
-              icon: _busy
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white))
-                  : const Icon(Icons.publish, size: 18),
-              label: const Text('Publish listing'),
-            ),
-          ],
-        ),
-      ),
+      ],
     );
   }
 }

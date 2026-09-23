@@ -19,6 +19,7 @@ import 'radar_map_screen.dart';
 import '../data/media_upload_service.dart';
 import 'player_cv_screen.dart';
 import 'radar_theme.dart';
+import 'sheet_scaffold.dart';
 import 'safeguarding_screen.dart';
 import 'shell.dart';
 import 'social_post_card.dart';
@@ -468,9 +469,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: RadarTheme.panel,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      backgroundColor: Colors.transparent,
       builder: (_) => _FilterSheet(
         kindFilter: _kindFilter,
         scope: _scope,
@@ -961,26 +960,22 @@ class _ComposerSheetState extends ConsumerState<_ComposerSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-        padding: EdgeInsets.fromLTRB(20, 16, 20,
-            24 + MediaQuery.viewInsetsOf(context).bottom),
-        decoration: const BoxDecoration(
-          color: RadarTheme.panel,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: SingleChildScrollView(
-          // The form is long — the sheet must scroll so the location row
-          // and the publish button stay reachable when the keyboard is up.
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-            const Text('New post',
-                style: TextStyle(
-                    color: RadarTheme.textPrimary,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700)),
-            const SizedBox(height: 14),
+    return SheetScaffold(
+      title: 'New post',
+      showClose: false,
+      footer: FilledButton.icon(
+        onPressed: _bodyCtrl.text.trim().isEmpty || _busy || _uploading
+            ? null
+            : _publish,
+        icon: _busy
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2))
+            : const Icon(Icons.publish, size: 18),
+        label: const Text('Publish to feed'),
+      ),
+      children: [
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -1201,22 +1196,7 @@ class _ComposerSheetState extends ConsumerState<_ComposerSheet> {
                   ),
               ]),
             ),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: _bodyCtrl.text.trim().isEmpty || _busy || _uploading
-                  ? null
-                  : _publish,
-              icon: _busy
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Icon(Icons.publish, size: 18),
-              label: const Text('Publish to feed'),
-            ),
-            ],
-          ),
-        ),
+      ],
     );
   }
 }
@@ -1351,38 +1331,13 @@ class _VenuePickerSheet extends ConsumerWidget {
         .where((e) => e.hostProfileId != session?.profileId)
         .toList()..sort(_slotSort);
 
-    return Container(
-      margin: const EdgeInsets.all(14),
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-      decoration: BoxDecoration(
-        color: RadarTheme.panel,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: RadarTheme.stroke),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(children: [
-            const Icon(Icons.sports_soccer, color: RadarTheme.radar, size: 20),
-            const SizedBox(width: 8),
-            const Expanded(
-              child: Text('Tag a training venue or time slot',
-                  style: TextStyle(
-                      fontWeight: FontWeight.w700, fontSize: 15.5)),
-            ),
-            IconButton(
-              onPressed: () => Navigator.pop(context),
-              icon: const Icon(Icons.close, size: 18),
-            ),
-          ]),
-          const SizedBox(height: 6),
-          const Text(
-            'Picking a slot pins the post to that venue\'s exact spot on the '
-            'live Radar map.',
-            style: TextStyle(fontSize: 12, color: RadarTheme.textDim),
-          ),
-          const SizedBox(height: 12),
+    return SheetScaffold(
+      title: 'Tag a training venue or time slot',
+      icon: Icons.sports_soccer,
+      floating: true,
+      subtitle: 'Picking a slot pins the post to that venue\'s exact spot on '
+          'the live Radar map.',
+      children: [
           if (mine.isEmpty && others.isEmpty)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 16),
@@ -1392,38 +1347,31 @@ class _VenuePickerSheet extends ConsumerWidget {
                 style: TextStyle(fontSize: 12.5, color: RadarTheme.textDim),
               ),
             )
-          else
-            Flexible(
-              child: ListView(
-                shrinkWrap: true,
-                children: [
-                  if (mine.isNotEmpty)
-                    const Padding(
-                      padding: EdgeInsets.only(bottom: 6),
-                      child: Text('YOUR TIME SLOTS',
-                          style: TextStyle(
-                              fontSize: 10.5,
-                              letterSpacing: 1.2,
-                              fontWeight: FontWeight.w700,
-                              color: RadarTheme.textDim)),
-                    ),
-                  for (final e in mine.take(4)) _venueTile(context, e, df),
-                  if (others.isNotEmpty)
-                    const Padding(
-                      padding: EdgeInsets.only(top: 4, bottom: 6),
-                      child: Text('ESTABLISHED PITCHES ON THE RADAR',
-                          style: TextStyle(
-                              fontSize: 10.5,
-                              letterSpacing: 1.2,
-                              fontWeight: FontWeight.w700,
-                              color: RadarTheme.textDim)),
-                    ),
-                  for (final e in others.take(6)) _venueTile(context, e, df),
-                ],
+          else ...[
+            if (mine.isNotEmpty)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 6),
+                child: Text('YOUR TIME SLOTS',
+                    style: TextStyle(
+                        fontSize: 10.5,
+                        letterSpacing: 1.2,
+                        fontWeight: FontWeight.w700,
+                        color: RadarTheme.textDim)),
               ),
-            ),
-        ],
-      ),
+            for (final e in mine.take(4)) _venueTile(context, e, df),
+            if (others.isNotEmpty)
+              const Padding(
+                padding: EdgeInsets.only(top: 4, bottom: 6),
+                child: Text('ESTABLISHED PITCHES ON THE RADAR',
+                    style: TextStyle(
+                        fontSize: 10.5,
+                        letterSpacing: 1.2,
+                        fontWeight: FontWeight.w700,
+                        color: RadarTheme.textDim)),
+              ),
+            for (final e in others.take(6)) _venueTile(context, e, df),
+          ],
+      ],
     );
   }
 
@@ -1588,36 +1536,22 @@ class _LivePinSheetState extends ConsumerState<_LivePinSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.fromLTRB(
-          20, 16, 20, 24 + MediaQuery.viewInsetsOf(context).bottom),
-      decoration: const BoxDecoration(
-        color: RadarTheme.panel,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    return SheetScaffold(
+      title: 'Drop a live pin / schedule a session',
+      icon: Icons.my_location,
+      showClose: false,
+      footer: FilledButton.icon(
+        onPressed: _busy ? null : _drop,
+        icon: _busy
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2))
+            : Icon(_openNow ? Icons.podcasts : Icons.event_available,
+                size: 18),
+        label: Text(_openNow ? 'Drop live pin' : 'Schedule session'),
       ),
-      child: SingleChildScrollView(
-        // Live/scheduled pin form is tall — scrolls on small screens and
-        // above the keyboard so 'Drop live pin' stays reachable.
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-          Row(children: [
-            const Icon(Icons.my_location, color: RadarTheme.radar, size: 20),
-            const SizedBox(width: 8),
-            const Text('Drop a live pin / schedule a session',
-                style: TextStyle(
-                    color: RadarTheme.textPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700)),
-          ]),
-          const SizedBox(height: 6),
-          const Text(
-            'Your pin appears on the global radar instantly. Minors are '
-            'auto-fenced to a coarse area by the safety triggers.',
-            style: TextStyle(color: RadarTheme.textDim, fontSize: 12),
-          ),
-          const SizedBox(height: 14),
+      children: [
           SegmentedButton<bool>(
             segments: const [
               ButtonSegment(value: true, label: Text('Live now')),
@@ -1729,21 +1663,7 @@ class _LivePinSheetState extends ConsumerState<_LivePinSheet> {
             value: _involvesMinors,
             onChanged: (v) => setState(() => _involvesMinors = v),
           ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: _busy ? null : _drop,
-            icon: _busy
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2))
-                : Icon(_openNow ? Icons.podcasts : Icons.event_available,
-                    size: 18),
-            label: Text(_openNow ? 'Drop live pin' : 'Schedule session'),
-          ),
-          ],
-        ),
-      ),
+      ],
     );
   }
 }
@@ -1834,23 +1754,37 @@ class _FilterSheetState extends State<_FilterSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-      decoration: const BoxDecoration(
-        color: RadarTheme.panel,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    return SheetScaffold(
+      title: 'Filter feed',
+      showClose: false,
+      footer: Row(
+        children: [
+          Expanded(
+            child: OutlinedButton(
+              onPressed: () {
+                setState(() {
+                  _kind = null;
+                  _scope = 0;
+                  _positions.clear();
+                  _age = null;
+                  _radius = null;
+                  _useMyRegion = false;
+                });
+              },
+              child: const Text('Clear'),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: FilledButton(
+              onPressed: () => widget.onApply(_kind, _scope,
+                  Set.of(_positions), _age, _radius, _useMyRegion),
+              child: const Text('Apply'),
+            ),
+          ),
+        ],
       ),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text('Filter feed',
-                style: TextStyle(
-                    color: RadarTheme.textPrimary,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700)),
-            const SizedBox(height: 14),
+      children: [
             const Text('Post type',
                 style: TextStyle(color: RadarTheme.textDim, fontSize: 12)),
             const SizedBox(height: 8),
@@ -1954,37 +1888,7 @@ class _FilterSheetState extends State<_FilterSheet> {
                 label: '${_radius!.round()} km',
                 onChanged: (v) => setState(() => _radius = v),
               ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () {
-                      setState(() {
-                        _kind = null;
-                        _scope = 0;
-                        _positions.clear();
-                        _age = null;
-                        _radius = null;
-                        _useMyRegion = false;
-                      });
-                    },
-                    child: const Text('Clear'),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: FilledButton(
-                    onPressed: () => widget.onApply(_kind, _scope,
-                        Set.of(_positions), _age, _radius, _useMyRegion),
-                    child: const Text('Apply'),
-                  ),
-                ),
-              ],
-            ),
           ],
-        ),
-      ),
     );
   }
 }
@@ -2013,43 +1917,26 @@ class _ReportSheetState extends State<_ReportSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.all(14),
-      padding: EdgeInsets.fromLTRB(
-          16, 16, 16, 20 + MediaQuery.viewInsetsOf(context).bottom),
-      decoration: BoxDecoration(
-        color: RadarTheme.panel,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: RadarTheme.stroke),
+    return SheetScaffold(
+      title: 'Report ${widget.targetLabel}',
+      icon: Icons.flag_outlined,
+      iconColor: RadarTheme.gold,
+      floating: true,
+      subtitle:
+          'Tell us what is wrong. Reports go to the moderation team; '
+          'the reported account is not told who filed it.',
+      footer: FilledButton.icon(
+        style: FilledButton.styleFrom(
+          backgroundColor:
+              _reason == null ? RadarTheme.stroke : RadarTheme.radar,
+        ),
+        onPressed: _reason == null
+            ? null
+            : () => Navigator.pop(context, (_reason!, _detailsCtrl.text.trim())),
+        icon: const Icon(Icons.send_outlined, size: 16),
+        label: const Text('Send report'),
       ),
-      child: SingleChildScrollView(
-        // Six reason rows + details field + submit — scrolls instead of
-        // clipping on short viewports or when the keyboard is up.
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-          Row(children: [
-            const Icon(Icons.flag_outlined, color: RadarTheme.gold, size: 20),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text('Report ${widget.targetLabel}',
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w700, fontSize: 15.5)),
-            ),
-            IconButton(
-              onPressed: () => Navigator.pop(context),
-              icon: const Icon(Icons.close, size: 18),
-            ),
-          ]),
-          const SizedBox(height: 4),
-          const Text(
-            'Tell us what is wrong. Reports go to the moderation team; '
-            'the reported account is not told who filed it.',
-            style: TextStyle(color: RadarTheme.textDim, fontSize: 12),
-          ),
-          const SizedBox(height: 12),
+      children: [
           for (final reason in ContentReportReason.values)
             Padding(
               padding: const EdgeInsets.only(bottom: 6),
@@ -2101,22 +1988,7 @@ class _ReportSheetState extends State<_ReportSheet> {
               isDense: true,
             ),
           ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            style: FilledButton.styleFrom(
-              backgroundColor:
-                  _reason == null ? RadarTheme.stroke : RadarTheme.radar,
-            ),
-            onPressed: _reason == null
-                ? null
-                : () => Navigator.pop(
-                    context, (_reason!, _detailsCtrl.text.trim())),
-            icon: const Icon(Icons.send_outlined, size: 16),
-            label: const Text('Send report'),
-          ),
-          ],
-        ),
-      ),
+      ],
     );
   }
 }

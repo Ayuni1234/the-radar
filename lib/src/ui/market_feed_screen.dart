@@ -7,6 +7,7 @@ import '../state/market_providers.dart';
 import 'market_detail_screen.dart';
 import 'merchant_dashboard_screen.dart';
 import 'radar_theme.dart';
+import 'sheet_scaffold.dart';
 import 'shell.dart';
 
 /// The PitchMarket — P2P marketplace for pro streaming gear, paid in Pi.
@@ -361,47 +362,37 @@ class _FilterRow extends ConsumerWidget {
     double max = filter.maxPrice ?? 500;
     final changed = await showModalBottomSheet<bool>(
       context: context,
-      backgroundColor: RadarTheme.panel,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSheet) => Padding(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text('Price range (Pi)',
-                  style: TextStyle(
-                      fontWeight: FontWeight.w700, fontSize: 15.5)),
-              const SizedBox(height: 8),
-              RangeSlider(
-                values: RangeValues(min, max),
-                min: 0,
-                max: 500,
-                divisions: 50,
-                labels: RangeLabels(
-                    '${min.toStringAsFixed(0)} π', '${max.toStringAsFixed(0)} π'),
-                activeColor: RadarTheme.pi,
-                onChanged: (v) => setSheet(() {
-                  min = v.start;
-                  max = v.end;
-                }),
-              ),
-              Row(children: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx, false),
-                  child: const Text('Reset'),
-                ),
-                const Spacer(),
-                FilledButton(
-                  onPressed: () => Navigator.pop(ctx, true),
-                  child: const Text('Apply'),
-                ),
-              ]),
-            ],
-          ),
+        builder: (ctx, setSheet) => SheetScaffold(
+          title: 'Price range (Pi)',
+          footer: Row(children: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Reset'),
+            ),
+            const Spacer(),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Apply'),
+            ),
+          ]),
+          children: [
+            RangeSlider(
+              values: RangeValues(min, max),
+              min: 0,
+              max: 500,
+              divisions: 50,
+              labels: RangeLabels(
+                  '${min.toStringAsFixed(0)} π', '${max.toStringAsFixed(0)} π'),
+              activeColor: RadarTheme.pi,
+              onChanged: (v) => setSheet(() {
+                min = v.start;
+                max = v.end;
+              }),
+            ),
+          ],
         ),
       ),
     );

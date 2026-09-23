@@ -10,6 +10,7 @@ import '../state/radar_providers.dart';
 import 'blind_test_screen.dart';
 import 'match_analytics_screen.dart';
 import 'radar_theme.dart';
+import 'sheet_scaffold.dart';
 import 'shell.dart';
 
 /// Scout Bounties — the "Talent Watcher" gig economy.
@@ -764,35 +765,28 @@ class _PostBountySheetState extends ConsumerState<_PostBountySheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.fromLTRB(
-          20, 16, 20, 24 + MediaQuery.viewInsetsOf(context).bottom),
-      decoration: const BoxDecoration(
-        color: RadarTheme.panel,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    return SheetScaffold(
+      title: 'Post a stream bounty',
+      icon: Icons.workspace_premium,
+      iconColor: RadarTheme.gold,
+      showClose: false,
+      subtitle: 'Pi is escrowed from your wallet now and released to the '
+          'streamer when you confirm the broadcast.',
+      footer: FilledButton.icon(
+        style: FilledButton.styleFrom(
+          backgroundColor: RadarTheme.gold,
+          foregroundColor: Colors.black,
+        ),
+        onPressed: _busy ? null : _submit,
+        icon: _busy
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2))
+            : const Icon(Icons.workspace_premium, size: 18),
+        label: const Text('Post & escrow Pi'),
       ),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(children: [
-              const Icon(Icons.workspace_premium,
-                  color: RadarTheme.gold, size: 20),
-              const SizedBox(width: 8),
-              const Text('Post a stream bounty',
-                  style: TextStyle(
-                      color: RadarTheme.textPrimary,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700)),
-            ]),
-            const SizedBox(height: 4),
-            const Text(
-              'Pi is escrowed from your wallet now and released to the '
-              'streamer when you confirm the broadcast.',
-              style: TextStyle(color: RadarTheme.textDim, fontSize: 12),
-            ),
-            const SizedBox(height: 14),
+      children: [
             TextField(
               controller: _titleCtrl,
               style: const TextStyle(color: RadarTheme.textPrimary),
@@ -884,24 +878,7 @@ class _PostBountySheetState extends ConsumerState<_PostBountySheet> {
               icon: const Icon(Icons.event, size: 18),
               label: Text(DateFormat('EEE d MMM · HH:mm').format(_kickoff)),
             ),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              style: FilledButton.styleFrom(
-                backgroundColor: RadarTheme.gold,
-                foregroundColor: Colors.black,
-              ),
-              onPressed: _busy ? null : _submit,
-              icon: _busy
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Icon(Icons.workspace_premium, size: 18),
-              label: const Text('Post & escrow Pi'),
-            ),
-          ],
-        ),
-      ),
+      ],
     );
   }
 }

@@ -17,6 +17,7 @@ import 'package:the_radar/src/state/auth_controller.dart'
 import 'package:the_radar/src/ui/feed_screen.dart';
 import 'package:the_radar/src/ui/profiles_screen.dart';
 import 'package:the_radar/src/ui/radar_theme.dart';
+import 'package:the_radar/src/ui/sheet_scaffold.dart';
 import 'package:the_radar/src/ui/social_post_card.dart';
 
 /// Two composer bug fixes, pinned by test:
@@ -544,6 +545,81 @@ void main() {
 
       expect(sent, isNotNull);
       expect(sent!.message, 'Hi Ada!');
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('SheetScaffold contract (overflow cannot regress)', () {
+    // A 400x640 viewport with a 220px keyboard: any body taller than
+    // ~420px must scroll, and the footer must never leave the screen.
+    Future<void> pumpScaffold(
+      WidgetTester tester,
+      List<Widget> children, {
+      double keyboardInset = 0,
+    }) async {
+      tester.view.physicalSize = const Size(400, 640);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(MaterialApp(
+        theme: RadarTheme.dark,
+        builder: (_, navigator) => MediaQuery(
+          data: MediaQueryData(
+            viewInsets: EdgeInsets.only(bottom: keyboardInset),
+          ),
+          child: navigator ?? const SizedBox.shrink(),
+        ),
+        home: Scaffold(
+          body: SheetScaffold(
+            title: 'Contract sheet',
+            subtitle: 'guarantees',
+            footer: FilledButton(
+              onPressed: () {},
+              child: const Text('Primary action'),
+            ),
+            children: children,
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('footer stays visible with a long body and keyboard up',
+        (tester) async {
+      await pumpScaffold(
+        tester,
+        List.generate(
+            12, (i) => SizedBox(height: 60, child: Text('Row $i'))),
+        keyboardInset: 220,
+      );
+
+      // The footer is on screen immediately — no scrolling needed.
+      expect(tester.getBottomRight(find.text('Primary action')).dy,
+          lessThan(640 - 220));
+      // The body scrolled instead of overflowing (all children stay in the
+      // tree — the viewport is what's bounded).
+      final scrollable = tester.state<ScrollableState>(
+          find.byType(Scrollable).first);
+      expect(scrollable.position.maxScrollExtent, greaterThan(300));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('body rows reach the footer by scrolling under keyboard',
+        (tester) async {
+      await pumpScaffold(
+        tester,
+        List.generate(12, (i) => SizedBox(height: 60, child: Text('Row $i'))),
+        keyboardInset: 220,
+      );
+
+      await tester.scrollUntilVisible(
+        find.text('Row 11'),
+        100,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text('Row 11'), findsOneWidget);
+      // Footer still on screen after the scroll.
+      expect(tester.getBottomRight(find.text('Primary action')).dy,
+          lessThan(640 - 220));
       expect(tester.takeException(), isNull);
     });
   });
