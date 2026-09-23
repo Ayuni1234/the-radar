@@ -742,25 +742,30 @@ class _ComposerSheetState extends ConsumerState<_ComposerSheet> {
     } on LocationException catch (e) {
       if (!mounted) return;
       // Graceful degradation — GPS can stall indoors or under canopy; never
-      // hard-block the composer. Fall back to the profile's regional base
-      // (e.g. "Limbe, Cameroon") so the post still carries an honest,
+      // hard-block the composer. Fall back to a live coarse label from the
+      // regional base ("near Douala") so the post still carries an honest,
       // useful location.
       final session = ref.read(sessionProvider);
+      final isMinor = session?.isMinor ?? false;
+      final lat = session?.viewerLatitude;
+      final lon = session?.viewerLongitude;
+      // Privacy masking mirrors the database trigger (enforce_feed_post_privacy):
+      // minors keep only their static onboarding region as coarse text —
+      // no coordinates and no live fix-derived labels. Adults get the
+      // city-level live label ("near Douala · 18 km away").
+      final liveLabel = isMinor ? null : coarseFixLabel(lat, lon);
       final region = (session?.regionLabel ?? '').trim();
-      final fallback = region.isNotEmpty ? region : 'Limbe, Cameroon';
+      final fallback =
+          liveLabel ?? (region.isNotEmpty ? region : 'Limbe, Cameroon');
       setState(() {
         _locating = false;
-        if (_pinLat == null) {
-          final lat = session?.viewerLatitude;
-          final lon = session?.viewerLongitude;
-          if (lat != null && lon != null) {
-            _pinLat = lat;
-            _pinLon = lon;
-          }
+        if (_pinLat == null && !isMinor && lat != null && lon != null) {
+          _pinLat = lat;
+          _pinLon = lon;
         }
         _pinLabel = _pinLat == null
-            ? '$e — tagged your region ($fallback) instead.'
-            : 'Region default · $fallback — GPS fix unavailable ($e)';
+            ? '$e — tagged $fallback instead.'
+            : 'Approximate location · $fallback — GPS fix unavailable ($e)';
         if (_areaCtrl.text.trim().isEmpty) {
           _areaCtrl.text = fallback;
         }

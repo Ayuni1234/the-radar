@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -537,6 +538,92 @@ final sessionProvider = Provider<RadarSession?>((ref) {
   final auth = ref.watch(authProvider).value;
   return auth is AuthSignedIn ? auth.session : null;
 });
+
+/// Nearest known city to a coordinate from [regionCoordinates]' city
+/// table, with its approximate great-circle distance (haversine). Used for
+/// live coarse location labels — city-level resolution, deliberately no
+/// street-level geocoding.
+({String city, double km})? nearestRegionCity(double? lat, double? lon) {
+  if (lat == null || lon == null) return null;
+  const cities = <String, (double, double)>{
+    'limbe': (4.0227, 9.1992),
+    'douala': (4.0511, 9.7679),
+    'yaounde': (3.8480, 11.5021),
+    'bamenda': (5.9597, 10.1459),
+    'accra': (5.6037, -0.1870),
+    'kumasi': (6.6885, -1.6244),
+    'lagos': (6.5244, 3.3792),
+    'abuja': (9.0765, 7.3986),
+    'nairobi': (-1.2921, 36.8219),
+    'cairo': (30.0444, 31.2357),
+    'casablanca': (33.5731, -7.5898),
+    'dakar': (14.7167, -17.4677),
+    'abidjan': (5.3599, -4.0083),
+    'kinshasa': (-4.4419, 15.2663),
+    'johannesburg': (-26.2041, 28.0473),
+    'london': (51.5074, -0.1278),
+    'manchester': (53.4808, -2.2426),
+    'madrid': (40.4168, -3.7038),
+    'valencia': (39.4699, -0.3763),
+    'barcelona': (41.3874, 2.1686),
+    'paris': (48.8566, 2.3522),
+    'lyon': (45.7640, 4.8357),
+    'milan': (45.4642, 9.1900),
+    'rome': (41.9028, 12.4964),
+    'munich': (48.1351, 11.5820),
+    'amsterdam': (52.3676, 4.9041),
+    'lisbon': (38.7223, -9.1393),
+    'porto': (41.1579, -8.6291),
+    'istanbul': (41.0082, 28.9784),
+    'sao paulo': (-23.5505, -46.6333),
+    'rio de janeiro': (-22.9068, -43.1729),
+    'buenos aires': (-34.6037, -58.3816),
+    'new york': (40.7128, -74.0060),
+    'miami': (25.7617, -80.1918),
+    'los angeles': (34.0522, -118.2437),
+  };
+  const r = 6371.0; // km
+  var best = '';
+  var bestKm = double.infinity;
+  cities.forEach((name, ll) {
+    final dLat = (ll.$1 - lat) * math.pi / 180;
+    final dLon = (ll.$2 - lon) * math.pi / 180;
+    final h = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(lat * math.pi / 180) *
+            math.cos(ll.$1 * math.pi / 180) *
+            math.sin(dLon / 2) *
+            math.sin(dLon / 2);
+    final km = 2 * r * math.asin(math.sqrt(h));
+    if (km < bestKm) {
+      bestKm = km;
+      best = name;
+    }
+  });
+  return best.isEmpty ? null : (city: best, km: bestKm);
+}
+
+/// Live coarse label for a fix ("near Douala", "near Limbe · 18 km away",
+/// or the country for fixes far from any known city). City-level by
+/// design — the same disclosure class as the onboarding region.
+String? coarseFixLabel(double? lat, double? lon) {
+  final near = nearestRegionCity(lat, lon);
+  if (near == null) return null;
+  final name = near.city;
+  const display = {
+    'new york': 'New York',
+    'sao paulo': 'São Paulo',
+    'rio de janeiro': 'Rio de Janeiro',
+    'los angeles': 'Los Angeles',
+    'abu dhabi': 'Abu Dhabi',
+  };
+  final cityName = display[name] ??
+      (name.isEmpty ? name : '${name[0].toUpperCase()}${name.substring(1)}');
+  if (near.km <= 15) return 'near $cityName';
+  if (near.km <= 300) {
+    return 'near $cityName · ${near.km.round()} km away';
+  }
+  return null;
+}
 
 /// Human-readable regional base ("City, Country"), tolerating either half
 /// being blank or both. Consumed by the composer's GPS-failure fallback.
