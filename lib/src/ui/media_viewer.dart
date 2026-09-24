@@ -67,6 +67,13 @@ class _MediaViewerRoute extends PageRouteBuilder<void> {
 /// swipe down to dismiss — pulling the image away with a scale/opacity
 /// fade, exactly like the photo viewers in the major social apps.
 ///
+/// Desktop keyboard support: Escape closes, ←/→ browse, Home/End jump to
+/// the gallery ends, and Tab still reaches the chrome buttons (key events
+/// bubble to this listener from focused descendants). Opening steals focus
+/// from whatever sat behind the route and closing restores it, so keys
+/// never leak into the app underneath and desktop users land back where
+/// they were.
+///
 /// All gestures live in one custom scale handler (no [InteractiveViewer],
 /// no [PageView]): an active recognizer elsewhere in the tree would win
 /// one-finger drags and break either paging or swipe-to-dismiss. The
@@ -115,6 +122,11 @@ class _MediaViewerState extends State<MediaViewer>
   AnimationController? _pageAnimation;
   final FocusNode _focus = FocusNode();
 
+  /// Whatever held keyboard focus when the viewer opened (typically a
+  /// composer text field behind the route). Keys must not leak into it
+  /// while the viewer is up, and focus returns to it on close.
+  FocusNode? _previousFocus;
+
   late int _index = widget.initialIndex.clamp(0, widget.media.length - 1);
   _DragMode _mode = _DragMode.none;
 
@@ -139,10 +151,24 @@ class _MediaViewerState extends State<MediaViewer>
     // Platform views composite above the Flutter canvas on web, so any
     // cached video slot must be hidden DOM-side while this route is open.
     setDeviceVideosVisible(false);
+    // Steal the keyboard from whatever sits behind the route (an open
+    // composer's text field, a search box) — Escape and the arrows belong
+    // to the viewer until it closes. The KeyboardListener's autofocus
+    // then lands focus on this route's node.
+    _previousFocus = FocusManager.instance.primaryFocus;
+    _previousFocus?.unfocus();
   }
 
   @override
   void dispose() {
+    // Hand the keyboard back — a desktop user closing the viewer with
+    // Escape lands right back in the field they were typing in.
+    final previous = _previousFocus;
+    if (previous != null &&
+        previous.context != null &&
+        previous.canRequestFocus) {
+      previous.requestFocus();
+    }
     setDeviceVideosVisible(true);
     _animation?.dispose();
     _pageAnimation?.dispose();
@@ -162,6 +188,11 @@ class _MediaViewerState extends State<MediaViewer>
     } else if (event.logicalKey == LogicalKeyboardKey.arrowRight &&
         _index < widget.media.length - 1) {
       _animateToIndex(_index + 1);
+    } else if (event.logicalKey == LogicalKeyboardKey.home && _index > 0) {
+      _animateToIndex(0);
+    } else if (event.logicalKey == LogicalKeyboardKey.end &&
+        _index < widget.media.length - 1) {
+      _animateToIndex(widget.media.length - 1);
     }
   }
 

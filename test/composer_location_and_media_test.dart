@@ -1036,5 +1036,71 @@ void main() {
       expect(find.byType(MediaViewer), findsNothing,
           reason: 'Escape must close the viewer');
     });
+
+    testWidgets('viewer steals keyboard focus and restores it on close',
+        (tester) async {
+      final fieldNode = FocusNode();
+      addTearDown(fieldNode.dispose);
+      tester.view.physicalSize = const Size(800, 1400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(ProviderScope(
+        child: MaterialApp(
+          theme: RadarTheme.dark,
+          home: Scaffold(
+            body: Column(
+              children: [
+                // A composer-style field behind the viewer: the desktop
+                // user was typing, then opened the media viewer.
+                TextField(autofocus: true, focusNode: fieldNode),
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: SocialPostCard(
+                      post: photoPost(),
+                      galleryPosts: [photoPost(), videoPost()],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(fieldNode.hasFocus, isTrue);
+
+      await tester.tap(find.byType(Hero).first);
+      await tester.pumpAndSettle();
+
+      // Opening the viewer steals the keyboard — keys must not leak into
+      // the composer field underneath the route.
+      expect(fieldNode.hasFocus, isFalse);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.byType(MediaViewer), findsNothing);
+
+      // Closing hands the keyboard straight back to the field.
+      expect(fieldNode.hasFocus, isTrue,
+          reason: 'closing the viewer with Escape must restore focus to '
+              'whatever the user was typing in');
+    });
+
+    testWidgets('Home and End jump to the gallery ends', (tester) async {
+      await pumpCard(tester, photoPost(), galleryPosts: [photoPost(), videoPost()]);
+      await tester.tap(find.byType(Hero).first);
+      await tester.pumpAndSettle();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.end);
+      await tester.pumpAndSettle();
+      expect(find.text('2 / 2'), findsOneWidget,
+          reason: 'End must jump to the last gallery item');
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.home);
+      await tester.pumpAndSettle();
+      expect(find.text('1 / 2'), findsOneWidget,
+          reason: 'Home must jump to the first gallery item');
+    });
   });
 }
