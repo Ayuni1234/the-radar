@@ -28,6 +28,7 @@ class SocialPostCard extends ConsumerWidget {
   const SocialPostCard({
     super.key,
     required this.post,
+    this.galleryPosts,
     this.onOpenAuthor,
     this.onDelete,
     this.onOpenMapDeepLink,
@@ -36,6 +37,12 @@ class SocialPostCard extends ConsumerWidget {
   });
 
   final FeedPost post;
+
+  /// The surrounding feed's posts, when known: the full-screen media
+  /// viewer becomes a gallery that flicks between every device photo and
+  /// video poster across them. Null (embedded contexts, tests) keeps the
+  /// viewer scoped to this post's media alone.
+  final List<FeedPost>? galleryPosts;
   final VoidCallback? onOpenAuthor;
 
   /// Shown only to the post's author (owner manage-own-rows rule).
@@ -95,7 +102,11 @@ class SocialPostCard extends ConsumerWidget {
             onDelete: onDelete,
             onReport: onReport,
           ),
-          _MediaHero(post: post, linkedEvent: linkedEvent),
+          _MediaHero(
+            post: post,
+            linkedEvent: linkedEvent,
+            galleryPosts: galleryPosts,
+          ),
           _ActionBar(
             post: post,
             linkedEvent: linkedEvent,
@@ -324,10 +335,17 @@ class _CardHeader extends StatelessWidget {
 // -------------------------------------------------------------- media hero
 
 class _MediaHero extends StatelessWidget {
-  const _MediaHero({required this.post, this.linkedEvent});
+  const _MediaHero({
+    required this.post,
+    this.linkedEvent,
+    this.galleryPosts,
+  });
 
   final FeedPost post;
   final RadarEvent? linkedEvent;
+
+  /// The feed's posts for the viewer gallery (see [SocialPostCard]).
+  final List<FeedPost>? galleryPosts;
 
   @override
   Widget build(BuildContext context) {
@@ -367,13 +385,9 @@ class _MediaHero extends StatelessWidget {
           // floodlit-pitch backdrop.
           if (post.isDevicePhoto)
             GestureDetector(
-              // Full-screen viewer: pinch-zoom + swipe-down dismiss.
-              onTap: () => showMediaViewer(
-                context,
-                imageUrl: post.mediaUrl!,
-                heroTag: 'media-hero-${post.id}',
-                authorName: post.authorName,
-              ),
+              // Full-screen viewer: pinch-zoom, gallery swipes, swipe-down
+              // dismiss.
+              onTap: () => _openViewer(context, imageUrl: post.mediaUrl!),
               child: Hero(
                 tag: 'media-hero-${post.id}',
                 child: Image.network(
@@ -399,12 +413,7 @@ class _MediaHero extends StatelessWidget {
               // fullscreen natively — a Flutter route could never cover the
               // platform view — so the Flutter tap stays null there.
               onTap: !kIsWeb && deviceVideo!.hasPoster
-                  ? () => showMediaViewer(
-                        context,
-                        imageUrl: deviceVideo.posterUrl!,
-                        heroTag: 'media-hero-${post.id}',
-                        authorName: post.authorName,
-                      )
+                  ? () => _openViewer(context, imageUrl: deviceVideo.posterUrl!)
                   : null,
               // The canvas-backed stack guarantees a hit-testable hero even
               // while the poster frame is still loading; on IO the Hero
@@ -483,6 +492,51 @@ class _MediaHero extends StatelessWidget {
     if (d.inHours >= 1) return '${d.inHours}h ${d.inMinutes % 60}m';
     return '${d.inMinutes}m';
   }
+
+  /// Opens the full-screen viewer on [imageUrl] — the gallery holds every
+  /// viewable media of the surrounding feed when known, so a swipe left/
+  /// right browses the whole feed's photos and video posters in one route.
+  void _openViewer(BuildContext context, {required String imageUrl}) {
+    var gallery = galleryPosts == null
+        ? <ViewerMedia>[]
+        : _galleryFromPosts(galleryPosts!);
+    var initial = gallery.indexWhere((m) => m.postId == post.id);
+    if (initial < 0) {
+      // The tapped post's media must always be present, even when the
+      // caller did not share the feed (singleton gallery).
+      gallery = [
+        ViewerMedia(
+            imageUrl: imageUrl, authorName: post.authorName, postId: post.id),
+      ];
+      initial = 0;
+    }
+    showMediaViewer(
+      context,
+      media: gallery,
+      initialIndex: initial,
+      heroTag: 'media-hero-${post.id}',
+    );
+  }
+}
+
+/// Media gallery for the full-screen viewer: every device photo and
+/// device-video poster across [posts], in feed order.
+List<ViewerMedia> _galleryFromPosts(Iterable<FeedPost> posts) {
+  final gallery = <ViewerMedia>[];
+  for (final p in posts) {
+    if (p.isDevicePhoto && p.mediaUrl != null && p.mediaUrl!.isNotEmpty) {
+      gallery.add(ViewerMedia(
+          imageUrl: p.mediaUrl!, authorName: p.authorName, postId: p.id));
+    } else if (p.isDeviceVideo &&
+        p.mediaPosterUrl != null &&
+        p.mediaPosterUrl!.isNotEmpty) {
+      gallery.add(ViewerMedia(
+          imageUrl: p.mediaPosterUrl!,
+          authorName: p.authorName,
+          postId: p.id));
+    }
+  }
+  return gallery;
 }
 
 /// Painted floodlit-pitch backdrop for the media area — pure CustomPainter,

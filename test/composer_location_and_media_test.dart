@@ -1,9 +1,9 @@
 import 'dart:convert' show base64Decode;
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -862,7 +862,8 @@ void main() {
           mediaDurationSeconds: 72,
         );
 
-    Future<void> pumpCard(WidgetTester tester, FeedPost post) async {
+    Future<void> pumpCard(WidgetTester tester, FeedPost post,
+        {List<FeedPost>? galleryPosts}) async {
       tester.view.physicalSize = const Size(800, 1400);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
@@ -871,7 +872,7 @@ void main() {
           theme: RadarTheme.dark,
           home: Scaffold(
             body: SingleChildScrollView(
-              child: SocialPostCard(post: post),
+              child: SocialPostCard(post: post, galleryPosts: galleryPosts),
             ),
           ),
         ),
@@ -963,6 +964,77 @@ void main() {
           reason: 'the poster frame must be tappable into the viewer');
       expect(find.text('Scout'), findsWidgets);
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a horizontal swipe pages between the feed media in one '
+        'route', (tester) async {
+      await pumpCard(tester, photoPost(), galleryPosts: [photoPost(), videoPost()]);
+      await tester.tap(find.byType(Hero).first);
+      await tester.pumpAndSettle();
+
+      expect(find.text('1 / 2'), findsOneWidget,
+          reason: 'the gallery must show the position counter');
+
+      // Fling left: next item (the video poster). The pointer is
+      // re-dispatched over the hero image, so silence the hit-test warning.
+      await tester.fling(
+        find.byType(MediaViewer),
+        const Offset(-400, 0),
+        1200,
+        warnIfMissed: false,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('2 / 2'), findsOneWidget,
+          reason: 'a left flick must advance to the next media item');
+
+      // Fling right: back to the first.
+      await tester.fling(
+        find.byType(MediaViewer),
+        const Offset(400, 0),
+        1200,
+        warnIfMissed: false,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('1 / 2'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('flinging past the gallery ends rubber-bands in place',
+        (tester) async {
+      await pumpCard(tester, photoPost());
+      await tester.tap(find.byType(Hero).first);
+      await tester.pumpAndSettle();
+
+      await tester.fling(
+        find.byType(MediaViewer),
+        const Offset(-400, 0),
+        1200,
+        warnIfMissed: false,
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(MediaViewer), findsOneWidget,
+          reason: 'a lone item must not page away');
+      expect(find.text('1 / 2'), findsNothing,
+          reason: 'a singleton gallery hides the position counter');
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('keyboard arrows browse the gallery and Escape closes it',
+        (tester) async {
+      await pumpCard(tester, photoPost(), galleryPosts: [photoPost(), videoPost()]);
+      await tester.tap(find.byType(Hero).first);
+      await tester.pumpAndSettle();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pumpAndSettle();
+      expect(find.text('2 / 2'), findsOneWidget,
+          reason: 'desktop users must be able to browse with arrow keys');
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.byType(MediaViewer), findsNothing,
+          reason: 'Escape must close the viewer');
     });
   });
 }
