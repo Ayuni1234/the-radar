@@ -128,7 +128,7 @@ class _HubHeader extends ConsumerWidget {
             height: 62,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: const LinearGradient(
+              gradient:  LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [RadarTheme.radar, RadarTheme.pi],
@@ -136,14 +136,14 @@ class _HubHeader extends ConsumerWidget {
             ),
             padding: const EdgeInsets.all(2.5),
             child: Container(
-              decoration: const BoxDecoration(
+              decoration:  BoxDecoration(
                 shape: BoxShape.circle,
                 color: RadarTheme.ink,
               ),
               alignment: Alignment.center,
               child: Text(
                 name.isNotEmpty ? name[0].toUpperCase() : '?',
-                style: const TextStyle(
+                style:  TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.w800,
                   color: RadarTheme.textPrimary,
@@ -160,7 +160,7 @@ class _HubHeader extends ConsumerWidget {
                   name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style:  TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
                     color: RadarTheme.textPrimary,
@@ -254,7 +254,7 @@ class _HubTile extends StatelessWidget {
                     children: [
                       Text(
                         title,
-                        style: const TextStyle(
+                        style:  TextStyle(
                           fontSize: 14.5,
                           fontWeight: FontWeight.w700,
                           color: RadarTheme.textPrimary,
@@ -265,7 +265,7 @@ class _HubTile extends StatelessWidget {
                         subtitle,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style:  TextStyle(
                           fontSize: 12,
                           color: RadarTheme.textDim,
                           height: 1.25,
@@ -275,7 +275,7 @@ class _HubTile extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                const Icon(Icons.chevron_right,
+                 Icon(Icons.chevron_right,
                     size: 20, color: RadarTheme.textDim),
               ],
             ),
@@ -319,8 +319,8 @@ class _SignOutTile extends ConsumerWidget {
             await ref.read(authProvider.notifier).signOut();
           }
         },
-        icon: const Icon(Icons.logout, size: 17, color: RadarTheme.textDim),
-        label: const Text('Sign out',
+        icon:  Icon(Icons.logout, size: 17, color: RadarTheme.textDim),
+        label:  Text('Sign out',
             style: TextStyle(color: RadarTheme.textDim)),
       ),
     );

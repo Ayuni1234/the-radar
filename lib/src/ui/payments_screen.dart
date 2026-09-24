@@ -72,7 +72,7 @@ class PaymentsScreen extends ConsumerWidget {
                         fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 4),
-                  const Text(
+                   Text(
                     'Payments are processed by the Pi Network wallet. The Radar '
                     'never sees your passphrase — you approve every transaction.',
                     style: TextStyle(color: RadarTheme.textDim, fontSize: 13),
@@ -328,7 +328,7 @@ class _ProductCard extends ConsumerWidget {
             Expanded(
               child: Text(
                 description,
-                style: const TextStyle(
+                style:  TextStyle(
                     fontSize: 12.5,
                     height: 1.45,
                     color: RadarTheme.textDim),
@@ -394,7 +394,7 @@ class _ProductCard extends ConsumerWidget {
                         style: const TextStyle(fontSize: 13.5)),
                   ),
                   if (e.isBoosted)
-                    const Icon(Icons.bolt, size: 15, color: RadarTheme.gold),
+                     Icon(Icons.bolt, size: 15, color: RadarTheme.gold),
                 ]),
               ),
           ],
@@ -485,7 +485,7 @@ class _Step extends StatelessWidget {
               color: RadarTheme.pi.withValues(alpha: 0.16),
             ),
             child: Text(n,
-                style: const TextStyle(
+                style:  TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                     color: RadarTheme.pi)),
@@ -493,7 +493,7 @@ class _Step extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(text,
-                style: const TextStyle(
+                style:  TextStyle(
                     fontSize: 12.5, height: 1.45, color: RadarTheme.textDim)),
           ),
         ],
@@ -519,7 +519,7 @@ class _HistoryTile extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.check_circle_outline,
+           Icon(Icons.check_circle_outline,
               color: RadarTheme.radar, size: 18),
           const SizedBox(width: 10),
           Expanded(
@@ -533,14 +533,14 @@ class _HistoryTile extends StatelessWidget {
                   payment.txid == null
                       ? 'txid pending'
                       : 'txid ${payment.txid!.substring(0, min(payment.txid!.length, 10))}…',
-                  style: const TextStyle(
+                  style:  TextStyle(
                       fontSize: 11, color: RadarTheme.textDim),
                 ),
               ],
             ),
           ),
           Text('${payment.amount.toStringAsFixed(2)} π',
-              style: const TextStyle(
+              style:  TextStyle(
                   fontWeight: FontWeight.w700, color: RadarTheme.gold)),
         ],
       ),
@@ -591,7 +591,7 @@ class _ActiveBoostsState extends ConsumerState<_ActiveBoosts> {
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          const Icon(Icons.bolt, size: 17, color: RadarTheme.gold),
+           Icon(Icons.bolt, size: 17, color: RadarTheme.gold),
           const SizedBox(width: 8),
           const Expanded(
             child: Text('Active boosts & visibility',
@@ -611,7 +611,7 @@ class _ActiveBoostsState extends ConsumerState<_ActiveBoosts> {
         ]),
         const SizedBox(height: 10),
         if (active.isEmpty)
-          const Text(
+           Text(
             'No active boosts. Purchased boosts appear here with live '
             'remaining time and their visibility impact.',
             style: TextStyle(
@@ -654,7 +654,7 @@ class _BoostTile extends StatelessWidget {
         border: Border.all(color: RadarTheme.gold.withValues(alpha: 0.4)),
       ),
       child: Row(children: [
-        const Icon(Icons.bolt, size: 18, color: RadarTheme.gold),
+         Icon(Icons.bolt, size: 18, color: RadarTheme.gold),
         const SizedBox(width: 10),
         Expanded(
           child: Column(
@@ -670,7 +670,7 @@ class _BoostTile extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               Text(impact,
-                  style: const TextStyle(
+                  style:  TextStyle(
                       fontSize: 11.5, color: RadarTheme.textDim)),
             ],
           ),
@@ -708,7 +708,7 @@ class _LedgerSection extends ConsumerWidget {
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          const Icon(Icons.receipt_long, size: 17, color: RadarTheme.radar),
+           Icon(Icons.receipt_long, size: 17, color: RadarTheme.radar),
           const SizedBox(width: 8),
           const Expanded(
             child: Text('Transaction history ledger',
@@ -722,7 +722,7 @@ class _LedgerSection extends ConsumerWidget {
           ),
         ]),
         const SizedBox(height: 4),
-        const Text(
+         Text(
           'Every purchase, receipt and token allocation — stored on the '
           'platform backend and readable only by you.',
           style: TextStyle(
@@ -730,7 +730,7 @@ class _LedgerSection extends ConsumerWidget {
         ),
         const SizedBox(height: 12),
         if (rows.isEmpty)
-          const Text(
+           Text(
             'No past purchases on this account yet.',
             style: TextStyle(fontSize: 12.5, color: RadarTheme.textDim),
           )
@@ -772,14 +772,14 @@ class _LedgerSection extends ConsumerWidget {
                         '${df.format(p.createdAt)}'
                         '${p.txid != null ? '  ·  txid ${p.txid!.substring(0, min(p.txid!.length, 12))}…' : ''}',
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style:  TextStyle(
                             fontSize: 11, color: RadarTheme.textDim),
                       ),
                     ],
                   ),
                 ),
                 Text('${p.amount.toStringAsFixed(2)} π',
-                    style: const TextStyle(
+                    style:  TextStyle(
                         fontWeight: FontWeight.w700,
                         color: RadarTheme.gold)),
               ]),
@@ -823,7 +823,7 @@ class _MarketOrdersSectionState
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          const Icon(Icons.storefront, size: 17, color: RadarTheme.pi),
+           Icon(Icons.storefront, size: 17, color: RadarTheme.pi),
           const SizedBox(width: 8),
           const Expanded(
             child: Text('PitchMarket orders',
@@ -837,7 +837,7 @@ class _MarketOrdersSectionState
             ),
         ]),
         const SizedBox(height: 4),
-        const Text(
+         Text(
           'Gear you bought on The PitchMarket — each receipt shows the '
           'split: core amount to the merchant, maintenance fee to the '
           'platform treasury.',
@@ -845,7 +845,7 @@ class _MarketOrdersSectionState
         ),
         const SizedBox(height: 12),
         if (orders.isEmpty)
-          const Text(
+           Text(
             'No gear purchases yet — browse The PitchMarket to grab your '
             'first streaming setup.',
             style: TextStyle(fontSize: 12.5, color: RadarTheme.textDim),
@@ -875,7 +875,7 @@ class _MarketOrderTile extends StatelessWidget {
         border: Border.all(color: RadarTheme.stroke),
       ),
       child: Row(children: [
-        const Icon(Icons.shopping_bag_outlined,
+         Icon(Icons.shopping_bag_outlined,
             size: 17, color: RadarTheme.radar),
         const SizedBox(width: 10),
         Expanded(
@@ -889,7 +889,7 @@ class _MarketOrderTile extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 order.splitLabel,
-                style: const TextStyle(
+                style:  TextStyle(
                     fontSize: 11, color: RadarTheme.textDim),
               ),
               const SizedBox(height: 2),
@@ -897,14 +897,14 @@ class _MarketOrderTile extends StatelessWidget {
                 '${df.format(order.createdAt)}'
                 '${order.txid != null ? '  ·  txid ${order.txid!.substring(0, min(order.txid!.length, 12))}…' : ''}',
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style:  TextStyle(
                     fontSize: 11, color: RadarTheme.textDim),
               ),
             ],
           ),
         ),
         Text('${order.amountPi.toStringAsFixed(2)} π',
-            style: const TextStyle(
+            style:  TextStyle(
                 fontWeight: FontWeight.w700, color: RadarTheme.gold)),
       ]),
     );

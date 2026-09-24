@@ -8,7 +8,7 @@ import 'shell.dart';
 class DocsCenterScreen extends StatelessWidget {
   const DocsCenterScreen({super.key});
 
-  static const _topics = <(String, IconData, Color, List<DocSection>)>[
+  static final _topics = <(String, IconData, Color, List<DocSection>)>[
     (
       'Platform guide',
       Icons.map_outlined,
@@ -194,7 +194,7 @@ class DocsCenterScreen extends StatelessWidget {
             style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 6),
-          const Text(
+           Text(
             'The Radar is a global football scouting platform: players publish '
             'verified CVs, organisers host trials and matches, and scouts find '
             'the next generation — with Pi Network identity and payments, and '
@@ -236,20 +236,20 @@ class DocsCenterScreen extends StatelessWidget {
                           const SizedBox(height: 2),
                           Text(
                             '${sections.length} article${sections.length == 1 ? '' : 's'} · ${sections.fold<int>(0, (n, s) => n + s.steps.length)} steps',
-                            style: const TextStyle(
+                            style:  TextStyle(
                                 fontSize: 12, color: RadarTheme.textDim),
                           ),
                         ],
                       ),
                     ),
-                    const Icon(Icons.chevron_right,
+                     Icon(Icons.chevron_right,
                         size: 18, color: RadarTheme.textDim),
                   ]),
                 ),
               ),
             ),
           const SizedBox(height: 10),
-          const Center(
+           Center(
             child: Text(
               'Documentation reflects the platform as built — every mechanism '
               'described here is enforced in code or in the database today.',

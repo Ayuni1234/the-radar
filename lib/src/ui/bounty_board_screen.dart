@@ -55,10 +55,10 @@ class BountyBoardScreen extends ConsumerWidget {
                 pinned: true,
                 backgroundColor: RadarTheme.ink.withValues(alpha: 0.96),
                 title: Row(children: [
-                  const Icon(Icons.workspace_premium,
+                   Icon(Icons.workspace_premium,
                       color: RadarTheme.gold, size: 22),
                   const SizedBox(width: 8),
-                  const Text('Talent Watcher',
+                   Text('Talent Watcher',
                       style: TextStyle(
                           color: RadarTheme.textPrimary,
                           fontWeight: FontWeight.w700)),
@@ -86,7 +86,7 @@ class BountyBoardScreen extends ConsumerWidget {
                 SliverToBoxAdapter(
                   child: SectionHeader('My bounties & gigs',
                       trailing: Text('${myWork.length}',
-                          style: const TextStyle(
+                          style:  TextStyle(
                               color: RadarTheme.textDim, fontSize: 12))),
                 ),
                 SliverList.builder(
@@ -100,11 +100,11 @@ class BountyBoardScreen extends ConsumerWidget {
               SliverToBoxAdapter(
                 child: SectionHeader('Open gigs',
                     trailing: Text('${openGigs.length} available',
-                        style: const TextStyle(
+                        style:  TextStyle(
                             color: RadarTheme.textDim, fontSize: 12))),
               ),
               if (openGigs.isEmpty)
-                const SliverToBoxAdapter(
+                 SliverToBoxAdapter(
                   child: Padding(
                     padding: EdgeInsets.symmetric(horizontal: 16, vertical: 24),
                     child: Center(
@@ -129,7 +129,7 @@ class BountyBoardScreen extends ConsumerWidget {
                   ),
                 ),
               if (!signedIn)
-                const SliverToBoxAdapter(
+                 SliverToBoxAdapter(
                   child: Padding(
                     padding: EdgeInsets.all(16),
                     child: Text(
@@ -184,9 +184,9 @@ class _HowItWorksCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(children: [
-            const Icon(Icons.live_tv, color: RadarTheme.gold, size: 18),
+             Icon(Icons.live_tv, color: RadarTheme.gold, size: 18),
             const SizedBox(width: 8),
-            const Expanded(
+             Expanded(
               child: Text('Pi-backed live-stream bounties',
                   style: TextStyle(
                       color: RadarTheme.textPrimary,
@@ -212,7 +212,7 @@ class _HowItWorksCard extends StatelessWidget {
             'Pi wallet.\n'
             '2 · A local videographer accepts and streams the match live.\n'
             '3 · On completion the scout releases the escrow — instant payout.',
-            style: const TextStyle(
+            style:  TextStyle(
                 color: RadarTheme.textDim, fontSize: 12, height: 1.5),
           ),
         ],
@@ -269,7 +269,7 @@ class _BountyCardState extends ConsumerState<_BountyCard> {
                   color: RadarTheme.gold.withValues(alpha: 0.13),
                   borderRadius: BorderRadius.circular(11),
                 ),
-                child: const Icon(Icons.videocam,
+                child:  Icon(Icons.videocam,
                     color: RadarTheme.gold, size: 21),
               ),
               const SizedBox(width: 10),
@@ -278,14 +278,14 @@ class _BountyCardState extends ConsumerState<_BountyCard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(b.title,
-                        style: const TextStyle(
+                        style:  TextStyle(
                             color: RadarTheme.textPrimary,
                             fontWeight: FontWeight.w700,
                             fontSize: 14.5)),
                     const SizedBox(height: 3),
                     Text(
                       'by ${b.posterName} · ${b.areaName}',
-                      style: const TextStyle(
+                      style:  TextStyle(
                           color: RadarTheme.textDim, fontSize: 12),
                     ),
                   ],
@@ -295,13 +295,13 @@ class _BountyCardState extends ConsumerState<_BountyCard> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text('${_fmtPi(b.amountPi)} π',
-                      style: const TextStyle(
+                      style:  TextStyle(
                           color: RadarTheme.gold,
                           fontWeight: FontWeight.w800,
                           fontSize: 16)),
                   const SizedBox(height: 2),
                   Text('${b.durationMinutes} min',
-                      style: const TextStyle(
+                      style:  TextStyle(
                           color: RadarTheme.textDim, fontSize: 11)),
                 ],
               ),
@@ -309,7 +309,7 @@ class _BountyCardState extends ConsumerState<_BountyCard> {
           ),
           const SizedBox(height: 10),
           Text(b.brief,
-              style: const TextStyle(
+              style:  TextStyle(
                   color: RadarTheme.textPrimary,
                   fontSize: 13,
                   height: 1.4)),
@@ -354,13 +354,13 @@ class _BountyCardState extends ConsumerState<_BountyCard> {
                     color: RadarTheme.radar.withValues(alpha: 0.3)),
               ),
               child: Row(children: [
-                const Icon(Icons.podcasts, color: RadarTheme.radar, size: 18),
+                 Icon(Icons.podcasts, color: RadarTheme.radar, size: 18),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(b.streamUrl!,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style:  TextStyle(
                           color: RadarTheme.radar, fontSize: 12)),
                 ),
               ]),
@@ -394,7 +394,7 @@ class _BountyCardState extends ConsumerState<_BountyCard> {
         } else {
           actions.add(Text(
             'Awaiting scout funding — first come, first served once funded.',
-            style: const TextStyle(color: RadarTheme.textDim, fontSize: 12),
+            style:  TextStyle(color: RadarTheme.textDim, fontSize: 12),
           ));
         }
         break;
@@ -407,7 +407,7 @@ class _BountyCardState extends ConsumerState<_BountyCard> {
             primary: true,
           ));
         } else {
-          actions.add(const Text(
+          actions.add( Text(
             'Escrow held — waiting for a local streamer to accept.',
             style: TextStyle(color: RadarTheme.textDim, fontSize: 12),
           ));
@@ -424,7 +424,7 @@ class _BountyCardState extends ConsumerState<_BountyCard> {
         } else {
           actions.add(Text(
             '${b.streamerName ?? 'A streamer'} is assigned — broadcast pending.',
-            style: const TextStyle(color: RadarTheme.textDim, fontSize: 12),
+            style:  TextStyle(color: RadarTheme.textDim, fontSize: 12),
           ));
         }
         break;
@@ -445,7 +445,7 @@ class _BountyCardState extends ConsumerState<_BountyCard> {
           ));
         }
         if (actions.isEmpty) {
-          actions.add(const Row(children: [
+          actions.add( Row(children: [
             Icon(Icons.podcasts, color: RadarTheme.radar, size: 15),
             SizedBox(width: 6),
             Text('Broadcast in progress — watch from the stream link.',
@@ -460,13 +460,13 @@ class _BountyCardState extends ConsumerState<_BountyCard> {
         break;
       case 'completed':
         actions.add(Row(children: [
-          const Icon(Icons.verified, color: RadarTheme.radar, size: 15),
+           Icon(Icons.verified, color: RadarTheme.radar, size: 15),
           const SizedBox(width: 6),
           Expanded(
             child: Text(
               'Escrow released · ${b.watchedMinutes} min streamed'
               '${b.completedAt != null ? ' · ${DateFormat.MMMd().format(b.completedAt!)}' : ''}',
-              style: const TextStyle(color: RadarTheme.radar, fontSize: 12),
+              style:  TextStyle(color: RadarTheme.radar, fontSize: 12),
             ),
           ),
         ]));
@@ -480,7 +480,7 @@ class _BountyCardState extends ConsumerState<_BountyCard> {
       default:
         actions.add(Text(
           'This bounty is ${b.statusLabel.toLowerCase()}.',
-          style: const TextStyle(color: RadarTheme.textDim, fontSize: 12),
+          style:  TextStyle(color: RadarTheme.textDim, fontSize: 12),
         ));
     }
 
@@ -555,7 +555,7 @@ class _BountyCardState extends ConsumerState<_BountyCard> {
           : OutlinedButton.icon(
               style: OutlinedButton.styleFrom(
                 foregroundColor: RadarTheme.textDim,
-                side: const BorderSide(color: RadarTheme.stroke),
+                side:  BorderSide(color: RadarTheme.stroke),
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
@@ -594,7 +594,7 @@ class _BountyCardState extends ConsumerState<_BountyCard> {
       backgroundColor: RadarTheme.panelHigh,
       content: Text(
           'Opening your Pi wallet to escrow ${_fmtPi(b.amountPi)} π…',
-          style: const TextStyle(color: RadarTheme.textPrimary)),
+          style:  TextStyle(color: RadarTheme.textPrimary)),
     ));
   }
 
@@ -656,7 +656,7 @@ class _BountyCardState extends ConsumerState<_BountyCard> {
         .finishBroadcast(b.id, b.durationMinutes);
     if (!mounted) return;
     setState(() => _busy = false);
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+    ScaffoldMessenger.of(context).showSnackBar( SnackBar(
       behavior: SnackBarBehavior.floating,
       backgroundColor: RadarTheme.panelHigh,
       content: Text(
@@ -758,7 +758,7 @@ class _PostBountySheetState extends ConsumerState<_PostBountySheet> {
         backgroundColor: RadarTheme.panelHigh,
         content: Text(
             'Bounty posted — confirm the ${_amount.toStringAsFixed(0)} π escrow in your Pi wallet',
-            style: const TextStyle(color: RadarTheme.textPrimary)),
+            style:  TextStyle(color: RadarTheme.textPrimary)),
       ));
     }
   }
@@ -789,7 +789,7 @@ class _PostBountySheetState extends ConsumerState<_PostBountySheet> {
       children: [
             TextField(
               controller: _titleCtrl,
-              style: const TextStyle(color: RadarTheme.textPrimary),
+              style:  TextStyle(color: RadarTheme.textPrimary),
               decoration: const InputDecoration(
                 hintText:
                     'e.g. “90-min tactical stream of Player #7 — Thursday match”',
@@ -800,7 +800,7 @@ class _PostBountySheetState extends ConsumerState<_PostBountySheet> {
               controller: _briefCtrl,
               maxLines: 3,
               minLines: 2,
-              style: const TextStyle(color: RadarTheme.textPrimary),
+              style:  TextStyle(color: RadarTheme.textPrimary),
               decoration: const InputDecoration(
                 hintText:
                     'Camera angle, player to track, upload stability, kickoff time…',
@@ -809,7 +809,7 @@ class _PostBountySheetState extends ConsumerState<_PostBountySheet> {
             const SizedBox(height: 10),
             TextField(
               controller: _areaCtrl,
-              style: const TextStyle(color: RadarTheme.textPrimary),
+              style:  TextStyle(color: RadarTheme.textPrimary),
               decoration: const InputDecoration(
                 hintText: 'Area, e.g. “Limbe — Omnisport Annex”',
                 prefixIcon: Icon(Icons.place_outlined, size: 20),
@@ -818,7 +818,7 @@ class _PostBountySheetState extends ConsumerState<_PostBountySheet> {
             const SizedBox(height: 10),
             TextField(
               controller: _venueCtrl,
-              style: const TextStyle(color: RadarTheme.textPrimary),
+              style:  TextStyle(color: RadarTheme.textPrimary),
               decoration: const InputDecoration(
                 hintText: 'Venue (optional)',
                 prefixIcon: Icon(Icons.stadium_outlined, size: 20),
@@ -826,11 +826,11 @@ class _PostBountySheetState extends ConsumerState<_PostBountySheet> {
             ),
             const SizedBox(height: 14),
             Row(children: [
-              const Text('Escrow',
+               Text('Escrow',
                   style: TextStyle(color: RadarTheme.textDim, fontSize: 12)),
               const Spacer(),
               Text('${_amount.toStringAsFixed(0)} π',
-                  style: const TextStyle(
+                  style:  TextStyle(
                       color: RadarTheme.gold,
                       fontWeight: FontWeight.w800,
                       fontSize: 15)),
@@ -845,7 +845,7 @@ class _PostBountySheetState extends ConsumerState<_PostBountySheet> {
               onChanged: (v) => setState(() => _amount = v),
             ),
             const SizedBox(height: 6),
-            const Text('Stream length (minutes)',
+             Text('Stream length (minutes)',
                 style: TextStyle(color: RadarTheme.textDim, fontSize: 12)),
             Slider(
               value: _duration.toDouble(),

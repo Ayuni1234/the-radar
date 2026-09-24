@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../supabase/supabase_config.dart';
 import 'media_duration_probe.dart';
 import 'read_file_bytes.dart';
+import 'video_duration_probe.dart';
 import 'video_thumbnail.dart';
 
 /// The strict highlight-reel cap: videos longer than this are rejected so
@@ -19,6 +20,7 @@ class MediaUploadResult {
     required this.mediaKind,
     this.durationSeconds,
     this.previewBytes,
+    this.posterUrl,
   });
 
   /// Public CDN URL stored into `feed_posts.media_url`.
@@ -34,6 +36,12 @@ class MediaUploadResult {
 
   /// Video length in seconds (≤ 180). Null for images.
   final int? durationSeconds;
+
+  /// Public CDN URL of the video's persisted poster frame — rendered by
+  /// the feed hero as the video's thumbnail. Null for photos, for clips
+  /// whose poster could not be captured, or when the poster upload failed
+  /// (best-effort; the clip itself is the content).
+  final String? posterUrl;
 
   /// Decoded image bytes for the composer's visual preview card — the
   /// picked image itself, or a poster frame grabbed from the video. Null
@@ -63,8 +71,9 @@ class PickedMedia {
   /// True for device video, false for device photo.
   final bool isVideo;
 
-  /// Video length in seconds (≤ 180), from the web duration probe. Null
-  /// for images and on VM builds (the IO size guard applies instead).
+  /// Video length in seconds (≤ 180) — probed exactly on web (DOM metadata)
+  /// and on IO (MP4 mvhd box). Null for images and only when the platform
+  /// could not decode the length (the IO size guard applies instead).
   final int? durationSeconds;
 
   /// Decoded image bytes for the composer's preview card — the picked
@@ -114,10 +123,10 @@ class MediaUploadRetryableException extends MediaUploadException {
 
 /// Device media uploads → Supabase Storage (`feed-media` bucket, public).
 ///
-/// * Video: hard [maxVideoDuration] limit of 3 minutes. On web the duration
-///   is probed exactly from the file blob before upload and a poster frame
-///   is captured for the preview; on IO builds an additional 200 MB size
-///   guard applies (long videos are too big).
+/// * Video: hard [maxVideoDuration] limit of 3 minutes, probed exactly on
+///   every platform — web decodes the blob's DOM metadata, IO reads the
+///   MP4 `moov/mvhd` box — plus a 200 MB IO size guard for containers the
+///   probe cannot read.
 /// * Images: jpg/png/webp up to 10 MB.
 /// * Offline/demo mode: no storage backend — the caller posts caption-only.
 ///
@@ -233,7 +242,19 @@ class MediaUploadService {
         );
       }
     } else if (video) {
-      // Mobile/desktop: native extractor (null → placeholder card).
+      // Mobile/desktop: exact duration from the MP4 container metadata —
+      // previously the 3-minute rule was only enforced on web and long
+      // clips silently uploaded from phones. Null (unparsable container,
+      // e.g. WebM) → keep the 200 MB size guard as the fallback check.
+      probed = mp4DurationSeconds(bytes);
+      if (probed != null && probed > maxVideoDuration.inSeconds) {
+        throw MediaUploadException(
+          'Videos must be ${maxVideoDuration.inMinutes} minutes or shorter '
+          '— scouts review quick highlights first. This clip is '
+          '${(probed / 60).toStringAsFixed(1)} min.',
+        );
+      }
+      // Native poster-frame extractor (null → placeholder card).
       previewBytes = await extractNativeVideoFrame(file);
     } else {
       previewBytes = bytes;
@@ -310,12 +331,19 @@ class MediaUploadService {
       );
     }
 
+    // Poster frame alongside the clip — best-effort, never fatal.
+    final posterUploaded = await _uploadPoster(objectName, media);
+
     return MediaUploadResult(
       publicUrl: client.storage.from(_bucket).getPublicUrl(objectName),
       platform: video ? 'radar-video' : 'radar-image',
       mediaKind: video ? 'device_video' : 'device_photo',
       durationSeconds: durationSeconds,
       previewBytes: previewBytes,
+      posterUrl: video && posterUploaded
+          ? client.storage.from(_bucket).getPublicUrl(
+              posterObjectNameFor(objectName))
+          : null,
     );
   }
 
@@ -329,6 +357,7 @@ class MediaUploadService {
   Future<MediaUploadResult> uploadPending(PendingMediaUpload pending) async {
     final media = pending.media;
     final client = SupabaseConfig.client;
+    var posterUploaded = false;
     try {
       await client.storage.from(_bucket).uploadBinary(
             pending.objectName,
@@ -340,6 +369,9 @@ class MediaUploadService {
           'Wi-Fi) and try a shorter clip.',
         );
       });
+      // Poster frame (same object name the live path computes — see
+      // [posterObjectNameFor] — so replay lands on the exact same object).
+      posterUploaded = await _uploadPoster(pending.objectName, media);
     } on MediaUploadException catch (e) {
       throw MediaUploadRetryableException(e.reason, pending);
     } on StorageException catch (e) {
@@ -363,7 +395,47 @@ class MediaUploadService {
       mediaKind: pending.mediaKind,
       durationSeconds: pending.durationSeconds,
       previewBytes: media.previewBytes,
+      posterUrl: media.isVideo && posterUploaded
+          ? client.storage.from(_bucket).getPublicUrl(
+              posterObjectNameFor(pending.objectName))
+          : null,
     );
+  }
+
+  /// Deterministic storage path of a video's poster frame, derived from the
+  /// clip's object name. Shared by the live upload and the outbox replay so
+  /// both legs land on the same object. Exposed for tests.
+  @visibleForTesting
+  static String posterObjectNameFor(String videoObjectName) =>
+      '$videoObjectName.jpg';
+
+  /// Pushes the captured poster frame next to its clip. Best-effort by
+  /// design: a failed poster must never fail the post — the clip itself is
+  /// the content, the poster is a rendering optimization (the hero falls
+  /// back to the placeholder treatment). Returns whether the poster is
+  /// actually in storage, so callers never persist a URL for a missing
+  /// object.
+  Future<bool> _uploadPoster(
+      String videoObjectName, PickedMedia media) async {
+    final posterBytes = media.previewBytes;
+    if (!media.isVideo || posterBytes == null || posterBytes.isEmpty) {
+      return false;
+    }
+    final posterName = posterObjectNameFor(videoObjectName);
+    try {
+      await SupabaseConfig.client.storage.from(_bucket).uploadBinary(
+            posterName,
+            posterBytes,
+            fileOptions: const FileOptions(
+                cacheControl: '31536000', contentType: 'image/jpeg'),
+          ).timeout(_uploadTimeout, onTimeout: () {
+        throw MediaUploadException('poster upload timed out');
+      });
+      return true;
+    } catch (e) {
+      debugPrint('[Media] poster upload for "$videoObjectName" failed: $e');
+      return false;
+    }
   }
 
   /// Maps a Supabase Storage failure to a specific, actionable message —

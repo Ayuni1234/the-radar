@@ -173,7 +173,7 @@ class _LiveEventMapState extends State<LiveEventMap> {
             ),
           ],
         ),
-        const Positioned(
+         Positioned(
           bottom: 8,
           right: 10,
           child: Text(

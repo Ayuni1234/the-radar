@@ -87,7 +87,7 @@ class _RadarMapScreenState extends ConsumerState<RadarMapScreen> {
             Container(
               width: 9,
               height: 9,
-              decoration: const BoxDecoration(
+              decoration:  BoxDecoration(
                   color: RadarTheme.radar, shape: BoxShape.circle),
             ),
             const SizedBox(width: 10),
@@ -98,7 +98,7 @@ class _RadarMapScreenState extends ConsumerState<RadarMapScreen> {
                 '${events.length} active · ${bounties.where((b) => b.isFunded && b.status != 'completed').length} bounties',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style:  TextStyle(
                     fontSize: 12.5, color: RadarTheme.textDim, fontWeight: FontWeight.w400),
               ),
             ),
@@ -287,32 +287,32 @@ class _ScoutingLegend extends StatelessWidget {
           Row(mainAxisSize: MainAxisSize.min, children: [
             dot(RadarTheme.radar),
             const SizedBox(width: 6),
-            const Text('🟢 Live now', style: _legendStyle),
+            Text('🟢 Live now', style: _legendStyle),
           ]),
           const SizedBox(height: 4),
           Row(mainAxisSize: MainAxisSize.min, children: [
             dot(RadarTheme.gold),
             const SizedBox(width: 6),
-            const Text('🟡 Scheduled', style: _legendStyle),
+            Text('🟡 Scheduled', style: _legendStyle),
           ]),
           const SizedBox(height: 4),
           Row(mainAxisSize: MainAxisSize.min, children: [
             dot(RadarTheme.alert),
             const SizedBox(width: 6),
-            const Text('🔴 Bounty active', style: _legendStyle),
+            Text('🔴 Bounty active', style: _legendStyle),
           ]),
           const SizedBox(height: 4),
           Row(mainAxisSize: MainAxisSize.min, children: [
-            const Icon(Icons.shield_outlined, size: 10, color: RadarTheme.textDim),
+             Icon(Icons.shield_outlined, size: 10, color: RadarTheme.textDim),
             const SizedBox(width: 6),
-            const Text('Minor-protected', style: _legendStyle),
+            Text('Minor-protected', style: _legendStyle),
           ]),
         ],
       ),
     );
   }
 
-  static const _legendStyle =
+  static TextStyle get _legendStyle =>
       TextStyle(fontSize: 10.5, color: RadarTheme.textDim);
 }
 
@@ -343,7 +343,7 @@ class _FilterChips extends ConsumerWidget {
           label: const Text('Boosted'),
           selected: filter.onlyBoosted,
           onSelected: ctrl.setOnlyBoosted,
-          avatar: const Icon(Icons.bolt, size: 15, color: RadarTheme.gold),
+          avatar:  Icon(Icons.bolt, size: 15, color: RadarTheme.gold),
         ),
         // Age-bracket picker (spec: instant sorting by age bracket).
         PopupMenuButton<AgeBracket>(
@@ -373,7 +373,7 @@ class _FilterChips extends ConsumerWidget {
             label: Text(filter.ageBracket?.label ?? 'Age'),
             selected: filter.ageBracket != null,
             onSelected: (_) {}, // opens the menu via the popup wrapper
-            avatar: const Icon(Icons.cake_outlined,
+            avatar:  Icon(Icons.cake_outlined,
                 size: 15, color: RadarTheme.info),
           ),
         ),
@@ -405,7 +405,7 @@ class _FilterChips extends ConsumerWidget {
             label: Text(filter.position ?? 'Position'),
             selected: filter.position != null,
             onSelected: (_) {},
-            avatar: const Icon(Icons.sports_soccer,
+            avatar:  Icon(Icons.sports_soccer,
                 size: 15, color: RadarTheme.radar),
           ),
         ),
@@ -414,7 +414,7 @@ class _FilterChips extends ConsumerWidget {
           label: const Text('Verified hosts'),
           selected: filter.verifiedHostsOnly,
           onSelected: ctrl.setVerifiedHostsOnly,
-          avatar: const Icon(Icons.verified_outlined,
+          avatar:  Icon(Icons.verified_outlined,
               size: 15, color: RadarTheme.radar),
         ),
       ],
@@ -462,11 +462,11 @@ class _EventCard extends StatelessWidget {
                     ),
                   ),
                   if (event.isBoosted)
-                    const Icon(Icons.bolt, size: 15, color: RadarTheme.gold),
+                     Icon(Icons.bolt, size: 15, color: RadarTheme.gold),
                   if (event.bountyPi != null) ...[
                     const SizedBox(width: 6),
                     Text('${event.bountyPi!.toStringAsFixed(0)} π',
-                        style: const TextStyle(
+                        style:  TextStyle(
                             fontSize: 11,
                             color: RadarTheme.gold,
                             fontWeight: FontWeight.w700)),
@@ -487,7 +487,7 @@ class _EventCard extends StatelessWidget {
                       event.safeLocationLabel(),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style:  TextStyle(
                           fontSize: 11.5, color: RadarTheme.textDim),
                     ),
                   ),
@@ -497,7 +497,7 @@ class _EventCard extends StatelessWidget {
               Text(
                 '${df.format(event.startsAt)}  ·  ${event.attendingCount}'
                 '${event.capacity != null ? '/${event.capacity}' : ''} attending',
-                style: const TextStyle(
+                style:  TextStyle(
                     fontSize: 11.5, color: RadarTheme.textDim),
               ),
             ],
@@ -535,11 +535,11 @@ class _EventSidePanel extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
             child: SectionHeader('Event feed',
                 trailing: Text('${events.length}',
-                    style: const TextStyle(color: RadarTheme.textDim))),
+                    style:  TextStyle(color: RadarTheme.textDim))),
           ),
           Expanded(
             child: events.isEmpty
-                ? const Center(
+                ?  Center(
                     child: Text('No events match the current filters.',
                         style: TextStyle(color: RadarTheme.textDim)))
                 : ListView.builder(
@@ -640,8 +640,8 @@ class EventDetailsSheet extends ConsumerWidget {
                       ? RadarTheme.gold
                       : RadarTheme.radar,
                 ),
-                if (event.isLive) const InfoPill(icon: Icons.circle, label: 'LIVE now', color: RadarTheme.alert),
-                if (event.isBoosted) const InfoPill(icon: Icons.bolt, label: 'Boosted', color: RadarTheme.gold),
+                if (event.isLive)  InfoPill(icon: Icons.circle, label: 'LIVE now', color: RadarTheme.alert),
+                if (event.isBoosted)  InfoPill(icon: Icons.bolt, label: 'Boosted', color: RadarTheme.gold),
                 if (event.minAge != null || event.maxAge != null)
                   InfoPill(
                     icon: Icons.cake_outlined,
@@ -653,16 +653,16 @@ class EventDetailsSheet extends ConsumerWidget {
             if (event.description != null) ...[
               const SizedBox(height: 12),
               Text(event.description!,
-                  style: const TextStyle(
+                  style:  TextStyle(
                       fontSize: 13, color: RadarTheme.textPrimary)),
             ],
             const SizedBox(height: 12),
             Text('Hosted by ${event.hostName}',
                 style:
-                    const TextStyle(fontSize: 12, color: RadarTheme.textDim)),
+                     TextStyle(fontSize: 12, color: RadarTheme.textDim)),
             Text(df.format(event.startsAt),
                 style:
-                    const TextStyle(fontSize: 12, color: RadarTheme.textDim)),
+                     TextStyle(fontSize: 12, color: RadarTheme.textDim)),
             const SizedBox(height: 16),
             Row(
               children: [
@@ -748,7 +748,7 @@ class Bullet extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
+           Padding(
             padding: EdgeInsets.only(top: 6),
             child: Icon(Icons.circle, size: 6, color: RadarTheme.radar),
           ),

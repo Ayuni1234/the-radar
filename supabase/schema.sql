@@ -695,6 +695,7 @@ create table if not exists public.feed_posts (
   media_platform text,
   media_kind text check (media_kind in ('link','device_video','device_photo')),
   media_duration_s integer check (media_duration_s is null or media_duration_s <= 180),
+  media_poster_url text,
   area_name text,
   latitude double precision,
   longitude double precision,
@@ -735,6 +736,7 @@ begin
     if new.media_kind is null or new.media_kind = 'link' then
       new.media_url := null;           -- external links stripped
       new.media_platform := null;
+      new.media_poster_url := null;    -- no still frame from a stripped link
     end if;
   end if;
   return new;

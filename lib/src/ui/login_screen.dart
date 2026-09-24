@@ -30,11 +30,16 @@ class LoginScreen extends ConsumerWidget {
 
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
+        decoration:  BoxDecoration(
           gradient: RadialGradient(
             center: Alignment(-0.8, -0.9),
             radius: 1.4,
-            colors: [Color(0xFF14203A), RadarTheme.ink],
+            colors: [
+              !RadarTheme.current.isDark
+                  ? const Color(0xFFDCE6F5)
+                  : const Color(0xFF14203A),
+              RadarTheme.ink,
+            ],
           ),
         ),
         child: SafeArea(
@@ -59,7 +64,7 @@ class LoginScreen extends ConsumerWidget {
                               ),
                     ),
                     const SizedBox(height: 6),
-                    const Text(
+                     Text(
                       'Global Football Scouting Platform',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: RadarTheme.textDim),
@@ -125,7 +130,7 @@ class _PiSignInCard extends ConsumerWidget {
                   color: RadarTheme.pi.withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.currency_exchange,
+                child:  Icon(Icons.currency_exchange,
                     color: RadarTheme.pi, size: 20),
               ),
               const SizedBox(width: 12),
@@ -144,7 +149,7 @@ class _PiSignInCard extends ConsumerWidget {
                 : sdkAvailable
                     ? 'Pi SDK detected but Pi logins are disabled in this build config.'
                     : 'Pi SDK not detected — open The Radar inside the Pi Browser for full sign-in, or explore demo mode.',
-            style: const TextStyle(color: RadarTheme.textDim, fontSize: 12.5),
+            style:  TextStyle(color: RadarTheme.textDim, fontSize: 12.5),
           ),
           const SizedBox(height: 16),
           FilledButton.icon(
@@ -185,12 +190,12 @@ class _ErrorCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline, color: RadarTheme.alert, size: 18),
+           Icon(Icons.error_outline, color: RadarTheme.alert, size: 18),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               message,
-              style: const TextStyle(fontSize: 12.5, color: RadarTheme.textPrimary),
+              style:  TextStyle(fontSize: 12.5, color: RadarTheme.textPrimary),
             ),
           ),
         ],
@@ -227,7 +232,7 @@ class _EnvFootnote extends ConsumerWidget {
                 : 'Pi SDK absent · demo environment',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 11.5, color: RadarTheme.textDim),
+            style:  TextStyle(fontSize: 11.5, color: RadarTheme.textDim),
           ),
         ),
       ],

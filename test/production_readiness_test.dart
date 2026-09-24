@@ -65,6 +65,7 @@ void main() {
     const canonicalColumns = {
       'author_profile_id', 'author_name', 'author_role', 'kind', 'body',
       'media_url', 'media_platform', 'media_kind', 'media_duration_s',
+      'media_poster_url',
       'area_name', 'latitude', 'longitude', 'scheduled_at',
     };
 

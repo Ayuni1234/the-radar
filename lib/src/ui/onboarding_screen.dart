@@ -103,11 +103,16 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     final wide = MediaQuery.sizeOf(context).width > 720;
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
+        decoration:  BoxDecoration(
           gradient: RadialGradient(
             center: Alignment(-0.8, -0.9),
             radius: 1.4,
-            colors: [Color(0xFF14203A), RadarTheme.ink],
+            colors: [
+              !RadarTheme.current.isDark
+                  ? const Color(0xFFDCE6F5)
+                  : const Color(0xFF14203A),
+              RadarTheme.ink,
+            ],
           ),
         ),
         child: SafeArea(
@@ -133,7 +138,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     Text(
                       _subtitles[_step],
                       textAlign: TextAlign.center,
-                      style: const TextStyle(color: RadarTheme.textDim, fontSize: 13),
+                      style:  TextStyle(color: RadarTheme.textDim, fontSize: 13),
                     ),
                     const SizedBox(height: 18),
                     _ProgressDots(step: _step),
@@ -167,7 +172,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       const SizedBox(height: 14),
                       Text(
                         _error!,
-                        style: const TextStyle(color: RadarTheme.alert, fontSize: 12.5),
+                        style:  TextStyle(color: RadarTheme.alert, fontSize: 12.5),
                       ),
                     ],
                     const SizedBox(height: 22),
@@ -356,7 +361,7 @@ class _RoleCard extends StatelessWidget {
                   _roleDescriptions[role]!,
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 10.5, color: RadarTheme.textDim, height: 1.25),
+                  style:  TextStyle(fontSize: 10.5, color: RadarTheme.textDim, height: 1.25),
                 ),
               ],
             ),
@@ -420,8 +425,8 @@ class _RegionStep extends StatelessWidget {
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text(
+                  children: [
+                    const Text(
                       'I am under 18',
                       style: TextStyle(
                           fontWeight: FontWeight.w600, fontSize: 13.5),
@@ -431,8 +436,8 @@ class _RegionStep extends StatelessWidget {
                       'Your exact location is never shown — only an approximate '
                       'area name. Adults see the same safeguarding on your '
                       'sessions.',
-                      style:
-                          TextStyle(fontSize: 11.5, color: RadarTheme.textDim),
+                      style: TextStyle(
+                          fontSize: 11.5, color: RadarTheme.textDim),
                     ),
                   ],
                 ),
@@ -508,7 +513,7 @@ class _ProfileStep extends StatelessWidget {
           ),
           if (role != null && (role == UserRole.scout || role == UserRole.club || role == UserRole.academy)) ...[
             const SizedBox(height: 12),
-            const InfoPill(
+             InfoPill(
               icon: Icons.verified_outlined,
               label: 'Verified badge review after onboarding',
               color: RadarTheme.gold,
@@ -545,7 +550,7 @@ class _LabeledField extends StatelessWidget {
       children: [
         Text(
           label,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: RadarTheme.textDim),
+          style:  TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: RadarTheme.textDim),
         ),
         const SizedBox(height: 6),
         TextField(
@@ -564,11 +569,11 @@ class _LabeledField extends StatelessWidget {
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: RadarTheme.stroke),
+              borderSide:  BorderSide(color: RadarTheme.stroke),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: RadarTheme.stroke),
+              borderSide:  BorderSide(color: RadarTheme.stroke),
             ),
           ),
         ),

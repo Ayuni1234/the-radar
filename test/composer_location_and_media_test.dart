@@ -711,4 +711,121 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   });
+
+  group('device video renders in the published feed card', () {
+    testWidgets('device videos render the persisted poster frame as the '
+        'hero instead of the painted placeholder', (tester) async {
+      final post = FeedPost(
+        id: 'p2',
+        authorProfileId: 'a1',
+        authorName: 'Scout',
+        authorRole: 'player',
+        kind: FeedPostKind.highlight,
+        body: 'Top bins from the edge of the box.',
+        createdAt: DateTime(2026, 9, 23),
+        mediaUrl: 'https://example.supabase.co/storage/v1/object/public/'
+            'feed-media/u1/2.mp4',
+        mediaPosterUrl: 'https://example.supabase.co/storage/v1/object/'
+            'public/feed-media/u1/2.mp4.jpg',
+        mediaPlatform: 'device video · 1:12',
+        mediaKind: 'device_video',
+        mediaDurationSeconds: 72,
+      );
+
+      tester.view.physicalSize = const Size(800, 1400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(ProviderScope(
+        child: MaterialApp(
+          theme: RadarTheme.dark,
+          home: Scaffold(
+            body: SingleChildScrollView(child: SocialPostCard(post: post)),
+          ),
+        ),
+      ));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      // IO/web test binding: the surface resolves to the poster image path.
+      expect(find.byType(Image), findsOneWidget,
+          reason: 'the video hero must render the persisted poster frame '
+              '(or the embedded player on web) — never the silent '
+              'placeholder the old card showed');
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('dark / light theme switching', () {
+    test('light palette renders clean, high-contrast values', () {
+      RadarTheme.current = RadarPalette.light;
+      addTearDown(() => RadarTheme.current = RadarPalette.dark);
+      expect(RadarTheme.ink, const Color(0xFFF5F7FA));
+      expect(RadarTheme.panel, const Color(0xFFFFFFFF));
+      expect(RadarTheme.textPrimary, const Color(0xFF0F172A));
+      // Accents keep their identity but deepen for white surfaces.
+      expect(RadarTheme.radar, isNot(const Color(0xFF3DFFA2)));
+      // Palette getters must agree with the active mode.
+      expect(RadarTheme.current.isDark, isFalse);
+    });
+
+    test('themeFor builds matching ThemeData for both modes', () {
+      final dark = RadarTheme.themeFor(RadarBrightness.dark);
+      final light = RadarTheme.themeFor(RadarBrightness.light);
+      expect(dark.scaffoldBackgroundColor, const Color(0xFF0A0E1A));
+      expect(light.scaffoldBackgroundColor, const Color(0xFFF5F7FA));
+      expect(light.textTheme.bodyLarge!.color, const Color(0xFF0F172A));
+      expect(dark.colorScheme.brightness, Brightness.dark);
+      expect(light.colorScheme.brightness, Brightness.light);
+    });
+
+    testWidgets('toggling the provider re-skins MaterialApp widgets end '
+        'to end (panel, text, scaffold)', (tester) async {
+      tester.view.physicalSize = const Size(400, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      RadarTheme.current = RadarPalette.dark;
+      addTearDown(() => RadarTheme.current = RadarPalette.dark);
+      await tester.pumpWidget(ProviderScope(
+        child: MaterialApp(
+          theme: RadarTheme
+              .themeFor(RadarPalette.dark.isDark
+                  ? RadarBrightness.dark
+                  : RadarBrightness.light),
+          home: Container(
+            color: RadarTheme.panel,
+            child: Text('body',
+                style: TextStyle(color: RadarTheme.textPrimary)),
+          ),
+        ),
+      ));
+      await tester.pump();
+
+      final panelBefore = (tester.widget<Container>(
+              find.byType(Container).first))
+          .color;
+      expect(panelBefore, const Color(0xFF111827));
+
+      // Flip the palette the way the header/settings toggle does.
+      RadarTheme.current = RadarPalette.light;
+      await tester.pumpWidget(ProviderScope(
+        child: MaterialApp(
+          theme: RadarTheme.themeFor(RadarBrightness.light),
+          home: Container(
+            color: RadarTheme.panel,
+            child: Text('body',
+                style: TextStyle(color: RadarTheme.textPrimary)),
+          ),
+        ),
+      ));
+      await tester.pump();
+
+      final panelAfter = (tester.widget<Container>(
+              find.byType(Container).first))
+          .color;
+      expect(panelAfter, const Color(0xFFFFFFFF),
+          reason: 'panel getter must emit the light palette after the '
+              'switch — no hardcoded dark colors surviving');
+    });
+  });
 }

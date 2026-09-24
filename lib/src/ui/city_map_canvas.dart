@@ -35,25 +35,36 @@ class _CityMapPainter extends CustomPainter {
     _paintVignette(canvas, size);
   }
 
-  // Deep aerial base: dark earth tones with a soft aerial-photo feel.
+  // Deep aerial base: dark earth tones in dark mode, a clean paper-map
+  // wash in light mode — driven by the active RadarTheme palette.
   void _paintBase(Canvas canvas, Size size) {
+    final light = !RadarTheme.current.isDark;
     final base = Paint()
       ..shader = RadialGradient(
         center: const Alignment(-0.2, -0.3),
         radius: 1.6,
-        colors: const [
-          Color(0xFF232B22),
-          Color(0xFF1A211A),
-          Color(0xFF141A14),
-        ],
+        colors: light
+            ? const [
+                Color(0xFFE7EDE4),
+                Color(0xFFDEE6DB),
+                Color(0xFFD4DED1),
+              ]
+            : const [
+                Color(0xFF232B22),
+                Color(0xFF1A211A),
+                Color(0xFF141A14),
+              ],
       ).createShader(Offset.zero & size);
     canvas.drawRect(Offset.zero & size, base);
   }
 
   // Parks: Hyde Park (NW), Green Park, St James's (W), embed gardens.
   void _paintParks(Canvas canvas, Size size) {
-    final park = Paint()..color = const Color(0xFF2E4428);
-    final parkLight = Paint()..color = const Color(0xFF35502C);
+    final light = !RadarTheme.current.isDark;
+    final park = Paint()
+      ..color = light ? const Color(0xFFC4D8BC) : const Color(0xFF2E4428);
+    final parkLight = Paint()
+      ..color = light ? const Color(0xFFCFE2C6) : const Color(0xFF35502C);
 
     Path rounded(Rect r, double rad) => Path()
       ..addRRect(RRect.fromRectAndRadius(r, Radius.circular(rad)));
@@ -101,25 +112,30 @@ class _CityMapPainter extends CustomPainter {
           size.width * 0.24, size.height * 0.88,
           size.width * 0.10, size.height * 0.86);
 
+    final light = !RadarTheme.current.isDark;
     final water = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = size.height * 0.055
       ..strokeCap = StrokeCap.round
-      ..color = const Color(0xFF1E3446);
+      ..color = light ? const Color(0xFFA9C6E0) : const Color(0xFF1E3446);
     canvas.drawPath(river, water);
 
     final sheen = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = size.height * 0.055 * 0.45
       ..strokeCap = StrokeCap.round
-      ..color = const Color(0xFF29465E).withValues(alpha: 0.65);
+      ..color = (light ? const Color(0xFFBBD5EA) : const Color(0xFF29465E))
+          .withValues(alpha: 0.65);
     canvas.drawPath(river, sheen);
   }
 
   // City blocks: irregular building masses on both banks.
   void _paintBlocks(Canvas canvas, Size size) {
-    final blockPaint = Paint()..color = const Color(0xFF333A33);
-    final blockLight = Paint()..color = const Color(0xFF3C4440);
+    final light = !RadarTheme.current.isDark;
+    final blockPaint = Paint()
+      ..color = light ? const Color(0xFFCFCFC6) : const Color(0xFF333A33);
+    final blockLight = Paint()
+      ..color = light ? const Color(0xFFDADAD1) : const Color(0xFF3C4440);
     final rnd = math.Random(7);
 
     for (var i = 0; i < 240; i++) {
@@ -152,12 +168,15 @@ class _CityMapPainter extends CustomPainter {
 
   // Street network: arterials + minor grid, clipped off the water.
   void _paintStreets(Canvas canvas, Size size) {
+    final light = !RadarTheme.current.isDark;
     final major = Paint()
       ..strokeWidth = 2.6
-      ..color = const Color(0xFF59615C).withValues(alpha: 0.85);
+      ..color = (light ? const Color(0xFF9AA0A6) : const Color(0xFF59615C))
+          .withValues(alpha: 0.85);
     final minor = Paint()
       ..strokeWidth = 1.1
-      ..color = const Color(0xFF4A524D).withValues(alpha: 0.7);
+      ..color = (light ? const Color(0xA6A8AEB4) : const Color(0xFF4A524D))
+          .withValues(alpha: 0.7);
     final rnd = math.Random(11);
 
     // Arterial diagonals & sweep.
@@ -190,18 +209,25 @@ class _CityMapPainter extends CustomPainter {
 
   // Place-name labels — the street-level context the mock shows.
   void _paintLabels(Canvas canvas, Size size) {
+    final labelColor = !RadarTheme.current.isDark
+        ? const Color(0xFF3E4A40)
+        : const Color(0xFFB8C2BA);
     void label(String text, Offset at,
-        {double fontSize = 10, Color color = const Color(0xFFB8C2BA), double angle = 0}) {
+        {double fontSize = 10, Color? color, double angle = 0}) {
       final tp = TextPainter(
         text: TextSpan(
           text: text,
           style: TextStyle(
-            color: color,
+            color: color ?? labelColor,
             fontSize: fontSize,
             fontWeight: FontWeight.w500,
             letterSpacing: 0.2,
-            shadows: const [
-              Shadow(color: Color(0xAA000000), blurRadius: 3),
+            shadows: [
+              Shadow(
+                  color: RadarTheme.current.isDark
+                      ? const Color(0xAA000000)
+                      : const Color(0x66FFFFFF),
+                  blurRadius: 3),
             ],
           ),
         ),
@@ -219,7 +245,10 @@ class _CityMapPainter extends CustomPainter {
     }
 
     label('London', Offset(size.width * 0.055, size.height * 0.62),
-        fontSize: 13, color: const Color(0xFFD3DCD4));
+        fontSize: 13,
+        color: !RadarTheme.current.isDark
+            ? const Color(0xFF33403A)
+            : const Color(0xFFD3DCD4));
     label('Covent Garden', Offset(size.width * 0.45, size.height * 0.475),
         fontSize: 11);
     label('Tothill St',

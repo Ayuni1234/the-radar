@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../data/device_video_surface.dart';
 import '../models/feed_post.dart';
 import '../models/radar_event.dart';
 import '../state/radar_providers.dart';
@@ -198,7 +199,7 @@ class _CardHeader extends StatelessWidget {
               ),
               padding: const EdgeInsets.all(2),
               child: Container(
-                decoration: const BoxDecoration(
+                decoration:  BoxDecoration(
                   shape: BoxShape.circle,
                   color: RadarTheme.panel,
                 ),
@@ -232,7 +233,7 @@ class _CardHeader extends StatelessWidget {
                       ),
                       if (post.isMinorPoster) ...[
                         const SizedBox(width: 6),
-                        const Tooltip(
+                         Tooltip(
                           message: 'Posted by a minor — location locked to a '
                               'coarse regional label by database triggers',
                           child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -250,7 +251,7 @@ class _CardHeader extends StatelessWidget {
                     '${_ago(post.createdAt)} · ${post.kind.label}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style:  TextStyle(
                         color: RadarTheme.textDim, fontSize: 11.5),
                   ),
                 ],
@@ -292,7 +293,7 @@ class _CardHeader extends StatelessWidget {
             IconButton(
               visualDensity: VisualDensity.compact,
               tooltip: 'Report post',
-              icon: const Icon(Icons.flag_outlined,
+              icon:  Icon(Icons.flag_outlined,
                   size: 18, color: RadarTheme.textDim),
               onPressed: onReport,
             ),
@@ -300,7 +301,7 @@ class _CardHeader extends StatelessWidget {
             IconButton(
               visualDensity: VisualDensity.compact,
               tooltip: 'Delete post',
-              icon: const Icon(Icons.delete_outline,
+              icon:  Icon(Icons.delete_outline,
                   size: 18, color: RadarTheme.textDim),
               onPressed: onDelete,
             ),
@@ -342,15 +343,26 @@ class _MediaHero extends StatelessWidget {
                 : null);
     final countdown = countdownAt == null ? null : _countdown(countdownAt);
 
-    // Instagram-style portrait canvas: the media (photo or painted pitch)
-    // fills a 4:5 frame edge-to-edge — no letterbox bands, no inner gutters.
+    // Instagram-style portrait canvas: the media (photo, video or painted
+    // pitch) fills a 4:5 frame edge-to-edge — no letterbox bands, no inner
+    // gutters.
+    final isDeviceVideo = post.isDeviceVideo && post.hasMedia;
+    final deviceVideo = isDeviceVideo
+        ? DeviceVideoSurfaceSpec(
+            url: post.mediaUrl!,
+            posterUrl: post.mediaPosterUrl,
+            durationSeconds: post.mediaDurationSeconds,
+          )
+        : null;
     return AspectRatio(
       aspectRatio: 4 / 5,
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // Device-uploaded photos render for real; every other media type
-          // keeps the painted floodlit-pitch backdrop.
+          // Device-uploaded photos and videos render for real (web embeds
+          // an actual <video> player; other platforms show the persisted
+          // poster frame); every other media type keeps the painted
+          // floodlit-pitch backdrop.
           if (post.isDevicePhoto)
             Image.network(
               post.mediaUrl!,
@@ -364,15 +376,38 @@ class _MediaHero extends StatelessWidget {
                 return const _PitchCanvas();
               },
             )
+          else if (isDeviceVideo)
+            Stack(
+              fit: StackFit.expand,
+              children: [
+                const _PitchCanvas(), // backdrop while the poster/video loads
+                Positioned.fill(
+                  child: deviceVideoSurface(deviceVideo!),
+                ),
+              ],
+            )
           else
             const _PitchCanvas(),
-          if (post.hasMedia)
+          if (post.hasMedia && !isDeviceVideo)
             Positioned(
               left: 12,
               bottom: 12,
               child: _HeroChip(
                 icon: Icons.play_circle_fill,
                 label: post.mediaPlatform ?? 'Highlight link',
+              ),
+            ),
+          if (isDeviceVideo)
+            Positioned(
+              left: 12,
+              bottom: 12,
+              child: _HeroChip(
+                icon: Icons.play_circle_fill,
+                label: post.mediaDurationSeconds != null
+                    ? 'Device video · '
+                        '${post.mediaDurationSeconds! ~/ 60}:'
+                        '${(post.mediaDurationSeconds! % 60).toString().padLeft(2, '0')}'
+                    : 'Device video',
               ),
             ),
           if (isLive)
@@ -620,11 +655,11 @@ class _LiveBadge extends StatelessWidget {
           Container(
             width: 6,
             height: 6,
-            decoration: const BoxDecoration(
+            decoration:  BoxDecoration(
                 color: RadarTheme.ink, shape: BoxShape.circle),
           ),
           const SizedBox(width: 6),
-          const Text('LIVE NOW',
+           Text('LIVE NOW',
               style: TextStyle(
                   color: RadarTheme.ink,
                   fontSize: 10.5,
@@ -844,7 +879,7 @@ class _ActionPill extends StatelessWidget {
                       ),
                     ],
                   ),
-                  child: const Text('LIVE',
+                  child:  Text('LIVE',
                       style: TextStyle(
                           color: RadarTheme.ink,
                           fontSize: 8.5,
@@ -925,7 +960,7 @@ class _Caption extends StatelessWidget {
     // same line when it fits and wrapping naturally when it doesn't.
     final handle = TextSpan(
       text: '${post.authorName} ',
-      style: const TextStyle(
+      style:  TextStyle(
           color: RadarTheme.textPrimary,
           fontSize: 13.5,
           fontWeight: FontWeight.w800),
@@ -937,7 +972,7 @@ class _Caption extends StatelessWidget {
         children: [
           Text.rich(
             TextSpan(children: [handle, TextSpan(text: post.body)]),
-            style: const TextStyle(
+            style:  TextStyle(
                 color: RadarTheme.textPrimary, fontSize: 13.5, height: 1.5),
           ),
           const SizedBox(height: 14),
@@ -947,7 +982,7 @@ class _Caption extends StatelessWidget {
               Flexible(
                 child: GestureDetector(
                   onTap: onOpenMap,
-                  child: const Text(
+                  child:  Text(
                     'View full location & schedule',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -1108,7 +1143,7 @@ class _MapPreviewSheet extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(children: [
-            const Icon(Icons.location_on, color: RadarTheme.radar, size: 20),
+             Icon(Icons.location_on, color: RadarTheme.radar, size: 20),
             const SizedBox(width: 8),
             Expanded(
               child: Text(title,
@@ -1133,7 +1168,7 @@ class _MapPreviewSheet extends StatelessWidget {
             hasCoords
                 ? '${latitude!.toStringAsFixed(4)}°, ${longitude!.toStringAsFixed(4)}° — approximate street-level context'
                 : 'Coarse area only — precise coordinates withheld (minor safety).',
-            style: const TextStyle(color: RadarTheme.textDim, fontSize: 12),
+            style:  TextStyle(color: RadarTheme.textDim, fontSize: 12),
           ),
           const SizedBox(height: 14),
           FilledButton.icon(
@@ -1183,7 +1218,7 @@ class _ScheduleSheet extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(children: [
-            const Icon(Icons.event_available,
+             Icon(Icons.event_available,
                 color: RadarTheme.radar, size: 20),
             const SizedBox(width: 8),
             Expanded(
@@ -1204,11 +1239,11 @@ class _ScheduleSheet extends StatelessWidget {
               child: Text(
                 'This post is scheduled for ${DateFormat('EEE d MMM · HH:mm').format(postSchedule!)} — '
                 'no other sessions published yet.',
-                style: const TextStyle(color: RadarTheme.textDim, fontSize: 12.5),
+                style:  TextStyle(color: RadarTheme.textDim, fontSize: 12.5),
               ),
             )
           else if (sessions.isEmpty)
-            const Padding(
+             Padding(
               padding: EdgeInsets.symmetric(vertical: 18),
               child: Text(
                 'No upcoming sessions published yet. Tap the schedule icon '
@@ -1253,7 +1288,7 @@ class _ScheduleSheet extends StatelessWidget {
                                       fontWeight: FontWeight.w600)),
                               Text(
                                 '${df.format(e.startsAt)} · ${e.safeLocationLabel()}',
-                                style: const TextStyle(
+                                style:  TextStyle(
                                     fontSize: 11,
                                     color: RadarTheme.textDim),
                               ),
@@ -1261,7 +1296,7 @@ class _ScheduleSheet extends StatelessWidget {
                           ),
                         ),
                         if (e.isLive)
-                          const Text('LIVE',
+                           Text('LIVE',
                               style: TextStyle(
                                   color: RadarTheme.radar,
                                   fontSize: 10.5,
@@ -1299,7 +1334,7 @@ class _LiveStreamSheet extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(children: [
-            const Icon(Icons.podcasts, color: RadarTheme.radar, size: 20),
+             Icon(Icons.podcasts, color: RadarTheme.radar, size: 20),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
@@ -1320,7 +1355,7 @@ class _LiveStreamSheet extends StatelessWidget {
           Text(
             '${event.safeLocationLabel()} · '
             '${event.attendingCount}${event.capacity != null ? '/${event.capacity}' : ''} watching',
-            style: const TextStyle(color: RadarTheme.textDim, fontSize: 12),
+            style:  TextStyle(color: RadarTheme.textDim, fontSize: 12),
           ),
           const SizedBox(height: 14),
           ClipRRect(

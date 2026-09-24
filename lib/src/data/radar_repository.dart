@@ -631,6 +631,7 @@ class RadarRepository {
           row['media_platform'] = res.platform.isEmpty ? null : res.platform;
           row['media_kind'] = res.mediaKind;
           row['media_duration_s'] = res.durationSeconds;
+          row['media_poster_url'] = res.posterUrl;
         } on MediaUploadRetryableException {
           rethrow;
         } on MediaUploadException catch (e) {

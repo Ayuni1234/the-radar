@@ -113,7 +113,7 @@ class _SystemHealthScreenState extends ConsumerState<SystemHealthScreen> {
                     live
                         ? 'Could not load security diagnostics — check the logs below.'
                         : 'Demo mode: connect Supabase to inspect live policies.',
-                    style: const TextStyle(
+                    style:  TextStyle(
                         fontSize: 12.5, color: RadarTheme.textDim),
                   )
                 : _SecurityPosture(security: _security!),
@@ -127,7 +127,7 @@ class _SystemHealthScreenState extends ConsumerState<SystemHealthScreen> {
             child: Builder(builder: (context) {
               final channels = Diagnostics.instance.channels();
               if (channels.isEmpty) {
-                return const Text(
+                return  Text(
                   'No active websocket channels. Live event/profile feeds '
                   'join automatically when their screens load.',
                   style: TextStyle(
@@ -145,7 +145,7 @@ class _SystemHealthScreenState extends ConsumerState<SystemHealthScreen> {
                       border: Border.all(color: RadarTheme.stroke),
                     ),
                     child: Row(children: [
-                      const Icon(Icons.sensors,
+                       Icon(Icons.sensors,
                           size: 16, color: RadarTheme.radar),
                       const SizedBox(width: 10),
                       Expanded(
@@ -196,7 +196,7 @@ class _SystemHealthScreenState extends ConsumerState<SystemHealthScreen> {
               if (_actionMessage != null) ...[
                 const SizedBox(height: 10),
                 Text(_actionMessage!,
-                    style: const TextStyle(
+                    style:  TextStyle(
                         fontSize: 12, color: RadarTheme.radar)),
               ],
             ]),
@@ -215,7 +215,7 @@ class _SystemHealthScreenState extends ConsumerState<SystemHealthScreen> {
               child: const Text('Clear'),
             ),
             child: logs.isEmpty
-                ? const Text('No entries yet.',
+                ?  Text('No entries yet.',
                     style: TextStyle(
                         fontSize: 12.5, color: RadarTheme.textDim))
                 : Column(children: [
@@ -231,7 +231,7 @@ class _SystemHealthScreenState extends ConsumerState<SystemHealthScreen> {
                         ),
                         child: Text(
                           '${DateFormat('HH:mm:ss').format(l.at)}  ${l.source.padRight(8)} ${l.message}',
-                          style: const TextStyle(
+                          style:  TextStyle(
                               fontSize: 11,
                               fontFamily: 'monospace',
                               color: RadarTheme.textDim),
@@ -242,7 +242,7 @@ class _SystemHealthScreenState extends ConsumerState<SystemHealthScreen> {
                         padding: const EdgeInsets.only(top: 4),
                         child: Text(
                           'Showing the 40 most recent of $logCount entries.',
-                          style: const TextStyle(
+                          style:  TextStyle(
                               fontSize: 11, color: RadarTheme.textDim),
                         ),
                       ),
@@ -382,7 +382,7 @@ class _ProbeTile extends StatelessWidget {
         Expanded(
           child: Text(
             result.detail ?? (result.ok ? 'operational' : 'unavailable'),
-            style: const TextStyle(
+            style:  TextStyle(
                 fontSize: 11.5, color: RadarTheme.textDim),
           ),
         ),
@@ -420,14 +420,14 @@ class _SecurityPosture extends StatelessWidget {
     Widget section(String title, List items, Widget Function(Object) tile) {
       return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(title.toUpperCase(),
-            style: const TextStyle(
+            style:  TextStyle(
                 fontSize: 10.5,
                 letterSpacing: 1,
                 fontWeight: FontWeight.w700,
                 color: RadarTheme.textDim)),
         const SizedBox(height: 6),
         if (items.isEmpty)
-          const Text('none found',
+           Text('none found',
               style: TextStyle(fontSize: 12, color: RadarTheme.alert))
         else
           for (final item in items) tile(item),
@@ -465,7 +465,7 @@ class _SecurityPosture extends StatelessWidget {
       }),
       if (policies.length > 8)
         Text('… and ${policies.length - 8} more policies.',
-            style: const TextStyle(fontSize: 11.5, color: RadarTheme.textDim)),
+            style:  TextStyle(fontSize: 11.5, color: RadarTheme.textDim)),
     ]);
   }
 
@@ -488,7 +488,7 @@ class _SecurityPosture extends StatelessWidget {
                     fontSize: 12.3, fontWeight: FontWeight.w600)),
           ),
           Text(detail,
-              style: const TextStyle(
+              style:  TextStyle(
                   fontSize: 10.8, color: RadarTheme.textDim)),
         ]),
       );

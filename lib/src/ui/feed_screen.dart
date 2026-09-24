@@ -17,6 +17,7 @@ import '../data/location_service.dart';
 import '../data/radar_repository.dart';
 import 'radar_map_screen.dart';
 import '../data/media_upload_service.dart';
+import '../state/theme_controller.dart';
 import 'player_cv_screen.dart';
 import 'radar_theme.dart';
 import 'sheet_scaffold.dart';
@@ -95,7 +96,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
               pinned: true,
               backgroundColor: RadarTheme.ink.withValues(alpha: 0.96),
               title: Row(children: [
-                const Flexible(
+                 Flexible(
                   child: Text('LIVE RADAR',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -125,7 +126,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                         '$liveCount active · $bountyCount bounties',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style:  TextStyle(
                             color: RadarTheme.textDim,
                             fontSize: 12,
                             fontWeight: FontWeight.w500),
@@ -136,7 +137,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                 const Spacer(),
                 IconButton(
                   tooltip: 'Open the Radar map',
-                  icon: const Icon(Icons.travel_explore,
+                  icon:  Icon(Icons.travel_explore,
                       size: 21, color: RadarTheme.textDim),
                   onPressed: () => HomeShell.goTo(context, 1),
                 ),
@@ -145,7 +146,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                   icon: Stack(
                     clipBehavior: Clip.none,
                     children: [
-                      const Icon(Icons.notifications_none,
+                       Icon(Icons.notifications_none,
                           color: RadarTheme.textDim),
                       Positioned(
                         right: -1,
@@ -164,7 +165,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                     ],
                   ),
                   onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
+                     SnackBar(
                       behavior: SnackBarBehavior.floating,
                       backgroundColor: RadarTheme.panelHigh,
                       content: Text(
@@ -175,19 +176,20 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                 ),
                 IconButton(
                   tooltip: 'Safeguarding centre',
-                  icon: const Icon(Icons.shield_outlined,
+                  icon:  Icon(Icons.shield_outlined,
                       size: 21, color: RadarTheme.textDim),
                   onPressed: () => Navigator.of(context).push(
                     MaterialPageRoute<void>(
                         builder: (_) => const SafeguardingScreen()),
                   ),
                 ),
+                const _ThemeHeaderToggle(),
                 IconButton(
                   tooltip: 'Filter feed',
                   icon: Stack(
                     clipBehavior: Clip.none,
                     children: [
-                      const Icon(Icons.tune, color: RadarTheme.textDim),
+                       Icon(Icons.tune, color: RadarTheme.textDim),
                       if (_kindFilter != null || _scope != 0 || _hasSessionFilters)
                         Positioned(
                           right: -2,
@@ -195,7 +197,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                           child: Container(
                             width: 8,
                             height: 8,
-                            decoration: const BoxDecoration(
+                            decoration:  BoxDecoration(
                                 color: RadarTheme.radar, shape: BoxShape.circle),
                           ),
                         ),
@@ -221,7 +223,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
               ),
             ),
             if (posts.isEmpty && sessions.isEmpty)
-              const SliverFillRemaining(
+               SliverFillRemaining(
                 hasScrollBody: false,
                 child: Center(
                   child: Column(
@@ -248,7 +250,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                 SliverToBoxAdapter(
                   child: SectionHeader('Latest posts',
                       trailing: Text('${posts.length}',
-                          style: const TextStyle(
+                          style:  TextStyle(
                               color: RadarTheme.textDim, fontSize: 12))),
                 ),
                 SliverList.builder(
@@ -283,7 +285,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                 SliverToBoxAdapter(
                   child: SectionHeader('Live & scheduled sessions',
                       trailing: Text('${sessions.length}',
-                          style: const TextStyle(
+                          style:  TextStyle(
                               color: RadarTheme.textDim, fontSize: 12))),
                 ),
                 SliverList.builder(
@@ -392,7 +394,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     final (reason, details) = result;
     final session = ref.read(sessionProvider);
     if (session == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      ScaffoldMessenger.of(context).showSnackBar( SnackBar(
         behavior: SnackBarBehavior.floating,
         backgroundColor: RadarTheme.alert,
         content: Text('Sign in to report content.'),
@@ -538,7 +540,7 @@ class _ComposerBar extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.sports_soccer,
+               Icon(Icons.sports_soccer,
                   color: RadarTheme.radar, size: 20),
               const SizedBox(width: 10),
               Expanded(
@@ -546,7 +548,7 @@ class _ComposerBar extends StatelessWidget {
                   signedIn
                       ? 'Share highlights, drills & tactical sessions'
                       : 'Sign in to post and drop live pins',
-                  style: const TextStyle(
+                  style:  TextStyle(
                       color: RadarTheme.textDim, fontSize: 13),
                 ),
               ),
@@ -567,7 +569,7 @@ class _ComposerBar extends StatelessWidget {
                 child: OutlinedButton.icon(
                   onPressed: signedIn ? onLivePin : null,
                   style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: RadarTheme.radar),
+                    side:  BorderSide(color: RadarTheme.radar),
                     foregroundColor: RadarTheme.radar,
                   ),
                   icon: const Icon(Icons.my_location, size: 18),
@@ -636,7 +638,7 @@ class _SessionCard extends StatelessWidget {
                         child: Text(
                           event.title,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style:  TextStyle(
                               color: RadarTheme.textPrimary,
                               fontWeight: FontWeight.w600),
                         ),
@@ -650,7 +652,7 @@ class _SessionCard extends StatelessWidget {
                             color: RadarTheme.radar.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          child: const Text('LIVE',
+                          child:  Text('LIVE',
                               style: TextStyle(
                                   color: RadarTheme.radar,
                                   fontSize: 10,
@@ -663,13 +665,13 @@ class _SessionCard extends StatelessWidget {
                   Text(
                     '${fmt.format(event.startsAt)} · ${event.safeLocationLabel()}'
                     ' · ${event.attendingCount}${event.capacity != null ? '/${event.capacity}' : ''} in',
-                    style: const TextStyle(
+                    style:  TextStyle(
                         color: RadarTheme.textDim, fontSize: 12),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: RadarTheme.textDim),
+             Icon(Icons.chevron_right, color: RadarTheme.textDim),
           ],
         ),
       ),
@@ -877,6 +879,7 @@ class _ComposerSheetState extends ConsumerState<_ComposerSheet> {
     String? mediaPlatform;
     String? mediaKind;
     int? mediaDuration;
+    String? mediaPoster;
     final picked = _pickedMedia;
     if (picked != null) {
       try {
@@ -884,6 +887,7 @@ class _ComposerSheetState extends ConsumerState<_ComposerSheet> {
         mediaUrl = res.publicUrl;
         mediaKind = res.mediaKind;
         mediaDuration = res.durationSeconds;
+        mediaPoster = res.posterUrl;
         mediaPlatform = res.durationSeconds != null
             ? 'device video · ${res.durationSeconds! ~/ 60}:${(res.durationSeconds! % 60).toString().padLeft(2, '0')}'
             : 'device photo';
@@ -936,6 +940,7 @@ class _ComposerSheetState extends ConsumerState<_ComposerSheet> {
           mediaPlatform: mediaKind != null ? mediaPlatform : _platform,
           mediaKind: mediaKind,
           mediaDurationSeconds: mediaDuration,
+          mediaPosterUrl: mediaPoster,
           areaName: _areaCtrl.text,
           latitude: _pinLat,
           longitude: _pinLon,
@@ -1002,7 +1007,7 @@ class _ComposerSheetState extends ConsumerState<_ComposerSheet> {
               controller: _bodyCtrl,
               maxLines: 4,
               minLines: 3,
-              style: const TextStyle(color: RadarTheme.textPrimary),
+              style:  TextStyle(color: RadarTheme.textPrimary),
               decoration: InputDecoration(
                 hintText: _kind == FeedPostKind.highlight
                     ? 'Describe the clip — opponent, minute, what scouts should watch…'
@@ -1013,7 +1018,7 @@ class _ComposerSheetState extends ConsumerState<_ComposerSheet> {
             const SizedBox(height: 10),
             TextField(
               controller: _linkCtrl,
-              style: const TextStyle(color: RadarTheme.textPrimary),
+              style:  TextStyle(color: RadarTheme.textPrimary),
               decoration: const InputDecoration(
                 hintText: '…or paste a highlight link (YouTube / Vimeo)',
                 prefixIcon: Icon(Icons.link, size: 20),
@@ -1070,14 +1075,14 @@ class _ComposerSheetState extends ConsumerState<_ComposerSheet> {
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(
                   _uploadError!,
-                  style: const TextStyle(
+                  style:  TextStyle(
                       fontSize: 12, color: RadarTheme.alert, height: 1.3),
                 ),
               ),
             const SizedBox(height: 10),
             TextField(
               controller: _areaCtrl,
-              style: const TextStyle(color: RadarTheme.textPrimary),
+              style:  TextStyle(color: RadarTheme.textPrimary),
               decoration: const InputDecoration(
                 hintText: 'Area label, e.g. “Limbe — Omnisport Annex”',
                 prefixIcon: Icon(Icons.place_outlined, size: 20),
@@ -1087,7 +1092,7 @@ class _ComposerSheetState extends ConsumerState<_ComposerSheet> {
                 (ref.watch(authProvider).value as AuthSignedIn)
                     .session
                     .isMinor)
-              const Padding(
+               Padding(
                 padding: EdgeInsets.only(top: 6),
                 child: Text(
                   'Protected account: the map pin stays private — your post '
@@ -1139,7 +1144,7 @@ class _ComposerSheetState extends ConsumerState<_ComposerSheet> {
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(_pinLabel!,
-                        style: const TextStyle(
+                        style:  TextStyle(
                             fontSize: 12, color: RadarTheme.textDim)),
                   ),
                 ]),
@@ -1206,6 +1211,33 @@ class _ComposerSheetState extends ConsumerState<_ComposerSheet> {
               ]),
             ),
       ],
+    );
+  }
+}
+
+/// Compact dark/light switch for the feed header: sun in dark mode (tap
+/// for light), moon in light mode. Persists across sessions.
+class _ThemeHeaderToggle extends ConsumerWidget {
+  const _ThemeHeaderToggle();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mode = ref.watch(themeModeProvider);
+    final isDark = mode == RadarBrightness.dark;
+    return IconButton(
+      tooltip: isDark ? 'Switch to light theme' : 'Switch to dark theme',
+      icon: Icon(
+        isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+        size: 21,
+        color: RadarTheme.textDim,
+      ),
+      onPressed: () async {
+        final next = ref.read(themeModeProvider.notifier).toggle();
+        RadarTheme.current = next == RadarBrightness.dark
+            ? RadarPalette.dark
+            : RadarPalette.light;
+        await persistThemePreference(next);
+      },
     );
   }
 }
@@ -1277,7 +1309,7 @@ class MediaPreviewCard extends StatelessWidget {
                           ? 'Video · ${(media.durationSeconds! / 60).floor()}:${(media.durationSeconds! % 60).toString().padLeft(2, '0')}'
                           : 'Video')
                       : 'Photo',
-                  style: const TextStyle(
+                  style:  TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w700,
                       color: RadarTheme.textPrimary),
@@ -1287,7 +1319,7 @@ class MediaPreviewCard extends StatelessWidget {
                   media.isVideo
                       ? 'Poster preview — uploads with your post'
                       : 'Uploads with your post',
-                  style: const TextStyle(
+                  style:  TextStyle(
                       fontSize: 11.5, color: RadarTheme.textDim),
                 ),
               ],
@@ -1348,7 +1380,7 @@ class _VenuePickerSheet extends ConsumerWidget {
           'the live Radar map.',
       children: [
           if (mine.isEmpty && others.isEmpty)
-            const Padding(
+             Padding(
               padding: EdgeInsets.symmetric(vertical: 16),
               child: Text(
                 'No venues on the radar yet — drop a Live Pin first (radar '
@@ -1358,7 +1390,7 @@ class _VenuePickerSheet extends ConsumerWidget {
             )
           else ...[
             if (mine.isNotEmpty)
-              const Padding(
+               Padding(
                 padding: EdgeInsets.only(bottom: 6),
                 child: Text('YOUR TIME SLOTS',
                     style: TextStyle(
@@ -1369,7 +1401,7 @@ class _VenuePickerSheet extends ConsumerWidget {
               ),
             for (final e in mine.take(4)) _venueTile(context, e, df),
             if (others.isNotEmpty)
-              const Padding(
+               Padding(
                 padding: EdgeInsets.only(top: 4, bottom: 6),
                 child: Text('ESTABLISHED PITCHES ON THE RADAR',
                     style: TextStyle(
@@ -1427,7 +1459,7 @@ class _VenuePickerSheet extends ConsumerWidget {
                     Text(
                       '${df.format(e.startsAt)} · '
                           '${e.safeLocationLabel()}',
-                      style: const TextStyle(
+                      style:  TextStyle(
                           fontSize: 11,
                           color: RadarTheme.textDim),
                     ),
@@ -1435,7 +1467,7 @@ class _VenuePickerSheet extends ConsumerWidget {
                 ),
               ),
               if (e.isLive)
-                const Text('LIVE',
+                 Text('LIVE',
                     style: TextStyle(
                         color: RadarTheme.radar,
                         fontSize: 10.5,
@@ -1589,7 +1621,7 @@ class _LivePinSheetState extends ConsumerState<_LivePinSheet> {
           const SizedBox(height: 12),
           TextField(
             controller: _titleCtrl,
-            style: const TextStyle(color: RadarTheme.textPrimary),
+            style:  TextStyle(color: RadarTheme.textPrimary),
             decoration: const InputDecoration(
               hintText:
                   'e.g. “Tactical 11v11 Open Match @ Limbe Omnisport Annex”',
@@ -1613,7 +1645,7 @@ class _LivePinSheetState extends ConsumerState<_LivePinSheet> {
           const SizedBox(height: 10),
           TextField(
             controller: _areaCtrl,
-            style: const TextStyle(color: RadarTheme.textPrimary),
+            style:  TextStyle(color: RadarTheme.textPrimary),
             decoration: const InputDecoration(
               hintText: 'Area label, e.g. “Limbe — Omnisport Annex”',
               prefixIcon: Icon(Icons.place_outlined, size: 20),
@@ -1663,10 +1695,10 @@ class _LivePinSheetState extends ConsumerState<_LivePinSheet> {
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             activeThumbColor: RadarTheme.gold,
-            title: const Text('Involves minors / U-teams',
+            title:  Text('Involves minors / U-teams',
                 style:
                     TextStyle(color: RadarTheme.textPrimary, fontSize: 14)),
-            subtitle: const Text(
+            subtitle:  Text(
                 'Location auto-locked to the coarse area label',
                 style: TextStyle(color: RadarTheme.textDim, fontSize: 12)),
             value: _involvesMinors,
@@ -1794,7 +1826,7 @@ class _FilterSheetState extends State<_FilterSheet> {
         ],
       ),
       children: [
-            const Text('Post type',
+             Text('Post type',
                 style: TextStyle(color: RadarTheme.textDim, fontSize: 12)),
             const SizedBox(height: 8),
             Wrap(
@@ -1815,7 +1847,7 @@ class _FilterSheetState extends State<_FilterSheet> {
               ],
             ),
             const SizedBox(height: 16),
-            const Text('Show',
+             Text('Show',
                 style: TextStyle(color: RadarTheme.textDim, fontSize: 12)),
             const SizedBox(height: 8),
             SegmentedButton<int>(
@@ -1828,10 +1860,10 @@ class _FilterSheetState extends State<_FilterSheet> {
               onSelectionChanged: (s) => setState(() => _scope = s.first),
             ),
             const SizedBox(height: 16),
-            const Text('Scout filters (sessions)',
+             Text('Scout filters (sessions)',
                 style: TextStyle(color: RadarTheme.textDim, fontSize: 12)),
             const SizedBox(height: 8),
-            const Text('Position scouted',
+             Text('Position scouted',
                 style: TextStyle(color: RadarTheme.textDim, fontSize: 11)),
             const SizedBox(height: 6),
             Wrap(
@@ -1850,7 +1882,7 @@ class _FilterSheetState extends State<_FilterSheet> {
               ],
             ),
             const SizedBox(height: 12),
-            const Text('Age bracket',
+             Text('Age bracket',
                 style: TextStyle(color: RadarTheme.textDim, fontSize: 11)),
             const SizedBox(height: 6),
             Wrap(
@@ -1874,13 +1906,13 @@ class _FilterSheetState extends State<_FilterSheet> {
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               activeThumbColor: RadarTheme.radar,
-              title: const Text('Radius from my regional base',
+              title:  Text('Radius from my regional base',
                   style: TextStyle(color: RadarTheme.textPrimary, fontSize: 14)),
               subtitle: Text(
                   _useMyRegion
                       ? 'Only sessions within the slider distance'
                       : 'Enable to filter by distance',
-                  style: const TextStyle(
+                  style:  TextStyle(
                       color: RadarTheme.textDim, fontSize: 12)),
               value: _useMyRegion,
               onChanged: (v) => setState(() {

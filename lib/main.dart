@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'src/state/auth_controller.dart';
+import 'src/state/theme_controller.dart';
 import 'src/ui/connections_screen.dart';
 import 'src/ui/feed_screen.dart';
 import 'src/ui/login_screen.dart';
@@ -28,8 +29,14 @@ final List<(String, IconData, Widget)> _destinations = [
 
 
 
-void main() {
-  runApp(const ProviderScope(child: RadarApp()));
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // Restore the persisted light/dark preference before the first frame so
+  // there is no theme flash on boot. Failures keep the dark default.
+  final container = ProviderContainer();
+  await restoreThemePreference(container);
+  runApp(UncontrolledProviderScope(
+      container: container, child: const RadarApp()));
 }
 
 class RadarApp extends ConsumerWidget {
@@ -38,11 +45,12 @@ class RadarApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final auth = ref.watch(authProvider);
+    final themeMode = ref.watch(themeModeProvider);
 
     return MaterialApp(
       title: 'The Radar — Global Football Scouting Platform',
       debugShowCheckedModeBanner: false,
-      theme: RadarTheme.dark,
+      theme: RadarTheme.themeFor(themeMode),
       home: auth.isLoading
           ? const SplashGate()
           : auth.value is AuthSignedIn
@@ -76,7 +84,7 @@ class SplashGate extends StatelessWidget {
                   ),
             ),
             const SizedBox(height: 6),
-            const Text(
+             Text(
               'Global Football Scouting Platform',
               style: TextStyle(color: RadarTheme.textDim),
             ),
@@ -157,7 +165,7 @@ class _SideRail extends ConsumerWidget {
     final session = ref.watch(sessionProvider);
     return Container(
       width: 232,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: RadarTheme.panel,
         border: Border(right: BorderSide(color: RadarTheme.stroke)),
       ),

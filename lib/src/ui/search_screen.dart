@@ -349,14 +349,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             Row(children: [
               Text(
                 _resultsLabel(players.length, eventsList.length),
-                style: const TextStyle(
+                style:  TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w700,
                     color: RadarTheme.textDim),
               ),
               const Spacer(),
               if (_hasCriteria)
-                const InfoPill(
+                 InfoPill(
                     icon: Icons.filter_alt,
                     label: 'Filtered',
                     color: RadarTheme.radar),
@@ -486,7 +486,7 @@ class _PresetsRow extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(right: 8),
               child: ActionChip(
-                avatar: const Icon(Icons.flash_on, size: 14, color: RadarTheme.gold),
+                avatar:  Icon(Icons.flash_on, size: 14, color: RadarTheme.gold),
                 label: Text(name, style: const TextStyle(fontSize: 12)),
                 onPressed: () => onApply(query),
               ),
@@ -495,7 +495,7 @@ class _PresetsRow extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(right: 8),
               child: InputChip(
-                avatar: const Icon(Icons.bookmark, size: 14, color: RadarTheme.pi),
+                avatar:  Icon(Icons.bookmark, size: 14, color: RadarTheme.pi),
                 label: Text(s.name, style: const TextStyle(fontSize: 12)),
                 onPressed: () => onApply(s.query),
                 onDeleted: () => onRemove(s.id),
@@ -564,7 +564,7 @@ class _FilterPanel extends StatelessWidget {
         border: Border.all(color: RadarTheme.stroke),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Row(children: [
+         Row(children: [
           Icon(Icons.tune, size: 17, color: RadarTheme.radar),
           SizedBox(width: 8),
           Text('Advanced filters',
@@ -573,7 +573,7 @@ class _FilterPanel extends StatelessWidget {
         const SizedBox(height: 12),
 
         Text('POSITIONS',
-            style: const TextStyle(
+            style:  TextStyle(
                 fontSize: 10.5, letterSpacing: 1, color: RadarTheme.textDim)),
         const SizedBox(height: 6),
         Wrap(
@@ -595,7 +595,7 @@ class _FilterPanel extends StatelessWidget {
         const SizedBox(height: 12),
 
         Text('AGE BRACKET',
-            style: const TextStyle(
+            style:  TextStyle(
                 fontSize: 10.5, letterSpacing: 1, color: RadarTheme.textDim)),
         const SizedBox(height: 6),
         Wrap(
@@ -643,7 +643,7 @@ class _FilterPanel extends StatelessWidget {
         const SizedBox(height: 12),
 
         Row(children: [
-          const Text('Dominant foot',
+           Text('Dominant foot',
               style: TextStyle(fontSize: 12.5, color: RadarTheme.textDim)),
           const SizedBox(width: 10),
           ChoiceChip(
@@ -674,7 +674,7 @@ class _FilterPanel extends StatelessWidget {
         if (showEventTypes) ...[
           const SizedBox(height: 4),
           Text('EVENT TYPES',
-              style: const TextStyle(
+              style:  TextStyle(
                   fontSize: 10.5, letterSpacing: 1, color: RadarTheme.textDim)),
           const SizedBox(height: 6),
           Wrap(
@@ -748,7 +748,7 @@ class _PlayerResultCard extends StatelessWidget {
                   ),
                   if (p.kycVerified) ...[
                     const SizedBox(width: 5),
-                    const Icon(Icons.verified,
+                     Icon(Icons.verified,
                         size: 14, color: RadarTheme.radar),
                   ],
                 ]),
@@ -762,7 +762,7 @@ class _PlayerResultCard extends StatelessWidget {
                   ].join(' · '),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style:  TextStyle(
                       fontSize: 11.5, color: RadarTheme.textDim),
                 ),
               ],
@@ -821,7 +821,7 @@ class _EventResultCard extends StatelessWidget {
                   '${DateFormat('E d MMM · HH:mm').format(e.startsAt)} · ${e.safeLocationLabel()}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style:  TextStyle(
                       fontSize: 11.5, color: RadarTheme.textDim),
                 ),
               ],
@@ -829,9 +829,9 @@ class _EventResultCard extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           if (e.isBoosted)
-            const Icon(Icons.bolt, size: 16, color: RadarTheme.gold)
+             Icon(Icons.bolt, size: 16, color: RadarTheme.gold)
           else if (e.isMinorProtected)
-            const Icon(Icons.shield_outlined, size: 15, color: RadarTheme.info),
+             Icon(Icons.shield_outlined, size: 15, color: RadarTheme.info),
         ]),
       ),
     );
@@ -853,12 +853,12 @@ class _NoResults extends StatelessWidget {
         border: Border.all(color: RadarTheme.stroke),
       ),
       child: Column(children: [
-        const Icon(Icons.search_off, size: 30, color: RadarTheme.textDim),
+         Icon(Icons.search_off, size: 30, color: RadarTheme.textDim),
         const SizedBox(height: 10),
         const Text('No matches for these criteria',
             style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
         const SizedBox(height: 4),
-        const Text(
+         Text(
           'Try widening the age bracket, lowering the skill level, '
           'or clearing the region.',
           textAlign: TextAlign.center,
@@ -876,7 +876,7 @@ class _EmptyScope extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
+    return  Padding(
       padding: EdgeInsets.symmetric(vertical: 30),
       child: Center(
         child: Text(

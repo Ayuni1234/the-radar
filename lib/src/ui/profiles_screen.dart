@@ -114,7 +114,7 @@ class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
               error: (e, _) => Center(
                 child: Text(
                   'Failed to load profiles: $e',
-                  style: const TextStyle(color: RadarTheme.textDim),
+                  style:  TextStyle(color: RadarTheme.textDim),
                 ),
               ),
               data: (profiles) => RefreshIndicator(
@@ -220,7 +220,7 @@ class ProfileCard extends StatelessWidget {
                         ),
                         if (p.kycVerified) ...[
                           const SizedBox(width: 6),
-                          const Icon(
+                           Icon(
                             Icons.verified,
                             size: 15,
                             color: RadarTheme.radar,
@@ -228,7 +228,7 @@ class ProfileCard extends StatelessWidget {
                         ],
                         if (p.isMinor) ...[
                           const SizedBox(width: 6),
-                          const Icon(
+                           Icon(
                             Icons.shield,
                             size: 15,
                             color: RadarTheme.gold,
@@ -245,7 +245,7 @@ class ProfileCard extends StatelessWidget {
                       ].join('  ·  '),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style:  TextStyle(
                         fontSize: 12,
                         color: RadarTheme.textDim,
                       ),
@@ -256,14 +256,14 @@ class ProfileCard extends StatelessWidget {
                         CredibilityBar(score: p.credibilityScore),
                         if (p.videoShowcaseUrls.isNotEmpty) ...[
                           const SizedBox(width: 10),
-                          const Icon(
+                           Icon(
                             Icons.play_circle_outline,
                             size: 15,
                             color: RadarTheme.info,
                           ),
                           Text(
                             ' ${p.videoShowcaseUrls.length}',
-                            style: const TextStyle(
+                            style:  TextStyle(
                               fontSize: 11,
                               color: RadarTheme.info,
                             ),
@@ -370,7 +370,7 @@ class ProfileDetailSheet extends ConsumerWidget {
                         ),
                         if (p.kycVerified) ...[
                           const SizedBox(width: 6),
-                          const Icon(
+                           Icon(
                             Icons.verified,
                             size: 17,
                             color: RadarTheme.radar,
@@ -381,7 +381,7 @@ class ProfileDetailSheet extends ConsumerWidget {
                     Text(
                       '${p.role.label}'
                       '${p.clubAffiliation != null ? ' · ${p.clubAffiliation}' : ''}',
-                      style: const TextStyle(
+                      style:  TextStyle(
                         fontSize: 12.5,
                         color: RadarTheme.textDim,
                       ),
@@ -414,13 +414,13 @@ class ProfileDetailSheet extends ConsumerWidget {
                             : RadarTheme.gold,
                       ),
                       if (p.kycVerified)
-                        const InfoPill(
+                         InfoPill(
                           icon: Icons.verified_user_outlined,
                           label: 'KYC verified',
                           color: RadarTheme.radar,
                         )
                       else
-                        const InfoPill(
+                         InfoPill(
                           icon: Icons.gpp_maybe_outlined,
                           label: 'KYC pending',
                           color: RadarTheme.gold,
@@ -462,7 +462,7 @@ class ProfileDetailSheet extends ConsumerWidget {
                           color: RadarTheme.gold.withValues(alpha: 0.4),
                         ),
                       ),
-                      child: const Row(
+                      child:  Row(
                         children: [
                           Icon(
                             Icons.shield_outlined,
@@ -502,7 +502,7 @@ class ProfileDetailSheet extends ConsumerWidget {
                     const SectionHeader('About'),
                     Text(
                       p.bio!,
-                      style: const TextStyle(
+                      style:  TextStyle(
                         fontSize: 13.5,
                         height: 1.5,
                         color: RadarTheme.textPrimary,
@@ -531,7 +531,7 @@ class ProfileDetailSheet extends ConsumerWidget {
                       'Video showcase',
                       trailing: Text(
                         '${p.videoShowcaseUrls.length} clips',
-                        style: const TextStyle(
+                        style:  TextStyle(
                           fontSize: 11.5,
                           color: RadarTheme.textDim,
                         ),
@@ -552,7 +552,7 @@ class ProfileDetailSheet extends ConsumerWidget {
                             ),
                             child: Row(
                               children: [
-                                const Icon(
+                                 Icon(
                                   Icons.play_circle_outline,
                                   color: RadarTheme.info,
                                   size: 22,
@@ -565,7 +565,7 @@ class ProfileDetailSheet extends ConsumerWidget {
                                     style: const TextStyle(fontSize: 12.5),
                                   ),
                                 ),
-                                const Icon(
+                                 Icon(
                                   Icons.open_in_new,
                                   size: 14,
                                   color: RadarTheme.textDim,
@@ -580,7 +580,7 @@ class ProfileDetailSheet extends ConsumerWidget {
                   Text(
                     'On The Radar since ${df.format(p.createdAt)}'
                     '${p.geohashArea != null && !p.isMinor ? ' · ${p.geohashArea}' : ''}',
-                    style: const TextStyle(
+                    style:  TextStyle(
                       fontSize: 11.5,
                       color: RadarTheme.textDim,
                     ),
@@ -770,7 +770,7 @@ class _ConsentWallDialog extends StatelessWidget {
     return AlertDialog(
       backgroundColor: RadarTheme.panel,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      icon: const Icon(Icons.shield_outlined, color: RadarTheme.info, size: 32),
+      icon:  Icon(Icons.shield_outlined, color: RadarTheme.info, size: 32),
       title: const Text(
         'Guardian consent required',
         style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),

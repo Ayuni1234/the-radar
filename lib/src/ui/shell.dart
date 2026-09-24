@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'radar_theme.dart';
+
 /// Rounded info/status pill.
 class InfoPill extends StatelessWidget {
   const InfoPill({
@@ -75,10 +77,11 @@ class SectionHeader extends StatelessWidget {
   }
 }
 
-/// Shared color aliases for widgets that import this file only.
+/// Shared color aliases for widgets that import this file only — routed
+/// through the active RadarTheme palette so they follow dark/light mode.
 abstract final class RadarColors {
-  static const Color ink = Color(0xFF0A0E1A);
-  static const Color stroke = Color(0xFF2A3648);
+  static Color get ink => RadarTheme.ink;
+  static Color get stroke => RadarTheme.stroke;
 }
 
 /// Reusable radar logo mark.
@@ -111,14 +114,14 @@ class _RadarMarkPainter extends CustomPainter {
     final sweep = Paint()
       ..shader = SweepGradient(
         colors: [
-          const Color(0xFF3DFFA2).withValues(alpha: 0.05),
-          const Color(0xFF3DFFA2).withValues(alpha: 0.7),
+          RadarTheme.radar.withValues(alpha: 0.05),
+          RadarTheme.radar.withValues(alpha: 0.7),
         ],
         transform: const GradientRotation(-0.9),
       ).createShader(Rect.fromCircle(center: c, radius: r));
     canvas.drawArc(
         Rect.fromCircle(center: c, radius: r * 0.9), -1.2, 1.6, true, sweep);
-    final dot = Paint()..color = const Color(0xFF3DFFA2);
+    final dot = Paint()..color = RadarTheme.radar;
     canvas.drawCircle(c, r * 0.09, dot);
   }
 

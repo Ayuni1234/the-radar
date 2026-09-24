@@ -117,12 +117,12 @@ class _EventComposerScreenState extends ConsumerState<EventComposerScreen> {
         behavior: SnackBarBehavior.floating,
         backgroundColor: RadarTheme.panelHigh,
         content: Row(children: [
-          const Icon(Icons.publish, color: RadarTheme.radar, size: 18),
+           Icon(Icons.publish, color: RadarTheme.radar, size: 18),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               '“${event.title}” is live on the Radar',
-              style: const TextStyle(color: RadarTheme.textPrimary),
+              style:  TextStyle(color: RadarTheme.textPrimary),
             ),
           ),
         ]),
@@ -221,7 +221,7 @@ class _EventComposerScreenState extends ConsumerState<EventComposerScreen> {
                   ),
                   const SizedBox(height: 16),
                   Text('Target age brackets',
-                      style: const TextStyle(
+                      style:  TextStyle(
                           fontSize: 12.5,
                           fontWeight: FontWeight.w700,
                           color: RadarTheme.textDim)),
@@ -283,7 +283,7 @@ class _EventComposerScreenState extends ConsumerState<EventComposerScreen> {
                           const SizedBox(height: 6),
                           Text(
                             '${_lat.toStringAsFixed(4)}, ${_lng.toStringAsFixed(4)}',
-                            style: const TextStyle(
+                            style:  TextStyle(
                                 fontSize: 11.5,
                                 color: RadarTheme.textDim,
                                 fontFeatures: []),
@@ -357,13 +357,13 @@ class _EventComposerScreenState extends ConsumerState<EventComposerScreen> {
                   ),
                   const SizedBox(height: 14),
                   Text('Positions being scouted',
-                      style: const TextStyle(
+                      style:  TextStyle(
                           fontSize: 12.5,
                           fontWeight: FontWeight.w700,
                           color: RadarTheme.textDim)),
                   const SizedBox(height: 4),
                   Text('Leave empty for open-to-all sessions.',
-                      style: const TextStyle(
+                      style:  TextStyle(
                           fontSize: 11.5, color: RadarTheme.textDim)),
                   const SizedBox(height: 8),
                   Wrap(
@@ -559,7 +559,7 @@ class _MinorSafetyNote extends StatelessWidget {
         border: Border.all(color: RadarTheme.info.withValues(alpha: 0.4)),
       ),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Icon(Icons.shield_outlined, size: 17, color: RadarTheme.info),
+         Icon(Icons.shield_outlined, size: 17, color: RadarTheme.info),
         const SizedBox(width: 10),
         const Expanded(
           child: Text(
@@ -639,11 +639,11 @@ class _PinPicker extends StatelessWidget {
                 Positioned(
                   left: (x - 12).clamp(0.0, constraints.maxWidth - 24),
                   top: (y - 24).clamp(0.0, constraints.maxHeight - 28),
-                  child: const Icon(Icons.location_on,
+                  child:  Icon(Icons.location_on,
                       color: RadarTheme.radar, size: 24),
                 ),
                 if (dropMode)
-                  const Positioned.fill(
+                   Positioned.fill(
                     child: IgnorePointer(
                       child: Center(
                         child: Text(

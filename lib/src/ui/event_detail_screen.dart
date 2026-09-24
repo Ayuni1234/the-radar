@@ -98,27 +98,27 @@ class _Header extends StatelessWidget {
           const SizedBox(height: 12),
           Wrap(spacing: 8, runSpacing: 8, children: [
             if (event.isLive)
-              const InfoPill(
+               InfoPill(
                   icon: Icons.circle, label: 'LIVE now', color: RadarTheme.alert)
             else if (event.isUpcoming)
-              const InfoPill(
+               InfoPill(
                   icon: Icons.schedule, label: 'Upcoming', color: RadarTheme.info),
             if (event.isBoosted)
-              const InfoPill(icon: Icons.bolt, label: 'Boosted', color: RadarTheme.gold),
+               InfoPill(icon: Icons.bolt, label: 'Boosted', color: RadarTheme.gold),
             if (event.bountyPi != null)
               InfoPill(
                   icon: Icons.emoji_events_outlined,
                   label: '${event.bountyPi!.toStringAsFixed(0)} π bounty',
                   color: RadarTheme.gold),
             if (event.isMinorProtected)
-              const InfoPill(
+               InfoPill(
                   icon: Icons.shield_outlined,
                   label: 'Minor-protected',
                   color: RadarTheme.info),
           ]),
           const SizedBox(height: 12),
           Row(children: [
-            const Icon(Icons.event_outlined, size: 15, color: RadarTheme.textDim),
+             Icon(Icons.event_outlined, size: 15, color: RadarTheme.textDim),
             const SizedBox(width: 7),
             Expanded(
               child: Text(df.format(event.startsAt),
@@ -127,10 +127,10 @@ class _Header extends StatelessWidget {
           ]),
           const SizedBox(height: 5),
           Row(children: [
-            const Icon(Icons.timer_outlined, size: 15, color: RadarTheme.textDim),
+             Icon(Icons.timer_outlined, size: 15, color: RadarTheme.textDim),
             const SizedBox(width: 7),
             Text('Runs $durationLabel (until ${DateFormat('HH:mm').format(event.endsAt)})',
-                style: const TextStyle(fontSize: 13, color: RadarTheme.textDim)),
+                style:  TextStyle(fontSize: 13, color: RadarTheme.textDim)),
           ]),
         ],
       ),
@@ -155,7 +155,7 @@ class _SafeLocationCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: _cardDecoration(),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Row(children: [
+         Row(children: [
           Icon(Icons.location_on_outlined, size: 17, color: RadarTheme.radar),
           SizedBox(width: 8),
           Text('Location',
@@ -186,7 +186,7 @@ class _SafeLocationCard extends StatelessWidget {
                           ? 'You are the host — attendees see only “${event.areaName ?? 'the approximate area'}”.'
                           : 'Coarse region only. Exact coordinates are withheld'
                               ' by minor-safety geohash fencing.'),
-                  style: const TextStyle(
+                  style:  TextStyle(
                       fontSize: 12.5, color: RadarTheme.textDim, height: 1.35),
                 ),
               ],
@@ -267,7 +267,7 @@ class _HostCard extends ConsumerWidget {
                 else
                   const InfoPill(icon: Icons.person_outline, label: 'Host'),
                 if (host?.kycVerified ?? false)
-                  const InfoPill(
+                   InfoPill(
                       icon: Icons.verified_outlined,
                       label: 'KYC verified',
                       color: RadarTheme.radar),
@@ -312,7 +312,7 @@ class _AboutCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: _cardDecoration(),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Row(children: [
+         Row(children: [
           Icon(Icons.description_outlined, size: 17, color: RadarTheme.radar),
           SizedBox(width: 8),
           Text('About this event',
@@ -321,13 +321,13 @@ class _AboutCard extends StatelessWidget {
         if (event.description != null && event.description!.isNotEmpty) ...[
           const SizedBox(height: 10),
           Text(event.description!,
-              style: const TextStyle(
+              style:  TextStyle(
                   fontSize: 13.5, height: 1.45, color: RadarTheme.textPrimary)),
         ],
         if (event.positionsRequired.isNotEmpty) ...[
           const SizedBox(height: 12),
           Text('POSITIONS BEING SCOUTED',
-              style: const TextStyle(
+              style:  TextStyle(
                   fontSize: 11,
                   letterSpacing: 1,
                   fontWeight: FontWeight.w700,
@@ -348,7 +348,7 @@ class _AboutCard extends StatelessWidget {
             const InfoPill(icon: Icons.cake_outlined, label: 'Age brackets set'),
           const SizedBox(width: 8),
           if (isFull)
-            const InfoPill(
+             InfoPill(
                 icon: Icons.do_not_disturb_on,
                 label: 'Event full',
                 color: RadarTheme.alert)
@@ -366,8 +366,7 @@ class _AboutCard extends StatelessWidget {
               value: filled,
               minHeight: 6,
               backgroundColor: RadarTheme.panelHigh,
-              valueColor:
-                  const AlwaysStoppedAnimation<Color>(RadarTheme.radar),
+              valueColor: AlwaysStoppedAnimation<Color>(RadarTheme.radar),
             ),
           ),
         ],
@@ -398,7 +397,7 @@ class _ApplicantHub extends ConsumerWidget {
       decoration: _cardDecoration(),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          const Icon(Icons.manage_accounts_outlined,
+           Icon(Icons.manage_accounts_outlined,
               size: 17, color: RadarTheme.radar),
           const SizedBox(width: 8),
           Expanded(
@@ -417,7 +416,7 @@ class _ApplicantHub extends ConsumerWidget {
             child: Text(
               'No applications for this event yet. Boost it from the Pi Wallet '
               'to reach more players on the radar.',
-              style: const TextStyle(
+              style:  TextStyle(
                   fontSize: 12.5, color: RadarTheme.textDim, height: 1.4),
             ),
           )
@@ -479,7 +478,7 @@ class _ApplicantTile extends ConsumerWidget {
           Text(request.message!,
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style:  TextStyle(
                   fontSize: 12.5, color: RadarTheme.textDim, height: 1.35)),
         ],
         if (request.isPending) ...[
@@ -552,7 +551,7 @@ class _ActionHub extends ConsumerWidget {
       padding: const EdgeInsets.all(16),
       decoration: _cardDecoration(),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Row(children: [
+         Row(children: [
           Icon(Icons.bolt_outlined, size: 17, color: RadarTheme.radar),
           SizedBox(width: 8),
           Text('Take action',
@@ -563,12 +562,12 @@ class _ActionHub extends ConsumerWidget {
           isTrial
               ? 'Submit your application — the organizer reviews trial applicants here and on their inbox.'
               : 'Request to attend and the host will confirm your spot.',
-          style: const TextStyle(
+          style:  TextStyle(
               fontSize: 12.5, color: RadarTheme.textDim, height: 1.4),
         ),
         const SizedBox(height: 12),
         if (session == null || me == null)
-          const InfoPill(
+           InfoPill(
               icon: Icons.lock_outline,
               label: 'Sign in with Pi to apply',
               color: RadarTheme.gold)
@@ -577,7 +576,7 @@ class _ActionHub extends ConsumerWidget {
               icon: Icons.hourglass_empty,
               label: 'Host profile unavailable — try again later')
         else if (hasPending)
-          const InfoPill(
+           InfoPill(
               key: ValueKey('application-pending'),
               icon: Icons.hourglass_top,
               label: 'Application pending review',

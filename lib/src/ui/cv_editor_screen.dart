@@ -151,7 +151,7 @@ class _CvEditorScreenState extends ConsumerState<CvEditorScreen> {
           padding: const EdgeInsets.all(20),
           children: [
             const SectionHeader('Football CV'),
-            const Text(
+             Text(
               'Your vitals and career story — this is what scouts search '
               'and filter on. Keep it honest and specific.',
               style: TextStyle(color: RadarTheme.textDim, fontSize: 12.5),
@@ -277,7 +277,7 @@ class _CvEditorScreenState extends ConsumerState<CvEditorScreen> {
               for (final v in _videos)
                 ListTile(
                   dense: true,
-                  leading: const Icon(Icons.play_circle_outline,
+                  leading:  Icon(Icons.play_circle_outline,
                       color: RadarTheme.info),
                   title: Text(v, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13)),
                   trailing: IconButton(
@@ -350,7 +350,7 @@ class InfoNote extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(text,
-                style: const TextStyle(
+                style:  TextStyle(
                     fontSize: 12, color: RadarTheme.textDim)),
           ),
         ],

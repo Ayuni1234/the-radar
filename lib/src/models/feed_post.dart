@@ -36,6 +36,7 @@ class FeedPost {
     this.mediaPlatform,
     this.mediaKind,
     this.mediaDurationSeconds,
+    this.mediaPosterUrl,
     this.areaName,
     this.latitude,
     this.longitude,
@@ -62,6 +63,11 @@ class FeedPost {
 
   /// Device-video length in seconds — always ≤ 180 (the 3-minute cap).
   final int? mediaDurationSeconds;
+
+  /// Poster frame (JPEG) captured from a device video at pick time and
+  /// uploaded to `feed-media` next to the clip — the feed hero renders it
+  /// instantly, without loading the video. Null for photos and links.
+  final String? mediaPosterUrl;
 
   /// Coarse area label — the only location a post is allowed to show.
   final String? areaName;
@@ -99,6 +105,8 @@ class FeedPost {
             (mediaPlatform?.isEmpty ?? true) ? null : mediaPlatform,
         'media_kind': mediaKind,
         'media_duration_s': mediaDurationSeconds,
+        'media_poster_url':
+            (mediaPosterUrl?.isEmpty ?? true) ? null : mediaPosterUrl,
         'area_name': (areaName?.isEmpty ?? true) ? null : areaName,
         'latitude': latitude,
         'longitude': longitude,
@@ -125,6 +133,7 @@ class FeedPost {
       mediaPlatform: str(json['media_platform']),
       mediaKind: str(json['media_kind']),
       mediaDurationSeconds: (json['media_duration_s'] as num?)?.toInt(),
+      mediaPosterUrl: str(json['media_poster_url']),
       areaName: str(json['area_name']),
       latitude: (json['latitude'] as num?)?.toDouble(),
       longitude: (json['longitude'] as num?)?.toDouble(),

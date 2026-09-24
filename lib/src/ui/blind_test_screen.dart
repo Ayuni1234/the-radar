@@ -93,7 +93,7 @@ class _BlindTestScreenState extends ConsumerState<BlindTestScreen> {
       backgroundColor: RadarTheme.ink,
       appBar: AppBar(
         title: Row(children: [
-          const Icon(Icons.visibility_off, size: 19, color: RadarTheme.pi),
+           Icon(Icons.visibility_off, size: 19, color: RadarTheme.pi),
           const SizedBox(width: 8),
           const Text('Blind scouting test',
               style: TextStyle(fontSize: 16.5)),
@@ -114,7 +114,7 @@ class _BlindTestScreenState extends ConsumerState<BlindTestScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                       Text(
                         'Bias-free evaluation protocol',
                         style: TextStyle(
                             color: RadarTheme.textPrimary,
@@ -129,7 +129,7 @@ class _BlindTestScreenState extends ConsumerState<BlindTestScreen> {
                         'you have scored every candidate.\n\n'
                         'Average so far: ${avg.toStringAsFixed(1)}/10 · '
                         '${_ratings.length}/${_candidates.length} rated',
-                        style: const TextStyle(
+                        style:  TextStyle(
                             color: RadarTheme.textDim,
                             fontSize: 12.5,
                             height: 1.45),
@@ -244,7 +244,7 @@ class _BlindCandidateCard extends StatelessWidget {
                 shape: BoxShape.circle,
               ),
               child: Text(label.split(' ').last,
-                  style: const TextStyle(
+                  style:  TextStyle(
                       color: RadarTheme.pi,
                       fontWeight: FontWeight.w800,
                       fontSize: 15)),
@@ -253,7 +253,7 @@ class _BlindCandidateCard extends StatelessWidget {
             Expanded(
               child: Text(
                 '$label · ${session.durationMin} min tracked',
-                style: const TextStyle(
+                style:  TextStyle(
                     color: RadarTheme.textPrimary,
                     fontWeight: FontWeight.w700,
                     fontSize: 14.5),
@@ -302,11 +302,11 @@ class _BlindCandidateCard extends StatelessWidget {
                       border: Border.all(color: RadarTheme.stroke),
                     ),
                     child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      const Icon(Icons.movie_filter,
+                       Icon(Icons.movie_filter,
                           size: 13, color: RadarTheme.radar),
                       const SizedBox(width: 5),
                       Text('${clip.kindLabel} ${clip.windowLabel.split('–').first.trim()}',
-                          style: const TextStyle(
+                          style:  TextStyle(
                               color: RadarTheme.textDim, fontSize: 11)),
                     ]),
                   ),
@@ -353,7 +353,7 @@ class _BlindCandidateCard extends StatelessWidget {
           Icon(icon, size: 13, color: RadarTheme.radar),
           const SizedBox(width: 5),
           Text('$value $label',
-              style: const TextStyle(
+              style:  TextStyle(
                   color: RadarTheme.textPrimary, fontSize: 11.5)),
         ]),
       );
@@ -392,7 +392,7 @@ class _RevealView extends StatelessWidget {
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: RadarTheme.radar.withValues(alpha: 0.4)),
           ),
-          child: const Text(
+          child:  Text(
             'Identities revealed. Compare your blind verdicts against who the '
             'candidates actually are — if your ranking surprises you, the bias '
             'check did its job.',
@@ -491,7 +491,7 @@ class _RevealCard extends StatelessWidget {
                   profile != null
                       ? '${profile!.displayName} · ${profile!.clubAffiliation ?? 'unaffiliated'}'
                       : '$label (synthetic candidate)',
-                  style: const TextStyle(
+                  style:  TextStyle(
                       color: RadarTheme.textPrimary,
                       fontWeight: FontWeight.w700,
                       fontSize: 14),
@@ -502,14 +502,14 @@ class _RevealCard extends StatelessWidget {
                   '${report.distanceKm.toStringAsFixed(1)} km · '
                   '${report.peakSpeedKmh.toStringAsFixed(0)} km/h peak · '
                   '${report.passRate.toStringAsFixed(0)}% passing',
-                  style: const TextStyle(
+                  style:  TextStyle(
                       color: RadarTheme.textDim, fontSize: 12),
                 ),
               ],
             ),
           ),
           if (profile != null && profile!.kycVerified)
-            const Icon(Icons.verified, size: 16, color: RadarTheme.radar),
+             Icon(Icons.verified, size: 16, color: RadarTheme.radar),
         ],
       ),
     );

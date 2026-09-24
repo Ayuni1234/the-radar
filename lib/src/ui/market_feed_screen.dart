@@ -42,9 +42,9 @@ class MarketFeedScreen extends ConsumerWidget {
                 pinned: true,
                 backgroundColor: RadarTheme.ink.withValues(alpha: 0.96),
                 title: Row(children: [
-                  const Icon(Icons.storefront, color: RadarTheme.pi, size: 22),
+                   Icon(Icons.storefront, color: RadarTheme.pi, size: 22),
                   const SizedBox(width: 8),
-                  const Text('The PitchMarket',
+                   Text('The PitchMarket',
                       style: TextStyle(
                           color: RadarTheme.textPrimary,
                           fontWeight: FontWeight.w700)),
@@ -105,7 +105,7 @@ class MarketFeedScreen extends ConsumerWidget {
                     trailing: Text(
                         '${filtered.length} of '
                         '${(listingsAsync.value ?? const []).length} listings',
-                        style: const TextStyle(
+                        style:  TextStyle(
                             color: RadarTheme.textDim, fontSize: 12)),
                   ),
                 ),
@@ -119,7 +119,7 @@ class MarketFeedScreen extends ConsumerWidget {
                   ),
                 )
               else if (filtered.isEmpty)
-                const SliverToBoxAdapter(
+                 SliverToBoxAdapter(
                   child: Padding(
                     padding: EdgeInsets.symmetric(horizontal: 16, vertical: 30),
                     child: Center(
@@ -203,7 +203,7 @@ class _HeaderCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Local streaming gear, paid in Pi',
+               Text('Local streaming gear, paid in Pi',
                   style: TextStyle(
                       color: RadarTheme.textPrimary,
                       fontWeight: FontWeight.w700,
@@ -213,7 +213,7 @@ class _HeaderCard extends StatelessWidget {
                 '$listingCount items from $shopCount local merchant '
                 'shops. Sellers are paid directly to their verified Pi '
                 'wallet; a small fee keeps the platform running.',
-                style: const TextStyle(
+                style:  TextStyle(
                     color: RadarTheme.textDim, fontSize: 12, height: 1.45),
               ),
             ],
@@ -221,7 +221,7 @@ class _HeaderCard extends StatelessWidget {
         ),
         if (!signedIn) ...[
           const SizedBox(width: 10),
-          const Icon(Icons.lock_outline, color: RadarTheme.textDim, size: 20),
+           Icon(Icons.lock_outline, color: RadarTheme.textDim, size: 20),
         ],
       ]),
     );
@@ -241,7 +241,7 @@ class _SearchBar extends StatelessWidget {
     return TextField(
       onChanged: onChanged,
       controller: TextEditingController(text: query),
-      style: const TextStyle(color: RadarTheme.textPrimary, fontSize: 13.5),
+      style:  TextStyle(color: RadarTheme.textPrimary, fontSize: 13.5),
       decoration: InputDecoration(
         hintText: 'Search gimbals, mics, tripods…',
         prefixIcon: const Icon(Icons.search, size: 20),
@@ -447,7 +447,7 @@ class _ListingCard extends StatelessWidget {
                     Text(listing.title,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style:  TextStyle(
                             color: RadarTheme.textPrimary,
                             fontWeight: FontWeight.w700,
                             fontSize: 14.5)),
@@ -458,7 +458,7 @@ class _ListingCard extends StatelessWidget {
                           : 'Local merchant shop',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style:  TextStyle(
                           color: RadarTheme.textDim, fontSize: 12),
                     ),
                     const SizedBox(height: 8),
@@ -491,11 +491,11 @@ class _ListingCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(_fmtPi(listing.pricePi),
-                      style: const TextStyle(
+                      style:  TextStyle(
                           color: RadarTheme.pi,
                           fontWeight: FontWeight.w800,
                           fontSize: 16)),
-                  const Text('π',
+                   Text('π',
                       style: TextStyle(
                           color: RadarTheme.pi,
                           fontWeight: FontWeight.w600,

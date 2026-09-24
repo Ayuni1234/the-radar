@@ -6,11 +6,12 @@ import '../models/enums.dart';
 import '../models/user_profile.dart';
 import '../state/auth_controller.dart';
 import '../state/radar_providers.dart';
+import '../state/theme_controller.dart';
 import '../supabase/supabase_config.dart';
+import 'radar_theme.dart';
 import 'docs_center_screen.dart';
 import 'sync_center_screen.dart';
 import 'system_health_screen.dart';
-import 'radar_theme.dart';
 import 'shell.dart';
 
 /// Account Settings & Role Management — centralized control over roles,
@@ -67,6 +68,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       appBar: AppBar(
         title: const Text('Account settings'),
         actions: [
+          const _ThemeToggleButton(),
           IconButton(
             tooltip: 'Documentation & about',
             icon: const Icon(Icons.menu_book_outlined, size: 20),
@@ -98,6 +100,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
         children: [
           _IdentityCard(session: session, profile: mine, live: live),
+          const SizedBox(height: 14),
+          const _ThemeSection(),
           const SizedBox(height: 14),
           _RoleSection(
             session: session,
@@ -144,7 +148,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       behavior: SnackBarBehavior.floating,
       backgroundColor: error ? RadarTheme.alert : RadarTheme.panelHigh,
       content: Text(msg,
-          style: const TextStyle(color: RadarTheme.textPrimary)),
+          style:  TextStyle(color: RadarTheme.textPrimary)),
     ));
   }
 
@@ -190,7 +194,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         content: SizedBox(
           width: 420,
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const Text(
+             Text(
               'A JSON copy is on your clipboard. The full export is below — '
               'select and copy it anywhere.',
               style: TextStyle(fontSize: 12.5, color: RadarTheme.textDim),
@@ -270,6 +274,109 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (err != null) _toast(err, error: true);
     // On success the auth state flips to signed-out and the app routes
     // back to the login screen automatically.
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Theme (dark / light)
+// ---------------------------------------------------------------------------
+
+/// Compact dark/light switch for the app bar. Icons adapt to the current
+/// mode: a moon in light mode (tap for dark), a sun in dark mode.
+class _ThemeToggleButton extends ConsumerWidget {
+  const _ThemeToggleButton();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mode = ref.watch(themeModeProvider);
+    final isDark = mode == RadarBrightness.dark;
+    return IconButton(
+      tooltip: isDark ? 'Switch to light theme' : 'Switch to dark theme',
+      icon: Icon(
+        isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+        size: 20,
+        color: RadarTheme.textDim,
+      ),
+      onPressed: () async {
+        final next = ref.read(themeModeProvider.notifier).toggle();
+        RadarTheme.current = next == RadarBrightness.dark
+            ? RadarPalette.dark
+            : RadarPalette.light;
+        await persistThemePreference(next);
+      },
+    );
+  }
+}
+
+/// Full appearance section in the settings body — explicit Dark / Light
+/// choice with a description, persisted across sessions.
+class _ThemeSection extends ConsumerWidget {
+  const _ThemeSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mode = ref.watch(themeModeProvider);
+    final isDark = mode == RadarBrightness.dark;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: RadarTheme.panel,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: RadarTheme.stroke),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Icon(
+              isDark ? Icons.dark_mode : Icons.light_mode,
+              size: 18,
+              color: RadarTheme.radar,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Appearance',
+                      style: TextStyle(
+                          fontSize: 13.5, fontWeight: FontWeight.w700)),
+                  Text(
+                    isDark
+                        ? 'Dark ops-room theme'
+                        : 'Light theme — clean and bright',
+                    style:
+                        TextStyle(fontSize: 11.5, color: RadarTheme.textDim),
+                  ),
+                ],
+              ),
+            ),
+            SegmentedButton<RadarBrightness>(
+              segments: const [
+                ButtonSegment(
+                    value: RadarBrightness.dark,
+                    icon: Icon(Icons.dark_mode, size: 16),
+                    label: Text('Dark')),
+                ButtonSegment(
+                    value: RadarBrightness.light,
+                    icon: Icon(Icons.light_mode, size: 16),
+                    label: Text('Light')),
+              ],
+              selected: {mode},
+              showSelectedIcon: false,
+              onSelectionChanged: (selection) async {
+                final next = selection.first;
+                RadarTheme.current = next == RadarBrightness.dark
+                    ? RadarPalette.dark
+                    : RadarPalette.light;
+                ref.read(themeModeProvider.notifier).set(next);
+                await persistThemePreference(next);
+              },
+            ),
+          ]),
+        ],
+      ),
+    );
   }
 }
 
@@ -400,7 +507,7 @@ class _RoleSection extends ConsumerWidget {
       padding: const EdgeInsets.all(16),
       decoration: _card(),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Row(children: [
+         Row(children: [
           Icon(Icons.switch_account_outlined, size: 17,
               color: RadarTheme.radar),
           SizedBox(width: 8),
@@ -414,7 +521,7 @@ class _RoleSection extends ConsumerWidget {
         Text(
           'Your current primary role is ${currentRole.label}. Tap another '
           'role to switch — permissions and visibility follow instantly.',
-          style: const TextStyle(
+          style:  TextStyle(
               fontSize: 12.5, color: RadarTheme.textDim, height: 1.4),
         ),
         const SizedBox(height: 12),
@@ -490,7 +597,7 @@ class _RegionSection extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: _card(),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Row(children: [
+         Row(children: [
           Icon(Icons.tune_outlined, size: 17, color: RadarTheme.radar),
           SizedBox(width: 8),
           Expanded(
@@ -532,14 +639,14 @@ class _RegionSection extends StatelessWidget {
             label: const Text('Save region'),
           ),
         ),
-        const Divider(height: 24, color: RadarTheme.stroke),
+         Divider(height: 24, color: RadarTheme.stroke),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           value: isPublic,
           onChanged: onPublicChanged,
           title: const Text('Public profile visibility',
               style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
-          subtitle: const Text(
+          subtitle:  Text(
             'When off, your profile is hidden from the directory and search. '
             'Enforced by the database, not just the app.',
             style: TextStyle(fontSize: 11.5, color: RadarTheme.textDim),
@@ -576,7 +683,7 @@ class _SessionSection extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: _card(),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Row(children: [
+         Row(children: [
           Icon(Icons.account_balance_wallet_outlined, size: 17,
               color: RadarTheme.pi),
           SizedBox(width: 8),
@@ -623,7 +730,7 @@ class _SessionSection extends StatelessWidget {
           SizedBox(
               width: 128,
               child: Text(k,
-                  style: const TextStyle(
+                  style:  TextStyle(
                       fontSize: 12, color: RadarTheme.textDim))),
           Expanded(
             child: Text(v,
@@ -655,7 +762,7 @@ class _DataSection extends StatelessWidget {
         border: Border.all(color: RadarTheme.alert.withValues(alpha: 0.45)),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Row(children: [
+         Row(children: [
           Icon(Icons.download_outlined, size: 17, color: RadarTheme.radar),
           SizedBox(width: 8),
           Expanded(
@@ -674,7 +781,7 @@ class _DataSection extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 10),
-        const Text(
+         Text(
           'Danger zone',
           style: TextStyle(
               fontSize: 12,

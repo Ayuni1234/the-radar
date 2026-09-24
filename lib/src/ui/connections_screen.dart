@@ -101,7 +101,7 @@ class ConnectionsScreen extends ConsumerWidget {
                 ),
                 error: (e, _) => Center(
                   child: Text('Could not load requests: $e',
-                      style: const TextStyle(color: RadarTheme.alert)),
+                      style:  TextStyle(color: RadarTheme.alert)),
                 ),
                 data: (all) {
                   final received = all
@@ -182,7 +182,7 @@ class _RequestList extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.connect_without_contact,
+               Icon(Icons.connect_without_contact,
                   size: 40, color: RadarTheme.stroke),
               const SizedBox(height: 12),
               Text(emptyTitle,
@@ -193,7 +193,7 @@ class _RequestList extends ConsumerWidget {
                 emptyBody,
                 textAlign: TextAlign.center,
                 style:
-                    const TextStyle(fontSize: 13, color: RadarTheme.textDim),
+                     TextStyle(fontSize: 13, color: RadarTheme.textDim),
               ),
             ],
           ),
@@ -352,7 +352,7 @@ class _RequestCard extends ConsumerWidget {
               InfoPill(
                   icon: otherRole!.icon, label: otherRole!.label),
             if (otherKyc)
-              const InfoPill(
+               InfoPill(
                   icon: Icons.verified_user_outlined,
                   label: 'KYC verified',
                   color: RadarTheme.radar),
@@ -368,7 +368,7 @@ class _RequestCard extends ConsumerWidget {
                   icon: Icons.schedule,
                   label: df.format(request.createdAt!)),
             if (otherIsMinor)
-              const InfoPill(
+               InfoPill(
                   icon: Icons.shield_outlined,
                   label: 'Guardian consent enforced',
                   color: RadarTheme.gold,

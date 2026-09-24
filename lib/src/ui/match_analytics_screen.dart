@@ -67,7 +67,7 @@ class _MatchAnalyticsScreenState extends ConsumerState<MatchAnalyticsScreen> {
             style: TextStyle(fontSize: 17)),
       ),
       body: _loading
-          ? const Center(
+          ?  Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -98,13 +98,13 @@ class _NoTelemetry extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.radar, size: 46, color: RadarTheme.textDim),
+             Icon(Icons.radar, size: 46, color: RadarTheme.textDim),
             const SizedBox(height: 14),
             Text(
               bounty.isLive
                   ? 'Tracking engine warming up'
                   : 'No tracking telemetry yet',
-              style: const TextStyle(
+              style:  TextStyle(
                   color: RadarTheme.textPrimary,
                   fontSize: 16,
                   fontWeight: FontWeight.w600),
@@ -117,7 +117,7 @@ class _NoTelemetry extends StatelessWidget {
                   : 'Telemetry publishes when the streamer\'s tracker has '
                       'processed the broadcast.',
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style:  TextStyle(
                   color: RadarTheme.textDim, fontSize: 13, height: 1.45),
             ),
           ],
@@ -190,7 +190,7 @@ class _HeaderCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(session.playerLabel,
-                        style: const TextStyle(
+                        style:  TextStyle(
                             color: RadarTheme.textPrimary,
                             fontSize: 16,
                             fontWeight: FontWeight.w700)),
@@ -198,7 +198,7 @@ class _HeaderCard extends StatelessWidget {
                     Text(
                       'AI tracking · ${(session.lockConfidence * 100).toStringAsFixed(0)}% lock confidence'
                       ' · ${session.durationMin} min',
-                      style: const TextStyle(
+                      style:  TextStyle(
                           color: RadarTheme.textDim, fontSize: 12),
                     ),
                   ],
@@ -231,7 +231,7 @@ class _HeaderCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text('Bounty: ${bounty.title}',
-              style: const TextStyle(
+              style:  TextStyle(
                   color: RadarTheme.textDim, fontSize: 12.5),
               maxLines: 2,
               overflow: TextOverflow.ellipsis),
@@ -263,14 +263,14 @@ class _HeatmapCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(children: [
-            const Text('Positional heatmap',
+             Text('Positional heatmap',
                 style: TextStyle(
                     color: RadarTheme.textPrimary,
                     fontWeight: FontWeight.w700,
                     fontSize: 14)),
             const Spacer(),
             Text('${report.distanceKm.toStringAsFixed(1)} km covered',
-                style: const TextStyle(
+                style:  TextStyle(
                     color: RadarTheme.radar,
                     fontSize: 12.5,
                     fontWeight: FontWeight.w700)),
@@ -287,7 +287,7 @@ class _HeatmapCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
+           Text(
             'Attack direction →    (viewer goal on the left; intensity = '
             'time on pitch)',
             style: TextStyle(color: RadarTheme.textDim, fontSize: 11),
@@ -374,7 +374,7 @@ class _PhysicalCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Physical output',
+           Text('Physical output',
               style: TextStyle(
                   color: RadarTheme.textPrimary,
                   fontWeight: FontWeight.w700,
@@ -396,7 +396,7 @@ class _PhysicalCard extends StatelessWidget {
           Text(
             '${report.bursts.length} acceleration bursts · '
             '${report.topSpeedZones} min in the sprint zone (24+ km/h)',
-            style: const TextStyle(color: RadarTheme.textDim, fontSize: 12.5),
+            style:  TextStyle(color: RadarTheme.textDim, fontSize: 12.5),
           ),
           if (report.bursts.isNotEmpty) ...[
             const SizedBox(height: 10),
@@ -404,13 +404,13 @@ class _PhysicalCard extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(bottom: 6),
                 child: Row(children: [
-                  const Icon(Icons.bolt, color: RadarTheme.gold, size: 15),
+                   Icon(Icons.bolt, color: RadarTheme.gold, size: 15),
                   const SizedBox(width: 6),
                   Text(
                     '${_clock(b.startSec)} — ${_clock(b.endSec)}: peak '
                     '${b.peakKmh.toStringAsFixed(1)} km/h over '
                     '${b.distanceM.toStringAsFixed(0)} m',
-                    style: const TextStyle(
+                    style:  TextStyle(
                         color: RadarTheme.textPrimary, fontSize: 12.5),
                   ),
                 ]),
@@ -447,7 +447,7 @@ class _PhysicalCard extends StatelessWidget {
                           fontWeight: FontWeight.w800)),
                   TextSpan(
                       text: ' $unit',
-                      style: const TextStyle(
+                      style:  TextStyle(
                           color: RadarTheme.textDim, fontSize: 11)),
                 ],
               ),
@@ -455,7 +455,7 @@ class _PhysicalCard extends StatelessWidget {
             const SizedBox(height: 2),
             Text(label,
                 style:
-                    const TextStyle(color: RadarTheme.textDim, fontSize: 11)),
+                     TextStyle(color: RadarTheme.textDim, fontSize: 11)),
           ]),
         ),
       );
@@ -480,7 +480,7 @@ class _TechnicalCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Technical breakdown',
+           Text('Technical breakdown',
               style: TextStyle(
                   color: RadarTheme.textPrimary,
                   fontWeight: FontWeight.w700,
@@ -524,7 +524,7 @@ class _TechnicalCard extends StatelessWidget {
       children: [
         Row(children: [
           Text(label,
-              style: const TextStyle(
+              style:  TextStyle(
                   color: RadarTheme.textPrimary, fontSize: 13)),
           const Spacer(),
           Text('${pct.toStringAsFixed(0)}%  $detail',
@@ -581,25 +581,25 @@ class _HighlightReelCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(children: [
-            const Text('Auto-generated highlight reel',
+             Text('Auto-generated highlight reel',
                 style: TextStyle(
                     color: RadarTheme.textPrimary,
                     fontWeight: FontWeight.w700,
                     fontSize: 14)),
             const Spacer(),
             Text('${report.clips.length} clips',
-                style: const TextStyle(
+                style:  TextStyle(
                     color: RadarTheme.textDim, fontSize: 12)),
           ]),
           const SizedBox(height: 4),
-          const Text(
+           Text(
             'The tracking engine auto-slices every touch, tackle, take-on '
             'and shot into scout-ready clips.',
             style: TextStyle(color: RadarTheme.textDim, fontSize: 11.5),
           ),
           const SizedBox(height: 12),
           if (report.clips.isEmpty)
-            const Padding(
+             Padding(
               padding: EdgeInsets.symmetric(vertical: 12),
               child: Text('No highlight events detected in this session.',
                   style: TextStyle(color: RadarTheme.textDim, fontSize: 12.5)),
@@ -633,12 +633,12 @@ class _HighlightReelCard extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(clip.label,
-                                style: const TextStyle(
+                                style:  TextStyle(
                                     color: RadarTheme.textPrimary,
                                     fontSize: 13,
                                     fontWeight: FontWeight.w600)),
                             Text(clip.windowLabel,
-                                style: const TextStyle(
+                                style:  TextStyle(
                                     color: RadarTheme.textDim, fontSize: 11)),
                           ],
                         ),

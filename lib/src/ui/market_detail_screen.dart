@@ -46,10 +46,10 @@ class _MarketDetailScreenState extends ConsumerState<MarketDetailScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.inventory_2_outlined,
+               Icon(Icons.inventory_2_outlined,
                   size: 44, color: RadarTheme.textDim),
               const SizedBox(height: 12),
-              const Text('This listing is no longer available',
+               Text('This listing is no longer available',
                   style: TextStyle(color: RadarTheme.textDim)),
               const SizedBox(height: 16),
               OutlinedButton(
@@ -124,11 +124,11 @@ class _Gallery extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.photo_camera_outlined,
+                     Icon(Icons.photo_camera_outlined,
                         size: 40, color: RadarTheme.textDim),
                     const SizedBox(height: 8),
                     Text(marketCategoryLabel(listing.category),
-                        style: const TextStyle(color: RadarTheme.textDim)),
+                        style:  TextStyle(color: RadarTheme.textDim)),
                   ],
                 ),
               )
@@ -140,7 +140,7 @@ class _Gallery extends StatelessWidget {
                   itemBuilder: (context, i) => Image.network(
                     urls[i],
                     fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => const Center(
+                    errorBuilder: (_, _, _) =>  Center(
                       child: Icon(Icons.broken_image_outlined,
                           size: 40, color: RadarTheme.textDim),
                     ),
@@ -194,13 +194,13 @@ class _SpecsCard extends StatelessWidget {
           Row(children: [
             Expanded(
               child: Text(listing.title,
-                  style: const TextStyle(
+                  style:  TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w800,
                       color: RadarTheme.textPrimary)),
             ),
             Text('${_fmtPi(listing.pricePi)} π',
-                style: const TextStyle(
+                style:  TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
                     color: RadarTheme.pi)),
@@ -269,7 +269,7 @@ class _ShopCard extends StatelessWidget {
             color: RadarTheme.pi.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: const Icon(Icons.storefront, color: RadarTheme.pi, size: 22),
+          child:  Icon(Icons.storefront, color: RadarTheme.pi, size: 22),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -285,19 +285,19 @@ class _ShopCard extends StatelessWidget {
                 ),
                 if (shop.isVerified) ...[
                   const SizedBox(width: 6),
-                  const Icon(Icons.verified, size: 15, color: RadarTheme.radar),
+                   Icon(Icons.verified, size: 15, color: RadarTheme.radar),
                 ],
               ]),
               const SizedBox(height: 2),
               Text('Pickup area: ${shop.locationArea}',
                   style:
-                      const TextStyle(color: RadarTheme.textDim, fontSize: 12)),
+                       TextStyle(color: RadarTheme.textDim, fontSize: 12)),
               if (shop.description != null) ...[
                 const SizedBox(height: 4),
                 Text(shop.description!,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style:  TextStyle(
                         color: RadarTheme.textDim,
                         fontSize: 11.5,
                         height: 1.4)),
@@ -326,13 +326,13 @@ class _FeeSplitExplainer extends StatelessWidget {
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          const Icon(Icons.call_split, size: 16, color: RadarTheme.info),
+           Icon(Icons.call_split, size: 16, color: RadarTheme.info),
           const SizedBox(width: 8),
           const Text('How your Pi is routed',
               style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
         ]),
         const SizedBox(height: 8),
-        const Text(
+         Text(
           'Your payment goes to the merchant\u2019s verified Pi wallet in a '
           'single transaction — the platform automatically captures a small '
           'maintenance fee to cover hosting, escrow reviews and support. '
@@ -361,7 +361,7 @@ class _CheckoutBar extends ConsumerWidget {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       decoration: BoxDecoration(
         color: RadarTheme.ink.withValues(alpha: 0.97),
-        border: const Border(top: BorderSide(color: RadarTheme.stroke)),
+        border:  Border(top: BorderSide(color: RadarTheme.stroke)),
       ),
       child: SafeArea(
         top: false,
@@ -397,7 +397,7 @@ class _CheckoutBar extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('${_fmtPi(listing.pricePi)} π',
-                        style: const TextStyle(
+                        style:  TextStyle(
                             fontSize: 17,
                             fontWeight: FontWeight.w800,
                             color: RadarTheme.pi)),
@@ -407,7 +407,7 @@ class _CheckoutBar extends ConsumerWidget {
                           : listing.inStock
                               ? 'Paid to the merchant via Pi'
                               : 'Out of stock',
-                      style: const TextStyle(
+                      style:  TextStyle(
                           fontSize: 11, color: RadarTheme.textDim),
                     ),
                   ],

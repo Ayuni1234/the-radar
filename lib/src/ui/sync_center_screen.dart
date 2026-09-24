@@ -87,7 +87,7 @@ class _StatusCard extends ConsumerWidget {
       padding: const EdgeInsets.all(16),
       decoration: _card(),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Row(children: [
+         Row(children: [
           Icon(Icons.wifi_tethering, size: 17, color: RadarTheme.radar),
           SizedBox(width: 8),
           Expanded(
@@ -118,12 +118,12 @@ class _StatusCard extends ConsumerWidget {
               ? 'No sync completed yet this session.'
               : 'Last successful sync: ${DateFormat('d MMM · HH:mm:ss').format(sync.lastSync!)}',
           style:
-              const TextStyle(fontSize: 12, color: RadarTheme.textDim),
+               TextStyle(fontSize: 12, color: RadarTheme.textDim),
         ),
         if (sync.lastError != null) ...[
           const SizedBox(height: 4),
           Text(sync.lastError!,
-              style: const TextStyle(fontSize: 12, color: RadarTheme.gold)),
+              style:  TextStyle(fontSize: 12, color: RadarTheme.gold)),
         ],
       ]),
     );
@@ -147,7 +147,7 @@ class _OutboxCard extends ConsumerWidget {
       decoration: _card(),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          const Icon(Icons.outbox_outlined, size: 17, color: RadarTheme.radar),
+           Icon(Icons.outbox_outlined, size: 17, color: RadarTheme.radar),
           const SizedBox(width: 8),
           const Expanded(
             child: Text('Synchronization queue',
@@ -162,7 +162,7 @@ class _OutboxCard extends ConsumerWidget {
         ]),
         const SizedBox(height: 12),
         if (sync.queue.isEmpty)
-          const Text(
+           Text(
             'The outbox is empty. Mutations made while offline (or ones the '
             'backend rejects) wait here and push automatically when the '
             'connection returns.',
@@ -203,14 +203,14 @@ class _OutboxCard extends ConsumerWidget {
                   ),
                   Text(
                     DateFormat('HH:mm').format(item.createdAt),
-                    style: const TextStyle(
+                    style:  TextStyle(
                         fontSize: 11, color: RadarTheme.textDim),
                   ),
                 ]),
                 if (item.hasConflict) ...[
                   const SizedBox(height: 6),
                   Text('Conflict: ${item.conflict}',
-                      style: const TextStyle(
+                      style:  TextStyle(
                           fontSize: 11.5, color: RadarTheme.alert)),
                   const SizedBox(height: 8),
                   Row(children: [
@@ -276,7 +276,7 @@ class _CacheCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: _card(),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Row(children: [
+         Row(children: [
           Icon(Icons.inventory_2_outlined, size: 17, color: RadarTheme.radar),
           SizedBox(width: 8),
           Expanded(
@@ -291,7 +291,7 @@ class _CacheCard extends StatelessWidget {
         _kvRow('Storage backend',
             live ? 'Device memory (per session)' : 'Demo seed (per session)'),
         const SizedBox(height: 6),
-        const Text(
+         Text(
           'The Radar keeps a read-through mirror of the event feed and '
           'directory so the map, search and inbox keep working when the '
           'network drops. It never stores credentials or Pi wallet data.',
@@ -308,7 +308,7 @@ class _CacheCard extends StatelessWidget {
           SizedBox(
               width: 190,
               child: Text(k,
-                  style: const TextStyle(
+                  style:  TextStyle(
                       fontSize: 12, color: RadarTheme.textDim))),
           Expanded(
             child: Text(v,
@@ -339,7 +339,7 @@ class _SettingsCard extends ConsumerWidget {
         border: Border.all(color: RadarTheme.stroke),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Row(children: [
+         Row(children: [
           Icon(Icons.tune, size: 17, color: RadarTheme.radar),
           SizedBox(width: 8),
           Expanded(
@@ -354,13 +354,13 @@ class _SettingsCard extends ConsumerWidget {
           onChanged: (v) => ref.read(wifiOnlyProvider.notifier).set(v),
           title: const Text('Download heavy data on Wi-Fi only',
               style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
-          subtitle: const Text(
+          subtitle:  Text(
             'Restrict full feed refreshes and media prefetch to unmetered '
             'connections to conserve mobile bandwidth.',
             style: TextStyle(fontSize: 11.5, color: RadarTheme.textDim),
           ),
         ),
-        const Divider(height: 22, color: RadarTheme.stroke),
+         Divider(height: 22, color: RadarTheme.stroke),
         Wrap(spacing: 10, runSpacing: 10, children: [
           OutlinedButton.icon(
             onPressed: () async {

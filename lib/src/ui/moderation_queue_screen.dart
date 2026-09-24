@@ -58,7 +58,7 @@ class _ModerationQueueScreenState extends ConsumerState<ModerationQueueScreen> {
       return Scaffold(
         backgroundColor: RadarTheme.ink,
         appBar: AppBar(title: const Text('Moderation')),
-        body: const SafeArea(
+        body:  SafeArea(
           child: Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -122,7 +122,7 @@ class _ModerationQueueScreenState extends ConsumerState<ModerationQueueScreen> {
                 return Text('$openCount awaiting review',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style:  TextStyle(
                         color: RadarTheme.textDim,
                         fontSize: 12,
                         fontWeight: FontWeight.w500));
@@ -132,7 +132,7 @@ class _ModerationQueueScreenState extends ConsumerState<ModerationQueueScreen> {
           const Spacer(),
           IconButton(
             tooltip: 'Refresh queue',
-            icon: const Icon(Icons.refresh, color: RadarTheme.textDim),
+            icon:  Icon(Icons.refresh, color: RadarTheme.textDim),
             onPressed: () =>
                 ref.read(contentReportsProvider.notifier).refresh(),
           ),
@@ -146,7 +146,7 @@ class _ModerationQueueScreenState extends ConsumerState<ModerationQueueScreen> {
                 ? _Panel(
                     child: Text(
                       'Could not load the queue: ${reportsAsync.error}',
-                      style: const TextStyle(color: RadarTheme.alert),
+                      style:  TextStyle(color: RadarTheme.alert),
                     ),
                   )
                 : Column(
@@ -211,7 +211,7 @@ class _ModerationQueueScreenState extends ConsumerState<ModerationQueueScreen> {
                                       _bucket == 0
                                           ? 'Queue is clear'
                                           : 'Nothing here yet',
-                                      style: const TextStyle(
+                                      style:  TextStyle(
                                           color: RadarTheme.textPrimary,
                                           fontSize: 16),
                                     ),
@@ -220,7 +220,7 @@ class _ModerationQueueScreenState extends ConsumerState<ModerationQueueScreen> {
                                       _bucket == 0
                                           ? 'Every report has been reviewed.'
                                           : 'Closed reports land in this bucket.',
-                                      style: const TextStyle(
+                                      style:  TextStyle(
                                           color: RadarTheme.textDim,
                                           fontSize: 13),
                                     ),
@@ -338,7 +338,7 @@ class _ReportCard extends ConsumerWidget {
               _StatusChip(status: report.status),
               const SizedBox(width: 6),
               Text(age,
-                  style: const TextStyle(
+                  style:  TextStyle(
                       color: RadarTheme.textDim, fontSize: 11.5)),
             ]),
             const SizedBox(height: 10),
@@ -355,7 +355,7 @@ class _ReportCard extends ConsumerWidget {
                       left: BorderSide(color: RadarTheme.gold, width: 3)),
                 ),
                 child: Text('“${report.details}”',
-                    style: const TextStyle(
+                    style:  TextStyle(
                         color: RadarTheme.textPrimary,
                         fontSize: 12.5,
                         height: 1.4)),
@@ -371,7 +371,7 @@ class _ReportCard extends ConsumerWidget {
             Text(
               'Filed ${DateFormat('d MMM · HH:mm').format(report.createdAt)}'
               '${report.reviewedAt != null ? '  ·  reviewed ${DateFormat('d MMM · HH:mm').format(report.reviewedAt!)}' : ''}',
-              style: const TextStyle(color: RadarTheme.textDim, fontSize: 11),
+              style:  TextStyle(color: RadarTheme.textDim, fontSize: 11),
             ),
             const SizedBox(height: 12),
 
@@ -546,7 +546,7 @@ class _TargetContext extends ConsumerWidget {
         'feed_post' => _post(context, ref, id),
         'radar_event' => _event(ref, id),
         'market_listing' => _listing(ref, id),
-        _ => const Text('Unknown target type',
+        _ =>  Text('Unknown target type',
             style: TextStyle(color: RadarTheme.textDim, fontSize: 12)),
       },
     );
@@ -567,7 +567,7 @@ class _TargetContext extends ConsumerWidget {
         child: Text(
           '$type no longer available (deleted or out of view) — '
           'target $id',
-          style: const TextStyle(color: RadarTheme.textDim, fontSize: 12),
+          style:  TextStyle(color: RadarTheme.textDim, fontSize: 12),
         ),
       ),
     ]);
@@ -585,7 +585,7 @@ class _TargetContext extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(children: [
-          const Icon(Icons.article_outlined, size: 15, color: RadarTheme.info),
+           Icon(Icons.article_outlined, size: 15, color: RadarTheme.info),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -601,7 +601,7 @@ class _TargetContext extends ConsumerWidget {
         Text(found.body,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style:  TextStyle(
                 color: RadarTheme.textDim, fontSize: 12, height: 1.35)),
         // Own Material ancestor: the surrounding decorated Container would
         // otherwise swallow the tile's ink splashes (asserted in tests).
@@ -616,7 +616,7 @@ class _TargetContext extends ConsumerWidget {
               initiallyExpanded: false,
               iconColor: RadarTheme.textDim,
               collapsedIconColor: RadarTheme.textDim,
-              title: const Text('Show the full post',
+              title:  Text('Show the full post',
                   style: TextStyle(color: RadarTheme.info, fontSize: 12.5)),
               children: [
                 SocialPostCard(post: found),
@@ -655,7 +655,7 @@ class _TargetContext extends ConsumerWidget {
             Text(
               '${DateFormat('EEE d MMM · HH:mm').format(found.startsAt)}'
               ' · ${found.safeLocationLabel()}',
-              style: const TextStyle(color: RadarTheme.textDim, fontSize: 11.5),
+              style:  TextStyle(color: RadarTheme.textDim, fontSize: 11.5),
             ),
           ],
         ),
@@ -673,7 +673,7 @@ class _TargetContext extends ConsumerWidget {
     final found = listing;
     if (found == null) return _missing('Listing', id);
     return Row(children: [
-      const Icon(Icons.storefront_outlined,
+       Icon(Icons.storefront_outlined,
           size: 16, color: RadarTheme.pi),
       const SizedBox(width: 8),
       Expanded(

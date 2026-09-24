@@ -24,7 +24,7 @@ class SheetScaffold extends StatelessWidget {
     required this.title,
     this.subtitle,
     this.icon,
-    this.iconColor = RadarTheme.radar,
+    this.iconColor,
     this.children = const <Widget>[],
     this.footer,
     this.showClose = true,
@@ -41,8 +41,8 @@ class SheetScaffold extends StatelessWidget {
   /// Optional leading icon in the header row.
   final IconData? icon;
 
-  /// Color of the leading header icon.
-  final Color iconColor;
+  /// Color of the leading header icon; defaults to [RadarTheme.radar].
+  final Color? iconColor;
 
   /// Scrollable content between the header and the footer.
   final List<Widget> children;
@@ -79,7 +79,7 @@ class SheetScaffold extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 14, 8, 0),
           child: Row(children: [
             if (icon != null) ...[
-              Icon(icon, color: iconColor, size: 20),
+              Icon(icon, color: iconColor ?? RadarTheme.radar, size: 20),
               const SizedBox(width: 8),
             ],
             Expanded(
@@ -104,7 +104,7 @@ class SheetScaffold extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
             child: Text(
               subtitle!,
-              style: const TextStyle(fontSize: 12, color: RadarTheme.textDim),
+              style:  TextStyle(fontSize: 12, color: RadarTheme.textDim),
             ),
           ),
         Flexible(

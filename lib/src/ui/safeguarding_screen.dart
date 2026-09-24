@@ -58,7 +58,7 @@ class SafeguardingScreen extends ConsumerWidget {
                 ],
               ),
               const SizedBox(height: 6),
-              const Text(
+               Text(
                 'Automated geohash fencing and guardian consent, enforced at '
                 'the database level — no client can bypass them.',
                 style: TextStyle(color: RadarTheme.textDim, fontSize: 13),
@@ -98,7 +98,7 @@ class SafeguardingScreen extends ConsumerWidget {
                 error: (e, _) => _Panel(
                   child: Text(
                     'Could not load guardian links: $e',
-                    style: const TextStyle(color: RadarTheme.alert),
+                    style:  TextStyle(color: RadarTheme.alert),
                   ),
                 ),
                 data: (links) {
@@ -165,7 +165,7 @@ class _AdminQueueCard extends ConsumerWidget {
           border: Border.all(color: RadarTheme.gold.withValues(alpha: 0.45)),
         ),
         child: Row(children: [
-          const Icon(Icons.gavel_outlined, color: RadarTheme.gold, size: 22),
+           Icon(Icons.gavel_outlined, color: RadarTheme.gold, size: 22),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -178,7 +178,7 @@ class _AdminQueueCard extends ConsumerWidget {
                 Text(
                   'Review reported posts, events and listings.',
                   style:
-                      const TextStyle(color: RadarTheme.textDim, fontSize: 12),
+                       TextStyle(color: RadarTheme.textDim, fontSize: 12),
                 ),
               ],
             ),
@@ -191,13 +191,13 @@ class _AdminQueueCard extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(999),
               ),
               child: Text('$openCount',
-                  style: const TextStyle(
+                  style:  TextStyle(
                       color: RadarTheme.gold,
                       fontSize: 12,
                       fontWeight: FontWeight.w800)),
             ),
           const SizedBox(width: 4),
-          const Icon(Icons.chevron_right, color: RadarTheme.textDim),
+           Icon(Icons.chevron_right, color: RadarTheme.textDim),
         ]),
       ),
     );
@@ -233,7 +233,7 @@ class _GeofenceCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SectionHeader(
+           SectionHeader(
             'Automatic geohash fencing',
             trailing: InfoPill(
               icon: Icons.lock_outline,
@@ -277,7 +277,7 @@ class _Bullet extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
+           Padding(
             padding: EdgeInsets.only(top: 6),
             child: Icon(Icons.circle, size: 6, color: RadarTheme.radar),
           ),
@@ -419,10 +419,10 @@ class _MinorGuardianSectionState extends ConsumerState<_MinorGuardianSection> {
           ),
           if (_error != null) ...[
             const SizedBox(height: 8),
-            Text(_error!, style: const TextStyle(color: RadarTheme.alert)),
+            Text(_error!, style:  TextStyle(color: RadarTheme.alert)),
           ],
           const SizedBox(height: 10),
-          const Text(
+           Text(
             'Consent switches are controlled by your guardian — you can '
             'revoke a link at any time, but never self-approve one.',
             style: TextStyle(fontSize: 12, color: RadarTheme.textDim),
@@ -453,7 +453,7 @@ class _GuardianConsentSection extends ConsumerWidget {
       loading: () => const SizedBox.shrink(),
       error: (e, _) => _Panel(
         child: Text('Could not load links: $e',
-            style: const TextStyle(color: RadarTheme.alert)),
+            style:  TextStyle(color: RadarTheme.alert)),
       ),
       data: (links) {
         final pending = links
@@ -469,7 +469,7 @@ class _GuardianConsentSection extends ConsumerWidget {
             children: [
               const SectionHeader('Consent dashboard'),
               if (pending.isEmpty && active.isEmpty)
-                const Text(
+                 Text(
                   'No guardian invitations yet. When a young player invites '
                   'you, their request appears here.',
                   style: TextStyle(fontSize: 13.5, color: RadarTheme.textDim),
@@ -478,7 +478,7 @@ class _GuardianConsentSection extends ConsumerWidget {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    const Icon(Icons.mark_email_unread_outlined,
+                     Icon(Icons.mark_email_unread_outlined,
                         size: 18, color: RadarTheme.gold),
                     const SizedBox(width: 10),
                     Expanded(
@@ -589,7 +589,7 @@ class _ConsentSwitch extends StatelessWidget {
               Text(title, style: const TextStyle(fontSize: 13.5)),
               Text(subtitle,
                   style:
-                      const TextStyle(fontSize: 12, color: RadarTheme.textDim)),
+                       TextStyle(fontSize: 12, color: RadarTheme.textDim)),
             ],
           ),
         ),
@@ -651,7 +651,7 @@ class _GuardianLinkTile extends StatelessWidget {
                   '${link.status.label}'
                   ' · contacts: ${link.consentConnections ? "allowed" : "blocked"}'
                   ' · events: ${link.consentEvents ? "allowed" : "blocked"}',
-                  style: const TextStyle(
+                  style:  TextStyle(
                       fontSize: 12, color: RadarTheme.textDim),
                 ),
                 const SizedBox(height: 6),
@@ -702,7 +702,7 @@ class _ConsentAuditPanel extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(children: [
-            const Icon(Icons.receipt_long, size: 17, color: RadarTheme.radar),
+             Icon(Icons.receipt_long, size: 17, color: RadarTheme.radar),
             const SizedBox(width: 8),
             const Expanded(
               child: SectionHeader('Consent history & audit log'),
@@ -717,7 +717,7 @@ class _ConsentAuditPanel extends ConsumerWidget {
           Text(
             'Every approval, denial and consent switch is recorded by the '
             'database — this log cannot be edited from the app.',
-            style: const TextStyle(
+            style:  TextStyle(
                 fontSize: 12, color: RadarTheme.textDim, height: 1.4),
           ),
           const SizedBox(height: 10),
@@ -728,11 +728,11 @@ class _ConsentAuditPanel extends ConsumerWidget {
             ),
             error: (e, _) => Text(
               'Could not load the audit log: $e',
-              style: const TextStyle(color: RadarTheme.alert, fontSize: 12.5),
+              style:  TextStyle(color: RadarTheme.alert, fontSize: 12.5),
             ),
             data: (entries) {
               if (entries.isEmpty) {
-                return const Padding(
+                return  Padding(
                   padding: EdgeInsets.symmetric(vertical: 8),
                   child: Text(
                     'No consent decisions recorded yet. History appears here '
@@ -750,7 +750,7 @@ class _ConsentAuditPanel extends ConsumerWidget {
                     padding: const EdgeInsets.only(top: 6),
                     child: Text(
                       'Showing the 30 most recent of ${entries.length} entries.',
-                      style: const TextStyle(
+                      style:  TextStyle(
                           fontSize: 11.5, color: RadarTheme.textDim),
                     ),
                   ),
@@ -798,7 +798,7 @@ class _AuditTile extends StatelessWidget {
         const SizedBox(width: 6),
         Text(
           entry.createdAt == null ? '' : df.format(entry.createdAt!),
-          style: const TextStyle(fontSize: 11.5, color: RadarTheme.textDim),
+          style:  TextStyle(fontSize: 11.5, color: RadarTheme.textDim),
         ),
       ]),
     );

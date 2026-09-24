@@ -92,7 +92,7 @@ class _AthleteHero extends StatelessWidget {
                 ),
                 if (p.kycVerified) ...[
                   const SizedBox(width: 6),
-                  const Icon(Icons.verified,
+                   Icon(Icons.verified,
                       size: 18, color: RadarTheme.radar),
                 ],
               ]),
@@ -102,14 +102,14 @@ class _AthleteHero extends StatelessWidget {
                     ? 'Player · ${p.clubAffiliation}'
                     : 'Player · unaffiliated',
                 style:
-                    const TextStyle(fontSize: 12.5, color: RadarTheme.textDim),
+                     TextStyle(fontSize: 12.5, color: RadarTheme.textDim),
               ),
               const SizedBox(height: 8),
               Wrap(spacing: 6, runSpacing: 4, children: [
                 const InfoPill(
                     icon: Icons.emoji_people_outlined, label: 'Athlete'),
                 if (p.isMinor)
-                  const InfoPill(
+                   InfoPill(
                       icon: Icons.shield_outlined,
                       label: 'Safeguarded',
                       color: RadarTheme.gold),
@@ -170,7 +170,7 @@ class _VitalsGrid extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: _card(),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Row(children: [
+         Row(children: [
           Icon(Icons.badge_outlined, size: 17, color: RadarTheme.radar),
           SizedBox(width: 8),
           Text('Athlete bio & positions',
@@ -178,7 +178,7 @@ class _VitalsGrid extends StatelessWidget {
         ]),
         const SizedBox(height: 12),
         if (cells.isEmpty)
-          const Text(
+           Text(
             'No vitals published yet. Players complete them from the My CV tab.',
             style: TextStyle(fontSize: 12.5, color: RadarTheme.textDim),
           )
@@ -212,7 +212,7 @@ class _VitalsGrid extends StatelessWidget {
                                             fontSize: 13.5,
                                             fontWeight: FontWeight.w700)),
                                     Text(cells[j].$3,
-                                        style: const TextStyle(
+                                        style:  TextStyle(
                                             fontSize: 11,
                                             color: RadarTheme.textDim)),
                                   ],
@@ -240,7 +240,7 @@ class _HighlightReel extends StatelessWidget {
 
   final UserProfile profile;
 
-  static const _knownHosts = {
+  static final _knownHosts = {
     'youtube.com': ('YouTube', RadarTheme.alert),
     'youtu.be': ('YouTube', RadarTheme.alert),
     'vimeo.com': ('Vimeo', RadarTheme.info),
@@ -266,7 +266,7 @@ class _HighlightReel extends StatelessWidget {
       decoration: _card(),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          const Icon(Icons.movie_outlined, size: 17, color: RadarTheme.radar),
+           Icon(Icons.movie_outlined, size: 17, color: RadarTheme.radar),
           const SizedBox(width: 8),
           const Expanded(
             child: Text('Highlight reel',
@@ -279,7 +279,7 @@ class _HighlightReel extends StatelessWidget {
         ]),
         const SizedBox(height: 12),
         if (p.videoShowcaseUrls.isEmpty)
-          const Text(
+           Text(
             'No footage published yet. Match clips, training highlights and '
             'skill reels live here.',
             style: TextStyle(fontSize: 12.5, color: RadarTheme.textDim, height: 1.4),
@@ -342,7 +342,7 @@ class _ClipTile extends StatelessWidget {
               Text(url,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style:  TextStyle(
                       fontSize: 11, color: RadarTheme.textDim)),
             ],
           ),
@@ -354,7 +354,7 @@ class _ClipTile extends StatelessWidget {
         ),
         IconButton(
           tooltip: 'Copy secure link',
-          icon: const Icon(Icons.copy_outlined, size: 16,
+          icon:  Icon(Icons.copy_outlined, size: 16,
               color: RadarTheme.textDim),
           onPressed: () {
             Clipboard.setData(ClipboardData(text: url));
@@ -391,7 +391,7 @@ class _CredibilityHistory extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: _card(),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Row(children: [
+         Row(children: [
           Icon(Icons.workspace_premium_outlined,
               size: 17, color: RadarTheme.radar),
           SizedBox(width: 8),
@@ -404,7 +404,7 @@ class _CredibilityHistory extends StatelessWidget {
         CredibilityBar(score: p.credibilityScore),
         const SizedBox(height: 12),
         if (lines.isEmpty)
-          const Text(
+           Text(
             'No career history published yet — past clubs, academies and '
             'tournament appearances will appear here.',
             style: TextStyle(fontSize: 12.5, color: RadarTheme.textDim, height: 1.4),
@@ -465,7 +465,7 @@ class _TimelineRow extends StatelessWidget {
           child: Padding(
             padding: EdgeInsets.only(bottom: isLast ? 0 : 14),
             child: Text(line,
-                style: const TextStyle(
+                style:  TextStyle(
                     fontSize: 13, height: 1.4, color: RadarTheme.textPrimary)),
           ),
         ),
@@ -506,10 +506,10 @@ class _ContactActions extends ConsumerWidget {
         padding: const EdgeInsets.all(16),
         decoration: _card(),
         child: Row(children: [
-          const Icon(Icons.visibility_outlined,
+           Icon(Icons.visibility_outlined,
               size: 17, color: RadarTheme.radar),
           const SizedBox(width: 10),
-          const Expanded(
+           Expanded(
             child: Text(
               'This is how scouts and clubs see your portfolio. Edit it from the My CV tab.',
               style: TextStyle(fontSize: 12.5, color: RadarTheme.textDim, height: 1.4),
@@ -529,7 +529,7 @@ class _ContactActions extends ConsumerWidget {
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: _card(),
-        child: const Row(children: [
+        child:  Row(children: [
           Icon(Icons.lock_outline, size: 17, color: RadarTheme.textDim),
           SizedBox(width: 10),
           Expanded(
@@ -547,7 +547,7 @@ class _ContactActions extends ConsumerWidget {
       padding: const EdgeInsets.all(16),
       decoration: _card(),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Row(children: [
+         Row(children: [
           Icon(Icons.connect_without_contact, size: 17, color: RadarTheme.radar),
           SizedBox(width: 8),
           Text('Direct contact',
@@ -557,7 +557,7 @@ class _ContactActions extends ConsumerWidget {
         Text(
           'Requests land in ${profile.bestName}\'s inbox — guardian consent is '
           'enforced automatically where required.',
-          style: const TextStyle(
+          style:  TextStyle(
               fontSize: 12.5, color: RadarTheme.textDim, height: 1.4),
         ),
         const SizedBox(height: 12),
