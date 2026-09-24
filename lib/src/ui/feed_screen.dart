@@ -262,6 +262,10 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                         // the media runs the full width of the screen.
                         framed: false,
                         post: posts[i],
+                        // The full-screen viewer becomes a gallery that
+                        // flicks between every photo and video poster in
+                        // the feed.
+                        galleryPosts: posts,
                         onOpenAuthor: () => _openAuthor(posts[i]),
                         onDelete:
                             ref.read(sessionProvider)?.profileId ==

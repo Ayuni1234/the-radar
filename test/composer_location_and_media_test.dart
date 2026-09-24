@@ -13,7 +13,16 @@ import 'package:the_radar/src/data/video_thumbnail.dart';
 import 'package:the_radar/src/models/content_report.dart';
 import 'package:the_radar/src/models/feed_post.dart';
 import 'package:the_radar/src/state/auth_controller.dart'
-    show RadarSession, coarseFixLabel, sessionProvider;
+    show
+        AuthController,
+        AuthSignedIn,
+        AuthState,
+        RadarSession,
+        authProvider,
+        coarseFixLabel,
+        sessionProvider;
+import 'package:the_radar/src/state/radar_providers.dart'
+    show FeedPostsController, feedPostsProvider;
 import 'package:the_radar/src/ui/feed_screen.dart';
 import 'package:the_radar/src/ui/media_viewer.dart';
 import 'package:the_radar/src/ui/profiles_screen.dart';
@@ -1102,5 +1111,80 @@ void main() {
       expect(find.text('1 / 2'), findsOneWidget,
           reason: 'Home must jump to the first gallery item');
     });
+
+    testWidgets('the real feed passes its posts so cards open the whole '
+        'feed as the gallery', (tester) async {
+      tester.view.physicalSize = const Size(412, 1400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(ProviderScope(
+        overrides: [
+          authProvider.overrideWith(_FixedAuth.new),
+          feedPostsProvider.overrideWith(_FixedFeedPosts.new),
+        ],
+        child: MaterialApp(theme: RadarTheme.dark, home: const FeedScreen()),
+      ));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      while (tester.takeException() != null) {}
+
+      await tester.tap(find.byType(Hero).first);
+      await tester.pumpAndSettle();
+      while (tester.takeException() != null) {}
+
+      expect(find.text('1 / 2'), findsOneWidget,
+          reason: 'the feed must share its posts with the viewer so the '
+              'gallery holds every photo and video poster — a singleton '
+              'gallery here means the wiring regressed');
+    });
   });
+}
+
+/// Fixed signed-in session for the feed-gallery wiring test.
+class _FixedAuth extends AuthController {
+  @override
+  Future<AuthState> build() => Future.value(AuthSignedIn(const RadarSession(
+        piUid: 'test-uid',
+        username: 'tester',
+        kycVerified: true,
+        isDemo: true,
+      )));
+}
+
+/// Fixed feed contents for the feed-gallery wiring test: one photo post
+/// and one video post.
+class _FixedFeedPosts extends FeedPostsController {
+  @override
+  Future<List<FeedPost>> build() => Future.value([
+        FeedPost(
+          id: 'f1',
+          authorProfileId: 'a1',
+          authorName: 'Scout',
+          authorRole: 'player',
+          kind: FeedPostKind.highlight,
+          body: 'Sprint day.',
+          createdAt: DateTime(2026, 9, 24),
+          mediaUrl: 'https://example.supabase.co/storage/v1/object/public/'
+              'feed-media/u1/1.jpg',
+          mediaPlatform: 'device photo',
+          mediaKind: 'device_photo',
+        ),
+        FeedPost(
+          id: 'f2',
+          authorProfileId: 'a1',
+          authorName: 'Scout',
+          authorRole: 'player',
+          kind: FeedPostKind.highlight,
+          body: 'Top bins.',
+          createdAt: DateTime(2026, 9, 24),
+          mediaUrl: 'https://example.supabase.co/storage/v1/object/public/'
+              'feed-media/u1/2.mp4',
+          mediaPosterUrl: 'https://example.supabase.co/storage/v1/object/'
+              'public/feed-media/u1/2.mp4.jpg',
+          mediaPlatform: 'device video · 1:12',
+          mediaKind: 'device_video',
+          mediaDurationSeconds: 72,
+        ),
+      ]);
 }
