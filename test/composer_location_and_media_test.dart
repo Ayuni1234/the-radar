@@ -15,6 +15,7 @@ import 'package:the_radar/src/models/feed_post.dart';
 import 'package:the_radar/src/state/auth_controller.dart'
     show RadarSession, coarseFixLabel, sessionProvider;
 import 'package:the_radar/src/ui/feed_screen.dart';
+import 'package:the_radar/src/ui/media_viewer.dart';
 import 'package:the_radar/src/ui/profiles_screen.dart';
 import 'package:the_radar/src/ui/radar_theme.dart';
 import 'package:the_radar/src/ui/sheet_scaffold.dart';
@@ -826,6 +827,142 @@ void main() {
       expect(panelAfter, const Color(0xFFFFFFFF),
           reason: 'panel getter must emit the light palette after the '
               'switch — no hardcoded dark colors surviving');
+    });
+  });
+
+  group('full-screen media viewer', () {
+    FeedPost photoPost() => FeedPost(
+          id: 'pv1',
+          authorProfileId: 'a1',
+          authorName: 'Scout',
+          authorRole: 'player',
+          kind: FeedPostKind.highlight,
+          body: 'Match-winner from distance.',
+          createdAt: DateTime(2026, 9, 23),
+          mediaUrl: 'https://example.supabase.co/storage/v1/object/public/'
+              'feed-media/u1/hero.jpg',
+          mediaPlatform: 'device photo',
+          mediaKind: 'device_photo',
+        );
+
+    FeedPost videoPost() => FeedPost(
+          id: 'pv2',
+          authorProfileId: 'a1',
+          authorName: 'Scout',
+          authorRole: 'player',
+          kind: FeedPostKind.highlight,
+          body: 'Top bins from the edge of the box.',
+          createdAt: DateTime(2026, 9, 23),
+          mediaUrl: 'https://example.supabase.co/storage/v1/object/public/'
+              'feed-media/u1/2.mp4',
+          mediaPosterUrl: 'https://example.supabase.co/storage/v1/object/'
+              'public/feed-media/u1/2.mp4.jpg',
+          mediaPlatform: 'device video · 1:12',
+          mediaKind: 'device_video',
+          mediaDurationSeconds: 72,
+        );
+
+    Future<void> pumpCard(WidgetTester tester, FeedPost post) async {
+      tester.view.physicalSize = const Size(800, 1400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(ProviderScope(
+        child: MaterialApp(
+          theme: RadarTheme.dark,
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: SocialPostCard(post: post),
+            ),
+          ),
+        ),
+      ));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+    }
+
+    testWidgets('tapping a device photo opens the pinch-zoom viewer',
+        (tester) async {
+      await pumpCard(tester, photoPost());
+      // The hero is the card's only Hero widget (detector wraps it).
+      await tester.tap(find.byType(Hero).first);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(MediaViewer), findsOneWidget,
+          reason: 'the photo hero must open the full-screen viewer');
+      expect(find.byType(Hero), findsWidgets);
+      expect(find.byIcon(Icons.close), findsOneWidget);
+    });
+
+    testWidgets('viewer supports pinch-zoom about the gesture focal point',
+        (tester) async {
+      await pumpCard(tester, photoPost());
+      await tester.tap(find.byType(Hero).first);
+      await tester.pumpAndSettle();
+
+      final media = find.byType(MediaViewer);
+      final before = tester.getTopLeft(find.descendant(
+        of: media,
+        matching: find.byType(Hero),
+      ));
+
+      // A two-finger pinch about the image centre scales the transform.
+      final center = tester.getCenter(media);
+      final gesture = await tester.startGesture(center - const Offset(60, 0));
+      final second = await tester.startGesture(center + const Offset(60, 0));
+      await tester.pump();
+      await gesture.moveBy(const Offset(-80, 0), timeStamp: const Duration(milliseconds: 100));
+      await second.moveBy(const Offset(80, 0), timeStamp: const Duration(milliseconds: 100));
+      await tester.pump();
+      await gesture.moveBy(const Offset(-60, 0), timeStamp: const Duration(milliseconds: 200));
+      await second.moveBy(const Offset(60, 0), timeStamp: const Duration(milliseconds: 200));
+      await tester.pump();
+      await gesture.up();
+      await second.up();
+      await tester.pumpAndSettle();
+
+      final heroCenter = tester.getCenter(find.descendant(
+        of: media,
+        matching: find.byType(Hero),
+      ));
+      expect(heroCenter.dx, isNot(before.dx),
+          reason: 'a pinch must scale the media transform (the hero rect '
+              'grows past the viewport width)');
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a downward swipe past the threshold dismisses the viewer',
+        (tester) async {
+      await pumpCard(tester, photoPost());
+      await tester.tap(find.byType(Hero).first);
+      await tester.pumpAndSettle();
+      expect(find.byType(MediaViewer), findsOneWidget);
+
+      // The pointer is re-dispatched over the hero image (which sits in
+      // front of the viewer's detector), so silence the hit-test warning.
+      await tester.fling(
+        find.byType(MediaViewer),
+        const Offset(0, 420),
+        1200,
+        warnIfMissed: false,
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(MediaViewer), findsNothing,
+          reason: 'swipe-to-dismiss must pop the viewer route');
+    });
+
+    testWidgets('tapping a device video hero opens the persisted poster '
+        'frame in the viewer (IO path)', (tester) async {
+      await pumpCard(tester, videoPost());
+      // The card hero hosts the poster image; tapping it must open the
+      // full-screen viewer over the same poster URL.
+      await tester.tap(find.byType(Hero).first);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(MediaViewer), findsOneWidget,
+          reason: 'the poster frame must be tappable into the viewer');
+      expect(find.text('Scout'), findsWidgets);
+      expect(tester.takeException(), isNull);
     });
   });
 }

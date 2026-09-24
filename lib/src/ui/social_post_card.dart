@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -8,6 +9,7 @@ import '../data/device_video_surface.dart';
 import '../models/feed_post.dart';
 import '../models/radar_event.dart';
 import '../state/radar_providers.dart';
+import 'media_viewer.dart';
 import 'radar_theme.dart';
 
 /// A social-feed post card in the "ops-room" visual language, laid out the
@@ -364,27 +366,72 @@ class _MediaHero extends StatelessWidget {
           // poster frame); every other media type keeps the painted
           // floodlit-pitch backdrop.
           if (post.isDevicePhoto)
-            Image.network(
-              post.mediaUrl!,
-              fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => const _PitchCanvas(),
-              loadingBuilder: (context, child, progress) {
-                if (progress?.cumulativeBytesLoaded ==
-                    progress?.expectedTotalBytes) {
-                  return child;
-                }
-                return const _PitchCanvas();
-              },
+            GestureDetector(
+              // Full-screen viewer: pinch-zoom + swipe-down dismiss.
+              onTap: () => showMediaViewer(
+                context,
+                imageUrl: post.mediaUrl!,
+                heroTag: 'media-hero-${post.id}',
+                authorName: post.authorName,
+              ),
+              child: Hero(
+                tag: 'media-hero-${post.id}',
+                child: Image.network(
+                  post.mediaUrl!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => const _PitchCanvas(),
+                  loadingBuilder: (context, child, progress) {
+                    if (progress?.cumulativeBytesLoaded ==
+                        progress?.expectedTotalBytes) {
+                      return child;
+                    }
+                    return const _PitchCanvas();
+                  },
+                ),
+              ),
             )
           else if (isDeviceVideo)
-            Stack(
-              fit: StackFit.expand,
-              children: [
-                const _PitchCanvas(), // backdrop while the poster/video loads
-                Positioned.fill(
-                  child: deviceVideoSurface(deviceVideo!),
-                ),
-              ],
+            GestureDetector(
+              // IO: there is no <video> element, so tapping the hero opens
+              // the persisted poster frame in the full-screen viewer.
+              // Web: the embedded element owns its taps (DOM-side
+              // play/pause + corner pills) and its expand control enters
+              // fullscreen natively — a Flutter route could never cover the
+              // platform view — so the Flutter tap stays null there.
+              onTap: !kIsWeb && deviceVideo!.hasPoster
+                  ? () => showMediaViewer(
+                        context,
+                        imageUrl: deviceVideo.posterUrl!,
+                        heroTag: 'media-hero-${post.id}',
+                        authorName: post.authorName,
+                      )
+                  : null,
+              // The canvas-backed stack guarantees a hit-testable hero even
+              // while the poster frame is still loading; on IO the Hero
+              // wraps it for the viewer's zoom-in flight (platform views
+              // cannot take part in flights, so web stays Hero-less).
+              child: kIsWeb
+                  ? Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        const _PitchCanvas(),
+                        Positioned.fill(
+                          child: deviceVideoSurface(deviceVideo!),
+                        ),
+                      ],
+                    )
+                  : Hero(
+                      tag: 'media-hero-${post.id}',
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          const _PitchCanvas(),
+                          Positioned.fill(
+                            child: deviceVideoSurface(deviceVideo!),
+                          ),
+                        ],
+                      ),
+                    ),
             )
           else
             const _PitchCanvas(),

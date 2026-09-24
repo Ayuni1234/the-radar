@@ -11,5 +11,8 @@ Widget deviceVideoSurface(iface.DeviceVideoSurfaceSpec spec) {
   return iface.posterImage(spec);
 }
 
+/// No cached video slots exist on IO — nothing to hide or restore.
+void setDeviceVideosVisible(bool visible) {}
+
 /// Warm-up hook — nothing to warm on IO.
 Future<void> prewarmDeviceVideo(String url) async {}

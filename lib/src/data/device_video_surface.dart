@@ -22,7 +22,16 @@ class DeviceVideoSurfaceSpec {
 
   /// Clip length in seconds (≤ 180) for the duration chip.
   final int? durationSeconds;
+
+  /// Whether a persisted poster frame URL is present.
+  bool get hasPoster => posterUrl != null && posterUrl!.isNotEmpty;
 }
+
+/// Hides (or restores) every cached device-video slot. Platform views
+/// composite above the Flutter canvas on web, so fullscreen Flutter routes
+/// can only cover playing clips by hiding them DOM-side; no-op elsewhere.
+void setDeviceVideosVisible(bool visible) =>
+    impl.setDeviceVideosVisible(visible);
 
 /// Image treatment for platforms without an embedded video element (and for
 /// clips still buffering on web): the poster frame fills the hero canvas.
