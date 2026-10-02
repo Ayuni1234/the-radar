@@ -16,6 +16,7 @@ import '../../main.dart' show HomeShell;
 import '../data/location_service.dart';
 import '../data/radar_repository.dart';
 import 'radar_map_screen.dart';
+import 'bounty_board_screen.dart';
 import '../data/media_upload_service.dart';
 import '../state/theme_controller.dart';
 import 'player_cv_screen.dart';
@@ -86,6 +87,15 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
             e.type == RadarEventType.trial)
         .where(_matchesScoutFilters)
         .toList();
+    final activeSessions = sessions.where((event) => event.isLive).length;
+    final openGigs = (ref.watch(streamBountiesProvider).value ??
+            const <StreamBounty>[])
+        .where((bounty) =>
+            bounty.status == 'open' ||
+            bounty.status == 'funded' ||
+            bounty.status == 'accepted' ||
+            bounty.status == 'live')
+        .length;
 
     return Scaffold(
       backgroundColor: RadarTheme.ink,
@@ -206,6 +216,22 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                   onPressed: _openFilterSheet,
                 ),
               ]),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                child: _DiscoveryHero(
+                  activeSessions: activeSessions,
+                  openGigs: openGigs,
+                  eventCount: events.length,
+                  onExplore: () => HomeShell.goTo(context, 1),
+                  onGigs: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const BountyBoardScreen(),
+                    ),
+                  ),
+                ),
+              ),
             ),
             SliverToBoxAdapter(
               child: Padding(
@@ -513,6 +539,153 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
           Navigator.pop(context);
         },
       ),
+    );
+  }
+}
+
+class _DiscoveryHero extends StatelessWidget {
+  const _DiscoveryHero({
+    required this.activeSessions,
+    required this.openGigs,
+    required this.eventCount,
+    required this.onExplore,
+    required this.onGigs,
+  });
+
+  final int activeSessions;
+  final int openGigs;
+  final int eventCount;
+  final VoidCallback onExplore;
+  final VoidCallback onGigs;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: RadarTheme.radar.withValues(alpha: 0.25)),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            RadarTheme.radar.withValues(alpha: 0.16),
+            RadarTheme.panel,
+            RadarTheme.panelHigh.withValues(alpha: 0.9),
+          ],
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                decoration: BoxDecoration(
+                  color: RadarTheme.radar.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(99),
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.radar, size: 14, color: RadarTheme.radar),
+                  const SizedBox(width: 6),
+                  Text('GLOBAL TALENT NETWORK',
+                      style: TextStyle(
+                          color: RadarTheme.radar,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.1)),
+                ]),
+              ),
+              const Spacer(),
+              const RadarMark(size: 38),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text('Talent is everywhere.',
+              style: TextStyle(
+                  color: RadarTheme.textPrimary,
+                  fontSize: 25,
+                  height: 1.08,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.5)),
+          const SizedBox(height: 6),
+          Text('Find the next breakthrough on pitches around the world.',
+              style: TextStyle(
+                  color: RadarTheme.textDim, fontSize: 13, height: 1.4)),
+          const SizedBox(height: 18),
+          Row(children: [
+            _HeroStat(value: '$activeSessions', label: 'LIVE NOW',
+                icon: Icons.sensors, color: RadarTheme.radar),
+            const SizedBox(width: 18),
+            _HeroStat(value: '$eventCount', label: 'SESSIONS',
+                icon: Icons.sports_soccer, color: RadarTheme.info),
+            const SizedBox(width: 18),
+            _HeroStat(value: '$openGigs', label: 'OPEN GIGS',
+                icon: Icons.workspace_premium, color: RadarTheme.gold),
+          ]),
+          const SizedBox(height: 18),
+          Row(children: [
+            Expanded(
+              child: FilledButton.icon(
+                onPressed: onExplore,
+                icon: const Icon(Icons.travel_explore, size: 17),
+                label: const Text('Explore Radar'),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: onGigs,
+                icon: const Icon(Icons.videocam_outlined, size: 17),
+                label: const Text('Record & earn'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: RadarTheme.gold,
+                  side: BorderSide(color: RadarTheme.gold.withValues(alpha: 0.7)),
+                ),
+              ),
+            ),
+          ]),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroStat extends StatelessWidget {
+  const _HeroStat({
+    required this.value,
+    required this.label,
+    required this.icon,
+    required this.color,
+  });
+
+  final String value;
+  final String label;
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Row(children: [
+        Icon(icon, size: 15, color: color),
+        const SizedBox(width: 6),
+        Flexible(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(value, style: TextStyle(
+                color: RadarTheme.textPrimary,
+                fontSize: 15,
+                fontWeight: FontWeight.w800)),
+            Text(label, maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                    color: RadarTheme.textDim,
+                    fontSize: 8.5,
+                    letterSpacing: 0.7,
+                    fontWeight: FontWeight.w700)),
+          ]),
+        ),
+      ]),
     );
   }
 }
