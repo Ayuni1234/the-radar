@@ -1,30 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'src/app_brand.dart';
 import 'src/state/auth_controller.dart';
 import 'src/state/theme_controller.dart';
-import 'src/ui/connections_screen.dart';
 import 'src/ui/feed_screen.dart';
 import 'src/ui/login_screen.dart';
-import 'src/ui/market_feed_screen.dart';
 import 'src/ui/onboarding_screen.dart';
 import 'src/ui/profile_hub_screen.dart';
 import 'src/ui/radar_map_screen.dart';
+import 'src/ui/bounty_board_screen.dart';
 import 'src/ui/radar_theme.dart';
 import 'src/ui/settings_screen.dart';
 import 'src/ui/shell.dart';
 
-/// Main navigation destinations (shared by the rail and bottom bar).
-///
-/// Media-first: the Feed is the opening tab. Secondary/management areas
-/// (CV, Players directory, Pi Wallet, merchant sales, Safety Center) are
-/// consolidated inside the Profile hub instead of crowding the bottom bar.
-final List<(String, IconData, Widget)> _destinations = [
-  ('Feed', Icons.dynamic_feed, const FeedScreen()),
-  ('Radar', Icons.radar, const RadarMapScreen()),
-  ('Market', Icons.storefront, const MarketFeedScreen()),
-  ('Inbox', Icons.connect_without_contact, const ConnectionsScreen()),
-  ('Profile', Icons.person, const ProfileHubScreen()),
+/// Main navigation destinations — the hackathon 4-tab layout:
+/// Reels (feed) / Map (radar) / Bounty (gig board) / Profile (hub).
+/// Secondary/management areas (Inbox, PitchMarket, CV, Players directory,
+/// Pi Wallet, merchant sales, Safety Center) are consolidated inside the
+/// Profile hub instead of crowding the bottom bar.
+final List<(String, String, IconData, Widget)> _destinations = [
+  ('Reels', 'Talent discovery feed', Icons.movie_outlined, const FeedScreen()),
+  ('Map', 'Geographic talent radar', Icons.map_outlined, const RadarMapScreen()),
+  ('Bounty', 'Pi gig marketplace', Icons.workspace_premium_outlined, const BountyBoardScreen()),
+  ('Profile', 'Bio & live broadcasts', Icons.person_outline, const ProfileHubScreen()),
 ];
 
 
@@ -48,7 +47,7 @@ class RadarApp extends ConsumerWidget {
     final themeMode = ref.watch(themeModeProvider);
 
     return MaterialApp(
-      title: 'The Radar — Global Football Scouting Platform',
+      title: AppBrand.fullTitle,
       debugShowCheckedModeBanner: false,
       theme: RadarTheme.themeFor(themeMode),
       home: auth.isLoading
@@ -77,7 +76,7 @@ class SplashGate extends StatelessWidget {
             const RadarMark(size: 64),
             const SizedBox(height: 18),
             Text(
-              'THE RADAR',
+              AppBrand.name,
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.w800,
                     letterSpacing: 4,
@@ -85,7 +84,7 @@ class SplashGate extends StatelessWidget {
             ),
             const SizedBox(height: 6),
              Text(
-              'Global Football Scouting Platform',
+              AppBrand.tagline,
               style: TextStyle(color: RadarTheme.textDim),
             ),
             const SizedBox(height: 28),
@@ -131,7 +130,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
           Expanded(
             child: IndexedStack(
               index: _index,
-              children: [for (final d in _destinations) d.$3],
+              children: [for (final d in _destinations) d.$4],
             ),
           ),
         ],
@@ -143,8 +142,9 @@ class _HomeShellState extends ConsumerState<HomeShell> {
               destinations: [
                 for (final d in _destinations)
                   NavigationDestination(
-                    icon: Icon(d.$2),
-                    selectedIcon: Icon(d.$2, color: RadarTheme.radar),
+                    icon: Icon(d.$3),
+                    selectedIcon: Icon(d.$3),
+                    tooltip: d.$2,
                     label: d.$1,
                   ),
               ],
@@ -181,7 +181,7 @@ class _SideRail extends ConsumerWidget {
           const Padding(
             padding: EdgeInsets.only(left: 10),
             child: Text(
-              'THE RADAR',
+              AppBrand.name,
               style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: 3),
             ),
           ),
@@ -202,7 +202,7 @@ class _SideRail extends ConsumerWidget {
                         horizontal: 10, vertical: 12),
                     child: Row(
                       children: [
-                        Icon(d.$2,
+                        Icon(d.$3,
                             size: 20,
                             color: i == index
                                 ? RadarTheme.radar

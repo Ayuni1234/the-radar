@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../app_brand.dart';
 import '../diagnostics/diagnostics.dart';
 import '../models/enums.dart';
 import '../models/content_report.dart';
@@ -15,6 +16,8 @@ import 'event_detail_screen.dart';
 import '../../main.dart' show HomeShell;
 import '../data/location_service.dart';
 import '../data/radar_repository.dart';
+import 'next_training_overlay.dart';
+import 'player_live_session_screen.dart';
 import 'radar_map_screen.dart';
 import 'bounty_board_screen.dart';
 import '../data/media_upload_service.dart';
@@ -101,13 +104,12 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
       backgroundColor: RadarTheme.ink,
       body: SafeArea(
         child: CustomScrollView(
-          slivers: [
-            SliverAppBar(
+          slivers: [              SliverAppBar(
               pinned: true,
               backgroundColor: RadarTheme.ink.withValues(alpha: 0.96),
               title: Row(children: [
                  Flexible(
-                  child: Text('LIVE RADAR',
+                  child: Text(AppBrand.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -216,6 +218,18 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                   onPressed: _openFilterSheet,
                 ),
               ]),
+            ),
+            // Floating "Next Live Training" overlay card (hackathon mockup):
+            // pitch + start time + real-time countdown + GO TO PROFILE /
+            // WATCH LIVE deep-link CTA straight into the player's live
+            // GPS session broadcast.
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                child: NextTrainingOverlay(
+                  onOpenProfile: _openPlayerSession,
+                ),
+              ),
             ),
             SliverToBoxAdapter(
               child: Padding(
@@ -383,6 +397,28 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     if (author == null) return;
     Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => PlayerCvScreen(profile: author),
+    ));
+  }
+
+  /// Reels deep link: "GO TO PROFILE / WATCH LIVE" — opens the player's
+  /// profile with the LIVE Session Info tab (countdown, GPS broadcast
+  /// mini-map, watch-live navigation and set-bounty actions). Falls back
+  /// to the CV screen when the host has no live/scheduled sessions.
+  void _openPlayerSession(String hostProfileId) {
+    final profiles = ref.read(profilesProvider).value ?? const [];
+    UserProfile? profile;
+    for (final p in profiles) {
+      if (p.id == hostProfileId) profile = p;
+    }
+    if (profile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        behavior: SnackBarBehavior.floating,
+        content: Text('Player profile not available in this session.'),
+      ));
+      return;
+    }
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => PlayerLiveSessionScreen(profile: profile!),
     ));
   }
 

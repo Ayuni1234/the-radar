@@ -44,33 +44,37 @@ class RadarPalette {
   /// neon dark-mode green; white on the deepened light-mode green).
   final Color onAccent;
 
+  /// Hackathon dark palette: deep indigo/purple #1A1230 background, dark
+  /// violet slate panels, white/gold typography and translucent overlays.
   static final RadarPalette dark = RadarPalette(
     isDark: true,
-    ink: const Color(0xFF0A0E1A),
-    panel: const Color(0xFF111827),
-    panelHigh: const Color(0xFF1B2437),
-    stroke: const Color(0xFF2A3648),
-    textPrimary: const Color(0xFFF3F6FB),
-    textDim: const Color(0xFF93A1B7),
+    ink: const Color(0xFF1A1230),
+    panel: const Color(0xFF241B42),
+    panelHigh: const Color(0xFF2E2354),
+    stroke: const Color(0xFF3B2F63),
+    textPrimary: const Color(0xFFF6F3FF),
+    textDim: const Color(0xFFA79BC8),
     radar: const Color(0xFF3DFFA2),
-    pi: const Color(0xFF8E6BFF),
+    pi: const Color(0xFF7C5CFF),
     gold: const Color(0xFFF5C043),
     alert: const Color(0xFFFF6B6B),
     info: const Color(0xFF4CC3FF),
-    onAccent: const Color(0xFF0A0E1A),
+    onAccent: const Color(0xFF1A1230),
   );
 
+  /// Hackathon light palette: crisp cream/warm-gray #F8F6F0 background,
+  /// white elevated cards, dark-violet primary text, purple accents.
   static final RadarPalette light = RadarPalette(
     isDark: false,
-    ink: const Color(0xFFF5F7FA),
+    ink: const Color(0xFFF8F6F0),
     panel: const Color(0xFFFFFFFF),
-    panelHigh: const Color(0xFFE9EEF5),
-    stroke: const Color(0xFFD3DCE8),
-    textPrimary: const Color(0xFF0F172A),
-    textDim: const Color(0xFF5A6B85),
+    panelHigh: const Color(0xFFEFECE2),
+    stroke: const Color(0xFFE0DBCD),
+    textPrimary: const Color(0xFF241B42),
+    textDim: const Color(0xFF6B6280),
     // Accents deepen slightly for contrast on white surfaces.
     radar: const Color(0xFF0C9B6C),
-    pi: const Color(0xFF6C4BD8),
+    pi: const Color(0xFF5B3BC4),
     gold: const Color(0xFFB07C10),
     alert: const Color(0xFFD64550),
     info: const Color(0xFF1D7FC4),

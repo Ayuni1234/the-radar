@@ -5,19 +5,21 @@ import '../state/auth_controller.dart'
     show RadarSession, sessionProvider, authProvider;
 import 'radar_theme.dart';
 import 'shell.dart' show SectionHeader;
+import 'connections_screen.dart';
 import 'cv_editor_screen.dart';
+import 'market_feed_screen.dart';
 import 'merchant_dashboard_screen.dart';
 import 'payments_screen.dart';
 import 'profiles_screen.dart';
 import 'safeguarding_screen.dart';
 import 'settings_screen.dart';
 
-/// The master Profile / Hub — the fifth bottom-navigation destination.
+/// The master Profile / Hub — the fourth bottom-navigation destination in
+/// the hackathon 4-tab layout (Reels / Map / Bounty / Profile).
 ///
-/// Consolidates everything that used to crowd the old 8-item bottom bar:
-/// My CV, the Players directory, the Pi Wallet (with order history), the
-/// merchant dashboard (sales summary) and the Safety Center live here as a
-/// tidy, high-end hub instead of competing for bar slots.
+/// Consolidates the management areas that left the bottom bar: My CV, the
+/// Players directory, the Pi Wallet, the PitchMarket, the Inbox
+/// (connections), the merchant dashboard and the Safety Center.
 class ProfileHubScreen extends ConsumerWidget {
   const ProfileHubScreen({super.key});
 
@@ -49,6 +51,22 @@ class ProfileHubScreen extends ConsumerWidget {
               title: 'Players Directory',
               subtitle: 'Browse and scout player profiles across the network.',
               onTap: () => _push(context, const ProfilesScreen()),
+            ),
+            _HubTile(
+              icon: Icons.storefront_outlined,
+              accent: RadarTheme.pi,
+              title: 'The PitchMarket',
+              subtitle:
+                  'P2P streaming-gear marketplace — buy & sell pro camera kit in Pi.',
+              onTap: () => _push(context, const MarketFeedScreen()),
+            ),
+            _HubTile(
+              icon: Icons.connect_without_contact,
+              accent: RadarTheme.info,
+              title: 'Inbox & Connections',
+              subtitle:
+                  'Consent-checked scout requests, applications and replies.',
+              onTap: () => _push(context, const ConnectionsScreen()),
             ),
             _HubTile(
               icon: Icons.account_balance_wallet,

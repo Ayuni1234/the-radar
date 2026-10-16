@@ -75,7 +75,9 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 600));
 
-    expect(find.text('LIVE RADAR'), findsOneWidget);
+    // The Reels feed opens first (media-first 4-tab shell). The branded
+    // header renders the official app name from the AppBrand constants.
+    expect(find.text('THE RADAR'), findsOneWidget);
     // 800×600 test surface → medium layout → NavigationRail, not bottom bar.
     expect(find.byType(NavigationBar), findsNothing);
   });

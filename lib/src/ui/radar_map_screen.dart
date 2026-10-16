@@ -9,6 +9,7 @@ import '../models/radar_event.dart';
 import '../models/stream_bounty.dart';
 import '../models/user_profile.dart';
 import '../state/radar_providers.dart';
+import 'brand_header.dart';
 import 'bounty_board_screen.dart';
 import 'event_composer_screen.dart';
 import 'live_event_map.dart';
@@ -81,29 +82,7 @@ class _RadarMapScreenState extends ConsumerState<RadarMapScreen> {
     ];
 
     return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          children: [
-            Container(
-              width: 9,
-              height: 9,
-              decoration:  BoxDecoration(
-                  color: RadarTheme.radar, shape: BoxShape.circle),
-            ),
-            const SizedBox(width: 10),
-            const Text('LIVE RADAR'),
-            const SizedBox(width: 10),
-            Flexible(
-              child: Text(
-                '${events.length} active · ${bounties.where((b) => b.isFunded && b.status != 'completed').length} bounties',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style:  TextStyle(
-                    fontSize: 12.5, color: RadarTheme.textDim, fontWeight: FontWeight.w400),
-              ),
-            ),
-          ],
-        ),
+      appBar: BrandHeaderBar(
         actions: [
           IconButton(
             tooltip: 'Global search',
@@ -340,10 +319,16 @@ class _FilterChips extends ConsumerWidget {
                 : RadarTheme.textDim),
           ),
         FilterChip(
-          label: const Text('Boosted'),
+          label: const Text('Live Today'),
           selected: filter.onlyBoosted,
           onSelected: ctrl.setOnlyBoosted,
           avatar:  Icon(Icons.bolt, size: 15, color: RadarTheme.gold),
+        ),
+        FilterChip(
+          label: const Text('Upcoming Sessions'),
+          selected: filter.onlyUpcoming,
+          onSelected: ctrl.setOnlyUpcoming,
+          avatar: Icon(Icons.schedule, size: 15, color: RadarTheme.info),
         ),
         // Age-bracket picker (spec: instant sorting by age bracket).
         PopupMenuButton<AgeBracket>(

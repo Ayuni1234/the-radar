@@ -8,6 +8,8 @@ import '../pi/pi_service.dart' show PiPaymentPhase;
 import '../state/auth_controller.dart';
 import '../state/radar_providers.dart';
 import 'blind_test_screen.dart';
+import 'bounty_fulfillment_flow.dart';
+import 'brand_header.dart';
 import 'match_analytics_screen.dart';
 import 'radar_theme.dart';
 import 'sheet_scaffold.dart';
@@ -43,104 +45,108 @@ class BountyBoardScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: RadarTheme.ink,
+      appBar: BrandHeaderBar(
+        actions: [
+          IconButton(
+            tooltip: 'Blind scouting test',
+            icon: const Icon(Icons.visibility_off, size: 19),
+            onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                    builder: (_) => const BlindTestScreen())),
+          ),
+          const SizedBox(width: 4),
+        ],
+      ),
       body: SafeArea(
         child: RefreshIndicator(
           color: RadarTheme.radar,
           backgroundColor: RadarTheme.panel,
           onRefresh: () => ref.read(streamBountiesProvider.notifier).refresh(),
-          child: CustomScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            slivers: [
-              SliverAppBar(
-                pinned: true,
-                backgroundColor: RadarTheme.ink.withValues(alpha: 0.96),
-                title: Row(children: [
-                   Icon(Icons.workspace_premium,
-                      color: RadarTheme.gold, size: 22),
-                  const SizedBox(width: 8),
-                   Text('Talent Watcher',
-                      style: TextStyle(
-                          color: RadarTheme.textPrimary,
-                          fontWeight: FontWeight.w700)),
-                ]),
-                actions: [
-                  IconButton(
-                    tooltip: 'Blind scouting test',
-                    icon: const Icon(Icons.visibility_off, size: 19),
-                    onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                            builder: (_) => const BlindTestScreen())),
+          child: DefaultTabController(
+            length: 3,
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                SliverToBoxAdapter(
+                  child: TabBar(
+                    labelColor: RadarTheme.gold,
+                    unselectedLabelColor: RadarTheme.textDim,
+                    indicatorColor: RadarTheme.gold,
+                    tabs: const [
+                      Tab(text: 'Active Bounties'),
+                      Tab(text: 'Completed'),
+                      Tab(text: 'My Postings'),
+                    ],
                   ),
-                  const SizedBox(width: 4),
-                ],
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                  child: _HowItWorksCard(onPost: () => _openPostSheet(context, ref)),
                 ),
-              ),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                    child: _HowItWorksCard(onPost: () => _openPostSheet(context, ref)),
+                  ),
+                ),
               if (flow.phase == PiPaymentPhase.completed)
                 const SliverToBoxAdapter(child: SizedBox(height: 10)),
-              if (myWork.isNotEmpty) ...[
+                if (myWork.isNotEmpty) ...[
+                  SliverToBoxAdapter(
+                    child: SectionHeader('My bounties & gigs',
+                        trailing: Text('${myWork.length}',
+                            style:  TextStyle(
+                                color: RadarTheme.textDim, fontSize: 12))),
+                  ),
+                  SliverList.builder(
+                    itemCount: myWork.length,
+                    itemBuilder: (context, i) => Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                      child: _BountyCard(bounty: myWork[i]),
+                    ),
+                  ),
+                ],
                 SliverToBoxAdapter(
-                  child: SectionHeader('My bounties & gigs',
-                      trailing: Text('${myWork.length}',
+                  child: SectionHeader('Open gigs',
+                      trailing: Text('${openGigs.length} available',
                           style:  TextStyle(
                               color: RadarTheme.textDim, fontSize: 12))),
                 ),
-                SliverList.builder(
-                  itemCount: myWork.length,
-                  itemBuilder: (context, i) => Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                    child: _BountyCard(bounty: myWork[i]),
+                if (openGigs.isEmpty)
+                   SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+                      child: Center(
+                        child: Column(
+                          children: [
+                            Icon(Icons.videocam_off_outlined,
+                                size: 40, color: RadarTheme.textDim),
+                            SizedBox(height: 10),
+                            Text('No open gigs right now',
+                                style: TextStyle(color: RadarTheme.textDim)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  SliverList.builder(
+                    itemCount: openGigs.length,
+                    itemBuilder: (context, i) => Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                      child: _BountyCard(bounty: openGigs[i]),
+                    ),
                   ),
-                ),
-              ],
-              SliverToBoxAdapter(
-                child: SectionHeader('Open gigs',
-                    trailing: Text('${openGigs.length} available',
-                        style:  TextStyle(
-                            color: RadarTheme.textDim, fontSize: 12))),
-              ),
-              if (openGigs.isEmpty)
-                 SliverToBoxAdapter(
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-                    child: Center(
-                      child: Column(
-                        children: [
-                          Icon(Icons.videocam_off_outlined,
-                              size: 40, color: RadarTheme.textDim),
-                          SizedBox(height: 10),
-                          Text('No open gigs right now',
-                              style: TextStyle(color: RadarTheme.textDim)),
-                        ],
+                if (!signedIn)
+                   SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Text(
+                        'Sign in to post bounties or accept streaming gigs.',
+                        style: TextStyle(color: RadarTheme.textDim, fontSize: 13),
+                        textAlign: TextAlign.center,
                       ),
                     ),
                   ),
-                )
-              else
-                SliverList.builder(
-                  itemCount: openGigs.length,
-                  itemBuilder: (context, i) => Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                    child: _BountyCard(bounty: openGigs[i]),
-                  ),
-                ),
-              if (!signedIn)
-                 SliverToBoxAdapter(
-                  child: Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Text(
-                      'Sign in to post bounties or accept streaming gigs.',
-                      style: TextStyle(color: RadarTheme.textDim, fontSize: 13),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ),
-              const SliverToBoxAdapter(child: SizedBox(height: 40)),
-            ],
+                const SliverToBoxAdapter(child: SizedBox(height: 40)),
+              ],
+            ),
           ),
         ),
       ),
@@ -294,7 +300,7 @@ class _BountyCardState extends ConsumerState<_BountyCard> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text('${_fmtPi(b.amountPi)} π',
+                  Text('${_fmtPi(b.amountPi)}𝛑',
                       style:  TextStyle(
                           color: RadarTheme.gold,
                           fontWeight: FontWeight.w800,
@@ -416,10 +422,15 @@ class _BountyCardState extends ConsumerState<_BountyCard> {
       case 'accepted':
         if (isStreamer) {
           actions.add(_button(
-            label: 'I\'m live — post stream link',
+            label: 'Fulfill bounty',
+            icon: Icons.fact_check,
+            onPressed: _busy ? null : () => _openFulfillment(b),
+            primary: true,
+          ));
+          actions.add(_button(
+            label: "I'm live — post stream link",
             icon: Icons.podcasts,
             onPressed: _busy ? null : () => _goLive(b),
-            primary: true,
           ));
         } else {
           actions.add(Text(
@@ -470,6 +481,13 @@ class _BountyCardState extends ConsumerState<_BountyCard> {
             ),
           ),
         ]));
+        if (isStreamer) {
+          actions.add(_button(
+            label: 'Fulfillment receipt',
+            icon: Icons.fact_check,
+            onPressed: () => _openFulfillment(b),
+          ));
+        }
         actions.add(_button(
           label: 'Match analytics report',
           icon: Icons.query_stats,
@@ -489,6 +507,14 @@ class _BountyCardState extends ConsumerState<_BountyCard> {
         for (final a in actions) a,
       ]),
     ];
+  }
+
+  /// 4-step fulfillment flow: GPS verify → record → upload → request
+  /// payment (Pi escrow release on scout approval).
+  void _openFulfillment(StreamBounty b) {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => BountyFulfillmentFlow(bounty: b),
+    ));
   }
 
   void _openAnalytics(StreamBounty b) {

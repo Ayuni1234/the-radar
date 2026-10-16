@@ -148,6 +148,7 @@ class RadarFilter {
     this.radiusKm,
     this.viewerLat,
     this.viewerLon,
+    this.onlyUpcoming = false,
   });
 
   final Set<RadarEventType> types;
@@ -170,6 +171,10 @@ class RadarFilter {
   final double? viewerLat;
   final double? viewerLon;
 
+  /// Hackathon mockup toggle: show only sessions that have not started yet
+  /// ("Upcoming Sessions"). Off = All Talents (live + upcoming).
+  final bool onlyUpcoming;
+
   RadarFilter copyWith({
     Set<RadarEventType>? types,
     bool clearTypes = false,
@@ -185,6 +190,7 @@ class RadarFilter {
     bool clearRadius = false,
     double? viewerLat,
     double? viewerLon,
+    bool? onlyUpcoming,
   }) =>
       RadarFilter(
         types: clearTypes ? const {} : (types ?? this.types),
@@ -198,6 +204,7 @@ class RadarFilter {
         radiusKm: clearRadius ? null : (radiusKm ?? this.radiusKm),
         viewerLat: viewerLat ?? this.viewerLat,
         viewerLon: viewerLon ?? this.viewerLon,
+        onlyUpcoming: onlyUpcoming ?? this.onlyUpcoming,
       );
 }
 
@@ -238,6 +245,8 @@ class RadarFilterController extends Notifier<RadarFilter> {
 
   void setOnlyBoosted(bool v) => state = state.copyWith(onlyBoosted: v);
 
+  void setOnlyUpcoming(bool v) => state = state.copyWith(onlyUpcoming: v);
+
   void setShowMinorProtected(bool v) =>
       state = state.copyWith(showMinorProtected: v);
 
@@ -276,6 +285,7 @@ final filteredEventsProvider = Provider<List<RadarEvent>>((ref) {
   return events.where((e) {
     if (filter.types.isNotEmpty && !filter.types.contains(e.type)) return false;
     if (filter.onlyBoosted && !e.isBoosted) return false;
+    if (filter.onlyUpcoming && !e.isUpcoming) return false;
     if (!filter.showMinorProtected && e.isMinorProtected) return false;
     if (filter.ageBracket != null &&
         !filter.ageBracket!.matches(e.minAge, e.maxAge)) {

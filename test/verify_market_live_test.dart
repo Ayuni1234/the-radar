@@ -55,15 +55,21 @@ void main() {
   }
 
   Future<void> goToMarketTab(WidgetTester tester) async {
+    // Market moved off the bottom bar: it is now a Profile hub tile that
+    // pushes MarketFeedScreen. Jump to the Profile tab (4-tab nav:
+    // Reels / Map / Bounty / Profile), then open the PitchMarket tile.
     // The shell's jump helper needs a context BELOW the shell (as nested
     // screens use it). Offstage tabs stay mounted in the IndexedStack, so
     // the radar screen is found with skipOffstage: false.
     HomeShell.goTo(
       tester.element(find.byType(RadarMapScreen, skipOffstage: false)),
-      2,
+      3,
     );
-    await tester.pump(const Duration(milliseconds: 600));
-    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.tap(find.text('The PitchMarket'));
+    await tester.pump(); // start the route transition
+    await tester.pump(const Duration(milliseconds: 400)); // finish it
+    await tester.pump(const Duration(milliseconds: 300));
   }
 
   testWidgets(
@@ -127,11 +133,11 @@ void main() {
       // Media-first: the app must open on the Feed.
       expect(find.text('Latest posts'), findsOneWidget);
 
-      // Jump to the Profile hub (5-tab nav: Feed, Radar, Market, Inbox,
-      // Profile) and confirm the consolidated management entries.
+      // Profile is now the 4th tab in the hackathon 4-tab nav
+      // (Reels / Map / Bounty / Profile).
       HomeShell.goTo(
         tester.element(find.byType(RadarMapScreen, skipOffstage: false)),
-        4,
+        3,
       );
       await tester.pump(const Duration(milliseconds: 500));
       await tester.pump(const Duration(milliseconds: 300));
@@ -141,6 +147,9 @@ void main() {
       expect(find.text('Pi Wallet & Orders'), findsOneWidget);
       expect(find.text('My Shop & Sales'), findsOneWidget);
       expect(find.text('Safety Center'), findsOneWidget);
+      // The old Market and Inbox tabs consolidated here as hub tiles.
+      expect(find.text('The PitchMarket'), findsOneWidget);
+      expect(find.text('Inbox & Connections'), findsOneWidget);
       await expectLater(
         find.byType(RadarApp),
         matchesGoldenFile('goldens/verify_5_hub.png'),

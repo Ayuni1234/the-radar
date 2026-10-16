@@ -770,9 +770,11 @@ void main() {
     test('light palette renders clean, high-contrast values', () {
       RadarTheme.current = RadarPalette.light;
       addTearDown(() => RadarTheme.current = RadarPalette.dark);
-      expect(RadarTheme.ink, const Color(0xFFF5F7FA));
+      // Hackathon light spec: crisp cream/warm-gray background, white
+      // elevated cards, dark-violet primary text.
+      expect(RadarTheme.ink, const Color(0xFFF8F6F0));
       expect(RadarTheme.panel, const Color(0xFFFFFFFF));
-      expect(RadarTheme.textPrimary, const Color(0xFF0F172A));
+      expect(RadarTheme.textPrimary, const Color(0xFF241B42));
       // Accents keep their identity but deepen for white surfaces.
       expect(RadarTheme.radar, isNot(const Color(0xFF3DFFA2)));
       // Palette getters must agree with the active mode.
@@ -782,9 +784,10 @@ void main() {
     test('themeFor builds matching ThemeData for both modes', () {
       final dark = RadarTheme.themeFor(RadarBrightness.dark);
       final light = RadarTheme.themeFor(RadarBrightness.light);
-      expect(dark.scaffoldBackgroundColor, const Color(0xFF0A0E1A));
-      expect(light.scaffoldBackgroundColor, const Color(0xFFF5F7FA));
-      expect(light.textTheme.bodyLarge!.color, const Color(0xFF0F172A));
+      // Hackathon dark spec: deep indigo/purple #1A1230 background.
+      expect(dark.scaffoldBackgroundColor, const Color(0xFF1A1230));
+      expect(light.scaffoldBackgroundColor, const Color(0xFFF8F6F0));
+      expect(light.textTheme.bodyLarge!.color, const Color(0xFF241B42));
       expect(dark.colorScheme.brightness, Brightness.dark);
       expect(light.colorScheme.brightness, Brightness.light);
     });
@@ -814,7 +817,7 @@ void main() {
       final panelBefore = (tester.widget<Container>(
               find.byType(Container).first))
           .color;
-      expect(panelBefore, const Color(0xFF111827));
+      expect(panelBefore, const Color(0xFF241B42));
 
       // Flip the palette the way the header/settings toggle does.
       RadarTheme.current = RadarPalette.light;
