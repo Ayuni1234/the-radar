@@ -50,7 +50,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     while (tester.takeException() != null) {}
 
-    expect(find.text('LIVE RADAR'), findsOneWidget);
+    // The branded feed header renders the official app name.
+    expect(find.text('THE RADAR'), findsOneWidget);
     return container;
   }
 

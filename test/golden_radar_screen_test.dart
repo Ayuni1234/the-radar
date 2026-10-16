@@ -67,7 +67,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     drainExceptions();
 
-    expect(find.text('LIVE RADAR'), findsOneWidget);
+    // The branded feed header renders the official app name.
+    expect(find.text('THE RADAR'), findsOneWidget);
     // Feed-first: the app opens on the Feed; switch to the Radar tab for
     // the map capture (its screen stays mounted in the IndexedStack).
     HomeShell.goTo(
