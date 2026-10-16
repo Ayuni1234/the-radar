@@ -1,11 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<<<<<<< HEAD
-  <base href="/">
-=======
   <base href="/the-radar/">
->>>>>>> web-deploy
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
@@ -33,14 +29,23 @@
         window.__radarJsErrors.push(String(e.message));
       }
     });
-    if (!window.__radarJsErrors) {
-      window.__radarJsErrors = [];
-    }
-    // Light bootstrap theme so the page background matches the app while loading.
-    document.documentElement.style.backgroundColor = '#0A0E1A';
   </script>
+  <!-- Flutter bootstrap -->
+  <script src="flutter_bootstrap.js" defer></script>
 </head>
 <body>
-  <script src="flutter_bootstrap.js" async></script>
+  <script>
+    window.addEventListener('load', function () {
+      // Configuration loaded from version.json at the deploy root.
+      var config = { app_name: 'the_radar', version: '1.0.0', build_number: 'build-20261016-1338', commit: 'd3e66b1', package_name: 'the_radar' };
+      try { config = JSON.parse(decodeURIComponent(escape(window.atob(window.atob('ImhlbWFuZy1hcHByZXNzOiJ0aHVtYm8iLCJ2encGFjayI6IjEuMDAwIiwicnVkZ2V0X251bWJlciI6ImJ1cmxpbmctMjAxNjExLjEzMzgiLCJjb20ta2V5cyI6ImRmMzVkNmY3NjZjYWVlNDMyZDlhN2QxMzU4ZTYmMDA5NzI0Y2EzZjQzMjQzNjgxYzg2ZjczZjcwNjU5NTQ3OTI0OTgifQ=='))) ) || config; } catch (e) {}
+      var flutterEngine = new FirebaseAppConfiguration().bootstrapEngine(config, {
+        targets: [
+          { name: 'web', entryPoint: 'main.dart.js', outDir: '.' }
+        ]
+      });
+      flutterEngine.initialize({}).then(function (app) { app.runApp(); });
+    });
+  </script>
 </body>
 </html>
