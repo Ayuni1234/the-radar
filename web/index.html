@@ -1,7 +1,28 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <base href="$FLUTTER_BASE_HREF">
+  <!--
+    The base href is the directory the page was actually served from, not the
+    one the bundle was built for. A build-time href only knows where the app
+    was *built* to live: the bundle is served from the site root on a dev
+    server but from the /the-radar/ project path on GitHub Pages — which is
+    what the Pi container at radarvr7995.pinet.com iframes. A bundle built for
+    "/" and published there 404s every URL below it (no main.dart.js, no
+    widgets, just the dark page background). Emitting the base inline, before
+    anything else is parsed, keeps any host path working. The token in the
+    comment is what `flutter build web --base-href` rewrites; the URL is
+    resolved at runtime.
+  -->
+  <!-- $FLUTTER_BASE_HREF -->
+  <script>
+    (function () {
+      var path = window.location.pathname;
+      // Directory of the current document, collapsed to a single trailing
+      // slash (the Pi container iframes this page with a doubled one).
+      var dir = path.substring(0, path.lastIndexOf('/') + 1).replace(/\/+$/, '/');
+      document.write('<base href="' + (dir || '/') + '">');
+    })();
+  </script>
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
@@ -32,8 +53,9 @@
     if (!window.__radarJsErrors) {
       window.__radarJsErrors = [];
     }
-    // Light bootstrap theme so the page background matches the app while loading.
-    document.documentElement.style.backgroundColor = '#0A0E1A';
+    // Bootstrap background matches the dark palette ink (#1A1230) so the very
+    // first painted frame already looks like the app, with no flash.
+    document.documentElement.style.backgroundColor = '#1A1230';
   </script>
 </head>
 <body>

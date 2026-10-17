@@ -26,10 +26,9 @@ final List<(String, String, IconData, Widget)> _destinations = [
   ('Profile', 'Bio & live broadcasts', Icons.person_outline, const ProfileHubScreen()),
 ];
 
-
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   // Restore the persisted light/dark preference before the first frame so
   // there is no theme flash on boot. Failures keep the dark default.
   final container = ProviderContainer();

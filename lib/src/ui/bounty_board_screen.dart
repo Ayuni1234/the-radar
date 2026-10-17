@@ -551,12 +551,20 @@ class _BountyCardState extends ConsumerState<_BountyCard> {
           color: color.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(20),
         ),
+        // Wrap lays each pill out against the card width, so a long label
+        // (a streamer name, a kick-off time) must ellipsize, not overflow.
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           Icon(icon, size: 12, color: color),
           const SizedBox(width: 4),
-          Text(label,
-              style: TextStyle(
-                  color: color, fontSize: 11, fontWeight: FontWeight.w600)),
+          Flexible(
+            child: Text(label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                    color: color,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600)),
+          ),
         ]),
       );
 

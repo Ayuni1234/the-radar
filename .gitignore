@@ -48,3 +48,7 @@ app.*.map.json
 .widget_preview/
 .freebuff/
 supabase/.temp/
+
+# flutter_test writes golden diff artifacts here on failure (regenerated on
+# every run — never committed).
+test/failures/

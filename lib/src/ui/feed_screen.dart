@@ -616,22 +616,31 @@ class _DiscoveryHero extends StatelessWidget {
         children: [
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-                decoration: BoxDecoration(
-                  color: RadarTheme.radar.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(99),
+              // Both the badge and its label flex so the mark beside them
+              // always has room on a narrow phone.
+              Flexible(
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: RadarTheme.radar.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.radar, size: 14, color: RadarTheme.radar),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text('GLOBAL TALENT NETWORK',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                              color: RadarTheme.radar,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 1.1)),
+                    ),
+                  ]),
                 ),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(Icons.radar, size: 14, color: RadarTheme.radar),
-                  const SizedBox(width: 6),
-                  Text('GLOBAL TALENT NETWORK',
-                      style: TextStyle(
-                          color: RadarTheme.radar,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 1.1)),
-                ]),
               ),
               const Spacer(),
               const RadarMark(size: 38),

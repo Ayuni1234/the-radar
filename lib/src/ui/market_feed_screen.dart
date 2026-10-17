@@ -44,10 +44,16 @@ class MarketFeedScreen extends ConsumerWidget {
                 title: Row(children: [
                    Icon(Icons.storefront, color: RadarTheme.pi, size: 22),
                   const SizedBox(width: 8),
-                   Text('The PitchMarket',
-                      style: TextStyle(
-                          color: RadarTheme.textPrimary,
-                          fontWeight: FontWeight.w700)),
+                  // Narrow phones cannot fit the full title next to the
+                  // dashboard action: let it ellipsize rather than overflow.
+                  Flexible(
+                    child: Text('The PitchMarket',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            color: RadarTheme.textPrimary,
+                            fontWeight: FontWeight.w700)),
+                  ),
                 ]),
                 actions: [
                   IconButton(

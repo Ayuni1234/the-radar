@@ -38,25 +38,32 @@ class BrandHeaderBar extends StatelessWidget implements PreferredSizeWidget {
     return AppBar(
       backgroundColor: RadarTheme.ink.withValues(alpha: 0.96),
       titleSpacing: 12,
-      title: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          RadarMark(size: compact ? 24 : 30),
-          const SizedBox(width: 8),
-          Flexible(
-            child: Text(
-              AppBrand.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: RadarTheme.textPrimary,
-                fontWeight: FontWeight.w800,
-                fontSize: compact ? 14 : 16,
-                letterSpacing: 2.4,
+      // The title only gets whatever the actions leave behind. On a narrow
+      // phone that can be less than the mark itself, so the brand scales down
+      // instead of overflowing into the yellow/black hazard bars.
+      title: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: AlignmentDirectional.centerStart,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            RadarMark(size: compact ? 24 : 30),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                AppBrand.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: RadarTheme.textPrimary,
+                  fontWeight: FontWeight.w800,
+                  fontSize: compact ? 14 : 16,
+                  letterSpacing: 2.4,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
       actions: [
         if (showBalance) _PiBalanceChip(),
