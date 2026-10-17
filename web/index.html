@@ -41,6 +41,54 @@
   <title>The Radar — Global Football Scouting Platform</title>
   <link rel="manifest" href="manifest.json">
 
+  <!--
+    Evict any previously installed Flutter service worker.
+
+    The build ships with --pwa-strategy=none (see the deploy workflow) because
+    a service worker caches index.html and the wasm bundle separately: after a
+    deploy the two can disagree and the app boots to a blank dark canvas until
+    the user hard-refreshes. Devices that still hold the old worker — and the
+    old index.html it serves — never see this file, so this cleanup also runs
+    from the stale copy: unregister, drop the caches, and reload once with the
+    cache gone.
+  -->
+  <script>
+    (function () {
+      if (!('serviceWorker' in navigator) && !window.caches) return;
+      var reloaded = 'radarSwPurged';
+      try {
+        if (sessionStorage.getItem(reloaded) === '1') return;
+      } catch (e) {
+        return;
+      }
+      var hadWorker = false;
+      var done = function () {
+        if (!hadWorker) return;
+        try { sessionStorage.setItem(reloaded, '1'); } catch (e) {}
+        window.location.reload();
+      };
+      var cleanup = Promise.resolve();
+      if ('serviceWorker' in navigator) {
+        cleanup = navigator.serviceWorker.getRegistrations()
+            .then(function (regs) {
+              hadWorker = regs.length > 0;
+              return Promise.all(regs.map(function (r) { return r.unregister(); }));
+            })
+            .catch(function () {});
+      }
+      cleanup.then(function () {
+        if (!window.caches) return done();
+        return caches.keys()
+            .then(function (keys) {
+              hadWorker = hadWorker || keys.length > 0;
+              return Promise.all(keys.map(function (k) { return caches.delete(k); }));
+            })
+            .then(done)
+            .catch(done);
+      });
+    })();
+  </script>
+
   <!-- Pi Network SDK: must be loaded before the Flutter app boots. -->
   <script src="https://sdk.minepi.com/pi-sdk.js"></script>
   <script>
@@ -60,5 +108,58 @@
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>
+
+  <!--
+    Boot watchdog. A blank dark page is the worst failure mode this app has:
+    nothing to tap, nothing to read, no way to tell a slow load from a broken
+    one. If Flutter has not painted a canvas after 20s, show a plain-DOM panel
+    with a Reload button instead of leaving the viewport empty. It removes
+    itself the moment the engine paints.
+  -->
+  <script>
+    (function () {
+      // The engine builds its scene host inside the glass pane's shadow root,
+      // so a plain querySelector never sees it: walk in explicitly.
+      var painted = function () {
+        var view = document.querySelector('flutter-view');
+        if (!view) return false;
+        if (view.querySelector('canvas')) return true;
+        var pane = view.querySelector('flt-glass-pane');
+        var shadow = pane && pane.shadowRoot;
+        return !!(shadow && shadow.querySelector('flt-scene-host'));
+      };
+      var timer = setInterval(function () {
+        if (painted()) return clearInterval(timer);
+      }, 500);
+
+      setTimeout(function () {
+        if (painted()) return;
+        var panel = document.createElement('div');
+        panel.setAttribute('role', 'alert');
+        panel.style.cssText =
+            'position:fixed;inset:0;z-index:99999;display:flex;flex-direction:column;' +
+            'align-items:center;justify-content:center;gap:14px;padding:28px;' +
+            'text-align:center;background:#1A1230;color:#F6F3FF;' +
+            'font:14px/1.5 system-ui,-apple-system,sans-serif;';
+        panel.innerHTML =
+            '<strong style="font-size:17px">THE RADAR could not start</strong>' +
+            '<span style="color:#A79BC8;max-width:340px">This is usually a stale ' +
+            'cached build. Reload to fetch the current one.</span>' +
+            '<button id="radar-reload" style="margin-top:6px;padding:11px 22px;' +
+            'border:0;border-radius:999px;background:#7C5CFF;color:#fff;' +
+            'font:600 14px/1 system-ui,sans-serif;cursor:pointer">Reload</button>';
+        document.body.appendChild(panel);
+        document.getElementById('radar-reload').addEventListener('click', function () {
+          window.location.reload();
+        });
+        // If the engine paints late, get out of its way.
+        var watch = setInterval(function () {
+          if (!painted()) return;
+          clearInterval(watch);
+          panel.remove();
+        }, 500);
+      }, 20000);
+    })();
+  </script>
 </body>
 </html>

@@ -89,8 +89,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             isMinor: _isMinor,
           );
       // RadarApp watches authProvider and routes to HomeShell on
-      // AuthSignedIn; nothing to navigate manually.
+      // AuthSignedIn, which unmounts this wizard mid-await — never touch
+      // this State (or its ref) past that point.
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _saving = false;
         _error = 'Could not save your profile: $e';

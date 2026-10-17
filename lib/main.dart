@@ -29,6 +29,14 @@ final List<(String, String, IconData, Widget)> _destinations = [
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Release builds swap a failed subtree for a plain black box, which on the
+  // live link is indistinguishable from a page that never booted at all.
+  // Paint a branded panel that names the failure instead, so a broken screen
+  // is visible (and reportable) rather than silently black.
+  ErrorWidget.builder = (details) => RadarErrorPanel(
+        message: details.exceptionAsString(),
+      );
+
   // Restore the persisted light/dark preference before the first frame so
   // there is no theme flash on boot. Failures keep the dark default.
   final container = ProviderContainer();
@@ -57,6 +65,69 @@ class RadarApp extends ConsumerWidget {
                   ? const OnboardingScreen()
                   : const HomeShell()
               : const LoginScreen(),
+    );
+  }
+}
+
+/// Fallback painted wherever a widget fails to build. Deliberately free of
+/// Material/Theme dependencies: it can be inserted above `MaterialApp`, where
+/// none of those exist yet.
+class RadarErrorPanel extends StatelessWidget {
+  const RadarErrorPanel({super.key, this.message = ''});
+
+  /// The failure text, shown muted under the title so a screenshot of the
+  /// live app still says what broke.
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final detail = message.trim();
+    return Directionality(
+      textDirection: TextDirection.ltr,
+      child: ColoredBox(
+        color: const Color(0xFF1A1230),
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const RadarMark(size: 46),
+                const SizedBox(height: 16),
+                const Text(
+                  'This screen could not be drawn',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Color(0xFFF6F3FF),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Reopen THE RADAR — the rest of the app keeps working.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Color(0xFFA79BC8), fontSize: 12.5),
+                ),
+                if (detail.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    detail.length > 220 ? detail.substring(0, 220) : detail,
+                    textAlign: TextAlign.center,
+                    maxLines: 4,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFF6F6390),
+                      fontSize: 10.5,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -135,20 +206,136 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         ],
       ),
       bottomNavigationBar: size == WindowSize.compact
-          ? NavigationBar(
-              selectedIndex: _index,
-              onDestinationSelected: (i) => setState(() => _index = i),
-              destinations: [
-                for (final d in _destinations)
-                  NavigationDestination(
-                    icon: Icon(d.$3),
-                    selectedIcon: Icon(d.$3),
-                    tooltip: d.$2,
-                    label: d.$1,
-                  ),
-              ],
+          ? _RadarNavBar(
+              index: _index,
+              onSelect: (i) => setState(() => _index = i),
             )
           : null,
+    );
+  }
+}
+
+/// Bottom navigation, mockup-shaped: a dark bar where the current tab is a
+/// violet pill carrying its icon and label side by side, and the other tabs
+/// sit quiet as an icon-over-label pair.
+class _RadarNavBar extends StatelessWidget {
+  const _RadarNavBar({required this.index, required this.onSelect});
+
+  final int index;
+  final ValueChanged<int> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: RadarTheme.ink,
+        border: Border(
+          top: BorderSide(color: Colors.white.withValues(alpha: 0.07)),
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        // A fixed strip: the selected pill is centred, and a loose Row would
+        // let it stretch to the full height the Scaffold offers.
+        child: SizedBox(
+          height: 58,
+          child: Row(
+            children: [
+              for (final (i, d) in _destinations.indexed)
+                Expanded(
+                  child: _NavBarItem(
+                    label: d.$1,
+                    tooltip: d.$2,
+                    icon: d.$3,
+                    selected: i == index,
+                    onTap: () => onSelect(i),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NavBarItem extends StatelessWidget {
+  const _NavBarItem({
+    required this.label,
+    required this.tooltip,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final String tooltip;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    // The active pill reads violet-on-dark; the label brightens just enough
+    // to stay legible at 12pt.
+    final accent = Color.lerp(RadarTheme.pi, Colors.white, 0.5)!;
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+          child: selected
+              ? Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: RadarTheme.pi.withValues(alpha: 0.20),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(
+                          color: RadarTheme.pi.withValues(alpha: 0.55)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(icon, size: 17, color: accent),
+                        const SizedBox(width: 6),
+                        Text(
+                          label,
+                          maxLines: 1,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: accent,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(icon, size: 20, color: RadarTheme.textDim),
+                    const SizedBox(height: 3),
+                    Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w600,
+                        color: RadarTheme.textDim,
+                      ),
+                    ),
+                  ],
+                ),
+        ),
+      ),
     );
   }
 }

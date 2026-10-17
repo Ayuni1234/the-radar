@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:the_radar/src/models/enums.dart';
 import 'package:the_radar/src/models/feed_post.dart';
+import 'package:the_radar/src/models/user_profile.dart';
 import 'package:the_radar/src/state/auth_controller.dart'
     show AuthController, AuthSignedIn, AuthState, RadarSession, authProvider;
 import 'package:the_radar/src/state/radar_providers.dart'
-    show FeedPostsController, feedPostsProvider;
+    show FeedPostsController, ProfilesController, feedPostsProvider, profilesProvider;
 import 'package:the_radar/src/ui/feed_screen.dart';
 import 'package:the_radar/src/ui/next_training_overlay.dart';
 import 'package:the_radar/src/ui/radar_theme.dart';
@@ -18,7 +20,7 @@ import 'package:the_radar/src/ui/social_post_card.dart';
 /// training CTA. These are the mockup's defining elements, so they are pinned
 /// against the layout regressing back into a boxed scrolling feed.
 void main() {
-  Future<void> pumpReels(WidgetTester tester) async {
+  Future<void> pumpReels(WidgetTester tester, {bool withProfile = false}) async {
     tester.view.physicalSize = const Size(412, 892);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -27,6 +29,7 @@ void main() {
       overrides: [
         authProvider.overrideWith(_FixedAuth.new),
         feedPostsProvider.overrideWith(_FixedFeedPosts.new),
+        if (withProfile) profilesProvider.overrideWith(_FixedProfiles.new),
       ],
       child: MaterialApp(theme: RadarTheme.dark, home: const FeedScreen()),
     ));
@@ -74,6 +77,38 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     while (tester.takeException() != null) {}
     expect(find.text('Top bins.'), findsOneWidget);
+  });
+
+  testWidgets(
+      'the overlay follows the mockup: caption and hashtags over a player card',
+      (tester) async {
+    await pumpReels(tester, withProfile: true);
+
+    final caption = tester.getRect(find.text('Sprint day.'));
+    final tags = tester.getRect(find.text('#TheRadar #Highlight'));
+    final name = tester.getRect(find.text('Joung Pame'));
+    final training = tester.getRect(find.byType(NextTrainingOverlayCard));
+    final cta = tester.getRect(find.text('GO TO PROFILE'));
+
+    expect(tags.top, greaterThan(caption.bottom - 1),
+        reason: 'the hashtag line sits under the caption');
+    expect(name.top, greaterThan(tags.bottom),
+        reason: 'the player card starts below the caption block');
+    expect(training.top, greaterThan(name.bottom + 6),
+        reason: 'the next-live-training block lives under the player block');
+    expect(cta.top, greaterThan(training.top));
+
+    // The card carries the mockup's labelled player lines, not free-form tags.
+    expect(find.text('Age: 24'), findsOneWidget);
+    expect(find.text('Position: ST · LW'), findsOneWidget);
+    expect(find.textContaining('Bio: '), findsOneWidget);
+    expect(find.byIcon(Icons.verified), findsOneWidget,
+        reason: 'KYC players wear the verified tick next to their name');
+
+    // The media still runs edge to edge behind it all.
+    final screen = tester.getSize(find.byType(FeedScreen));
+    expect(tester.getRect(find.byType(PostMediaSurface).first).width,
+        screen.width);
   });
 
   testWidgets('the reels header keeps the composer and the discovery tools',
@@ -132,6 +167,27 @@ class _FixedAuth extends AuthController {
         kycVerified: true,
         isDemo: true,
       )));
+}
+
+/// One KYC-verified player profile, so the reel card renders the mockup's
+/// "Age / Position / Bio" block instead of the bare author name.
+class _FixedProfiles extends ProfilesController {
+  @override
+  Future<List<UserProfile>> build() async => [
+        UserProfile(
+          id: 'a1',
+          piUid: 'pi-a1',
+          username: 'jpame',
+          displayName: 'Joung Pame',
+          role: UserRole.player,
+          credibilityScore: 62,
+          kycVerified: true,
+          createdAt: DateTime(2026, 1, 1),
+          positions: const ['ST', 'LW'],
+          birthYear: 2002,
+          bio: 'Right foot forward, always on the shoulder of the last man.',
+        ),
+      ];
 }
 
 /// A two-post reel: one photo, one device video with a poster frame.

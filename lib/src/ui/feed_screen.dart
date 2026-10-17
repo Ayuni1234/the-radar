@@ -20,12 +20,11 @@ import 'next_training_overlay.dart';
 import 'player_live_session_screen.dart';
 import 'radar_map_screen.dart';
 import 'bounty_board_screen.dart';
-import 'brand_header.dart';
-import 'media_viewer.dart';
 import '../data/media_upload_service.dart';
 import '../state/theme_controller.dart';
 import 'player_cv_screen.dart';
 import 'radar_theme.dart';
+import 'media_viewer.dart';
 import 'sheet_scaffold.dart';
 import 'safeguarding_screen.dart';
 import 'shell.dart';
@@ -350,8 +349,8 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     final author = _authorOf(post);
     final training = _trainingFor(post, author);
     final size = MediaQuery.sizeOf(context);
-    // Short viewports (landscape phones, small browser windows) drop
-    // the overlay's optional lines instead of overflowing the card.
+    // Short viewports (landscape phones, small browser windows) drop the
+    // overlay's optional lines instead of overflowing the card.
     final compact = size.height < 700;
     final veryCompact = size.height < 560;
 
@@ -361,67 +360,70 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 560),
         child: Stack(
-      fit: StackFit.expand,
-      children: [
-        PostMediaSurface(
-          post: post,
-          heroTag: 'media-hero-${post.id}',
-          onTap: () => _openViewer(post, posts),
-        ),
-        // Legibility scrims: the media runs under the header and the overlay.
-        Align(
-          alignment: Alignment.topCenter,
-          child: Container(
-            height: 150,
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0xB308060F), Color(0x0008060F)],
+          fit: StackFit.expand,
+          children: [
+            // Edge-to-edge media — the mockup's full-bleed photo.
+            PostMediaSurface(
+              post: post,
+              heroTag: 'media-hero-${post.id}',
+              onTap: () => _openViewer(post, posts),
+            ),
+            // Legibility scrims: the media runs under the header and the
+            // caption/card stack at the bottom.
+            Align(
+              alignment: Alignment.topCenter,
+              child: Container(
+                height: 140,
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Color(0xB308060F), Color(0x0008060F)],
+                  ),
+                ),
               ),
             ),
-          ),
-        ),
-        Align(
-          alignment: Alignment.bottomCenter,
-          child: Container(
-            height: 470,
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.bottomCenter,
-                end: Alignment.topCenter,
-                colors: [Color(0xD908060F), Color(0x0008060F)],
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: Container(
+                height: veryCompact ? 300 : (compact ? 370 : 450),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
+                    colors: [Color(0xE608060F), Color(0x0008060F)],
+                  ),
+                ),
               ),
             ),
-          ),
-        ),
-        Positioned(
-          left: 10,
-          right: 4,
-          top: 6,
-          child: _reelHeader(post, size.width),
-        ),
-        Positioned(
-          left: 12,
-          right: 12,
-          bottom: 12,
-          child: _reelOverlay(
-            post,
-            author,
-            training,
-            compact: compact,
-            veryCompact: veryCompact,
-          ),
-        ),
+            Positioned(
+              left: 12,
+              right: 4,
+              top: 4,
+              child: _reelHeader(post, size.width),
+            ),
+            Positioned(
+              left: 14,
+              right: 14,
+              bottom: 10,
+              child: _reelOverlay(
+                post,
+                author,
+                training,
+                compact: compact,
+                veryCompact: veryCompact,
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  /// Reels header — brand + 𝛑 balance + notifications + theme + compose,
-  /// with the overflow menu that keeps the discovery tools (sessions,
-  /// filters, map, safeguarding) on the reels tab.
+  /// Reels header — the mockup's floating chrome: the mark + wordmark on the
+  /// left, notifications / compose / overflow on the right. The discovery
+  /// tools (sessions, filters, map, safeguarding, theme) live in the overflow
+  /// menu so the media keeps the frame's full width.
   Widget _reelHeader(FeedPost post, double width) {
     final ownPost = ref.read(sessionProvider)?.profileId == post.authorProfileId;
     return Row(
@@ -434,15 +436,15 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const RadarMark(size: 26),
+                  const RadarMark(size: 24),
                   const SizedBox(width: 8),
                   Text(
                     AppBrand.name,
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w800,
-                      fontSize: 14,
-                      letterSpacing: 2.4,
+                      fontSize: 13.5,
+                      letterSpacing: 2.2,
                       shadows: [Shadow(color: Color(0x99000000), blurRadius: 8)],
                     ),
                   ),
@@ -451,21 +453,21 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
             ),
           ),
         ),
-        if (width >= 400) const PiBalanceChip(),
-        IconButton(
+        _reelIcon(
+          icon: Icons.notifications_none,
           tooltip: 'Notifications',
-          icon: const Icon(Icons.notifications_none, color: Colors.white),
           onPressed: _showNotifications,
         ),
-        const _ThemeHeaderToggle(),
-        IconButton(
+        _reelIcon(
+          icon: Icons.edit_note,
           tooltip: 'New post',
-          icon: const Icon(Icons.edit_note, color: Colors.white),
           onPressed: _openComposer,
         ),
         PopupMenuButton<_ReelMenuAction>(
           tooltip: 'More',
-          icon: const Icon(Icons.more_vert, color: Colors.white),
+          iconSize: 22,
+          icon: const Icon(Icons.more_vert, color: Colors.white, size: 22),
+          padding: const EdgeInsets.only(left: 4, right: 8),
           onSelected: (action) => _onReelMenu(action, post, ownPost),
           itemBuilder: (context) => [
             const PopupMenuItem(
@@ -484,6 +486,10 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
             const PopupMenuItem(
               value: _ReelMenuAction.map,
               child: Text('Open the Radar map'),
+            ),
+            const PopupMenuItem(
+              value: _ReelMenuAction.theme,
+              child: Text('Switch light / dark theme'),
             ),
             const PopupMenuItem(
               value: _ReelMenuAction.safety,
@@ -505,6 +511,26 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     );
   }
 
+  /// Overlay header icon: white on a soft dark disc so it stays legible over
+  /// bright media.
+  Widget _reelIcon({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return IconButton(
+      tooltip: tooltip,
+      onPressed: onPressed,
+      visualDensity: VisualDensity.compact,
+      icon: Icon(
+        icon,
+        size: 22,
+        color: Colors.white,
+        shadows: const [Shadow(color: Color(0x99000000), blurRadius: 8)],
+      ),
+    );
+  }
+
   void _onReelMenu(_ReelMenuAction action, FeedPost post, bool ownPost) {
     switch (action) {
       case _ReelMenuAction.sessions:
@@ -515,6 +541,12 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
         _openPostOnRadar(post);
       case _ReelMenuAction.map:
         HomeShell.goTo(context, 1);
+      case _ReelMenuAction.theme:
+        final next = ref.read(themeModeProvider.notifier).toggle();
+        RadarTheme.current = next == RadarBrightness.dark
+            ? RadarPalette.dark
+            : RadarPalette.light;
+        persistThemePreference(next);
       case _ReelMenuAction.safety:
         Navigator.of(context).push(MaterialPageRoute<void>(
           builder: (_) => const SafeguardingScreen(),
@@ -535,9 +567,9 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     ));
   }
 
-  /// The overlay card for one reel: caption + hashtags, the posting player
-  /// and the next live training block (mockup: "Live Skills #PiScout #Talent"
-  /// over the player row and "Next Live Training Info").
+  /// The overlay stack for one reel, mockup-shaped: the caption and hashtag
+  /// line sit straight on the media, and a translucent card underneath carries
+  /// the posting player and their next live session.
   Widget _reelOverlay(
     FeedPost post,
     UserProfile? author,
@@ -547,181 +579,163 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
   }) {
     final title = post.body.split('\n').first.trim();
     final area = (post.areaName ?? '').trim();
-    // Hashtags are the brand and the post kind; the area is a location pill
-    // rather than a mangled '#Mycurrentspot'.
-    final tags = <String>[
-      '#${AppBrand.nameTitleCase.replaceAll(' ', '')}',
-      '#${post.kind.label.replaceAll(' ', '')}',
-    ];
+    // Inline hashtags, mockup-style — "#PiScout #Talent" under the caption
+    // rather than the old boxed chips.
+    final tags = '#${AppBrand.nameTitleCase.replaceAll(' ', '')} '
+        '#${post.kind.label.replaceAll(' ', '')}';
 
-    return Container(
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A1230).withValues(alpha: 0.86),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title.isEmpty ? post.kind.label : title,
-            maxLines: compact ? 1 : 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
-              height: 1.15,
-            ),
-          ),
-          if (!veryCompact) ...[
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-              for (final tag in tags) _hashtagPill(tag),
-              if (area.isNotEmpty) _locationPill(area),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, right: 4, bottom: 10),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title.isEmpty ? post.kind.label : title,
+                maxLines: compact ? 1 : 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 21,
+                  fontWeight: FontWeight.w800,
+                  height: 1.12,
+                  shadows: [Shadow(color: Color(0xAA000000), blurRadius: 12)],
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                tags,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFFCBB9FF),
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w700,
+                  shadows: [Shadow(color: Color(0xAA000000), blurRadius: 12)],
+                ),
+              ),
+              if (area.isNotEmpty && !veryCompact) ...[
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    const Icon(Icons.place_outlined,
+                        size: 12, color: Color(0xCCFFFFFF)),
+                    const SizedBox(width: 3),
+                    Flexible(
+                      child: Text(
+                        area,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xCCFFFFFF),
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
-            ),
-          ],
-          const SizedBox(height: 12),
-          _reelAuthorRow(post, author, showBio: !compact),
-          const SizedBox(height: 12),
-          Divider(height: 1, color: Colors.white.withValues(alpha: 0.12)),
-          const SizedBox(height: 12),
-          if (training != null)
-            NextTrainingOverlayCard(
-              flat: true,
-              info: training,
-              onGoToProfile: () =>
-                  _openPlayerSession(training.event.hostProfileId),
-              onWatchLive: () =>
-                  _openPlayerSession(training.event.hostProfileId),
-            )
-          else ...[
-            // No session on the radar for this player yet: keep the mockup's
-            // training block shape and point the CTA at their profile.
-            const Text(
-              'Next Live Training Info:',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.3,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'No session scheduled yet',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.75),
-                fontSize: 13,
-              ),
-            ),
-            const SizedBox(height: 12),
-            FilledButton.icon(
-              style: FilledButton.styleFrom(
-                backgroundColor: RadarTheme.pi,
-                foregroundColor: Colors.white,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-              ),
-              onPressed: () => _openAuthor(post),
-              icon: const Icon(Icons.person, size: 15),
-              label: const Text(
-                'GO TO PROFILE',
-                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  /// Hashtag pill, mockup-style: violet on a translucent violet chip.
-  Widget _hashtagPill(String tag) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-      decoration: BoxDecoration(
-        color: RadarTheme.pi.withValues(alpha: 0.22),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: RadarTheme.pi.withValues(alpha: 0.5)),
-      ),
-      child: Text(
-        tag,
-        style: TextStyle(
-          color: Color.lerp(RadarTheme.pi, Colors.white, 0.45),
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
-
-  /// Location pill: the post's coarse area, mockup-style chip next to the
-  /// hashtags (posts only ever carry a privacy-safe area name).
-  Widget _locationPill(String area) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.place_outlined, size: 12, color: Colors.white70),
-          const SizedBox(width: 4),
-          Flexible(
-            child: Text(
-              area,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.85),
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
           ),
-        ],
-      ),
+        ),
+        Container(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+          decoration: BoxDecoration(
+            // Translucent violet panel, the mockup's "Joung Pame" card.
+            color: const Color(0xFF221A3C).withValues(alpha: 0.88),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x66000000),
+                blurRadius: 22,
+                offset: Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _reelAuthorRow(post, author, showBio: !compact),
+              const SizedBox(height: 11),
+              Container(
+                height: 1,
+                color: Colors.white.withValues(alpha: 0.10),
+              ),
+              const SizedBox(height: 11),
+              if (training != null)
+                NextTrainingOverlayCard(
+                  flat: true,
+                  info: training,
+                  onGoToProfile: () =>
+                      _openPlayerSession(training.event.hostProfileId),
+                  onWatchLive: () =>
+                      _openPlayerSession(training.event.hostProfileId),
+                )
+              else ...[
+                // No session on the radar for this player yet: keep the
+                // mockup's training block shape and point the CTA at their
+                // profile.
+                const Text(
+                  'Next Live Training Info:',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  'No session scheduled yet',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.75),
+                    fontSize: 12.5,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TrainingCtaButton(
+                  label: 'GO TO PROFILE',
+                  icon: Icons.person,
+                  onPressed: () => _openAuthor(post),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
 
-  /// Player row: avatar, name (with the KYC tick), age/positions and bio —
-  /// mockup: "Joung Pame / Age: 28 / Position: Player / Bio: …".
+  /// Player row, mockup-shaped: avatar, name with the blue tick, then
+  /// "Age: 28" / "Position: Player" / "Bio: …" lines.
   Widget _reelAuthorRow(
     FeedPost post,
     UserProfile? author, {
     bool showBio = true,
   }) {
-    final meta = <String>[];
-    final age = author?.age;
-    if (age != null) meta.add('Age $age');
     final positions = author?.positions ?? const <String>[];
-    if (positions.isNotEmpty) {
-      meta.add(positions.join(' · '));
-    } else if (post.authorRole.isNotEmpty) {
-      meta.add(_capitalize(post.authorRole));
-    }
-    final foot = author?.dominantFoot;
-    if (foot != null && foot.isNotEmpty) meta.add('${_capitalize(foot)} foot');
+    final roleLabel = positions.isNotEmpty
+        ? positions.join(' · ')
+        : (post.authorRole.isNotEmpty ? _capitalize(post.authorRole) : '');
     final bio = (author?.bio ?? '').trim();
+    final avatarUrl = (author?.avatarUrl ?? '').trim();
 
     return InkWell(
       onTap: () => _openAuthor(post),
       borderRadius: BorderRadius.circular(14),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 42,
-            height: 42,
+            width: 40,
+            height: 40,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               gradient: LinearGradient(
@@ -733,13 +747,22 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                 ],
               ),
             ),
-            padding: const EdgeInsets.all(2),
-            child: const DecoratedBox(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Color(0xFF241B42),
-              ),
-              child: Icon(Icons.person, size: 18, color: Colors.white70),
+            padding: const EdgeInsets.all(1.6),
+            child: ClipOval(
+              child: avatarUrl.isEmpty
+                  ? const ColoredBox(
+                      color: Color(0xFF2B2149),
+                      child: Icon(Icons.person, size: 19, color: Colors.white70),
+                    )
+                  : Image.network(
+                      avatarUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => const ColoredBox(
+                        color: Color(0xFF2B2149),
+                        child:
+                            Icon(Icons.person, size: 19, color: Colors.white70),
+                      ),
+                    ),
             ),
           ),
           const SizedBox(width: 10),
@@ -757,46 +780,48 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 14.5,
-                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
                     ),
                     if (author?.kycVerified ?? false) ...[
-                      const SizedBox(width: 6),
-                      Icon(Icons.verified, size: 13, color: RadarTheme.radar),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.verified,
+                          size: 13, color: Color(0xFF4CC3FF)),
                     ],
                   ],
                 ),
-                if (meta.isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    meta.join(' · '),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.75),
-                      fontSize: 11.5,
-                    ),
-                  ),
-                ],
-                if (showBio && bio.isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    bio,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.6),
-                      fontSize: 11.5,
-                      height: 1.3,
-                    ),
-                  ),
-                ],
+                if (author?.age != null)
+                  _reelMeta('Age', '${author!.age}'),
+                if (roleLabel.isNotEmpty)
+                  // Players get the mockup's "Position"; everyone else on the
+                  // feed (academies, clubs, scouts) is labelled by role.
+                  _reelMeta(positions.isNotEmpty ? 'Position' : 'Role', roleLabel),
+                if (showBio && bio.isNotEmpty)
+                  _reelMeta('Bio', bio, maxLines: 2),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// One "Label: value" line of the reel card's player block — mockup
+  /// typography: muted, one line each, truncating instead of wrapping.
+  Widget _reelMeta(String label, String value, {int maxLines = 1}) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 2),
+      child: Text(
+        '$label: $value',
+        maxLines: maxLines,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: Colors.white.withValues(alpha: 0.78),
+          fontSize: 11.5,
+          height: 1.3,
+        ),
       ),
     );
   }
@@ -2837,6 +2862,7 @@ enum _ReelMenuAction {
   filter,
   postOnMap,
   map,
+  theme,
   safety,
   report,
   delete,

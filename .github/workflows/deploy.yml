@@ -32,6 +32,27 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: yes | npx --yes supabase db push --project-ref wmadurjharulfyyzzyes
       - run: flutter build web --release --wasm --base-href "/the-radar/" --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }} --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
+      # A service worker from an older bundle outlives a deploy and keeps
+      # serving its precached index.html against the freshly published wasm;
+      # the two disagree and the app boots to a blank dark canvas until the
+      # user hard-refreshes. Replace Flutter's precaching worker with an inert
+      # one: browsers that still hold the old worker pick this up (same URL),
+      # drop the stale caches and stop intercepting fetches, so the next load
+      # is served fresh. web/index.html also unregisters it outright.
+      - name: Neutralise the service worker cache
+        run: |
+          cat > build/web/flutter_service_worker.js <<'JS'
+          // The Radar — cacheless service worker. See the deploy workflow.
+          self.addEventListener('install', function () { self.skipWaiting(); });
+          self.addEventListener('activate', function (event) {
+            event.waitUntil((async function () {
+              try {
+                const keys = await caches.keys();
+                await Promise.all(keys.map(function (k) { return caches.delete(k); }));
+              } catch (e) {}
+            })());
+          });
+          JS
       - uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}

@@ -110,14 +110,32 @@ class _NextTrainingOverlayCardState
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            isLive ? 'Live Training In Progress' : 'Next Live Training Info',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.3,
-            ),
+          // "Next Live Training Info:" — the mockup's label line, with the
+          // status glyph that turns green once the session is live.
+          Row(
+            children: [
+              Icon(
+                isLive ? Icons.podcasts : Icons.schedule,
+                size: 13,
+                color: isLive ? RadarTheme.radar : RadarTheme.gold,
+              ),
+              const SizedBox(width: 5),
+              Expanded(
+                child: Text(
+                  isLive
+                      ? 'Live Training In Progress'
+                      : 'Next Live Training Info:',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 6),
           // Pitch · kick-off on the left, the live countdown on the right —
@@ -130,62 +148,91 @@ class _NextTrainingOverlayCardState
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.9),
-                    fontSize: 13,
+                    color: Colors.white.withValues(alpha: 0.92),
+                    fontSize: 12.5,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               if (!isLive)
                 LiveCountdownText(
                   target: info.event.startsAt,
                   style: const TextStyle(
                     color: Color(0xFFF5C043),
-                    fontSize: 17,
+                    fontSize: 15.5,
                     fontWeight: FontWeight.w800,
-                    letterSpacing: 1.2,
+                    letterSpacing: 0.6,
+                    fontFeatures: [FontFeature.tabularFigures()],
                   ),
                 )
               else
-                Row(
+                const Row(
                   children: [
-                    Icon(Icons.podcasts, size: 16, color: RadarTheme.radar),
-                    const SizedBox(width: 6),
-                    const Text(
-                      'Broadcasting now',
+                    Text(
+                      'BROADCASTING NOW',
                       style: TextStyle(
                         color: Color(0xFF3DFFA2),
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 10.5,
+                        letterSpacing: 0.6,
                       ),
                     ),
                   ],
                 ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           // GO TO PROFILE / WATCH LIVE — deep-links to the player's profile
           // and GPS location broadcast. Violet, per the mockup's CTA pill.
-          FilledButton.icon(
-            style: FilledButton.styleFrom(
-              backgroundColor: RadarTheme.pi,
-              foregroundColor: Colors.white,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-            ),
+          TrainingCtaButton(
+            label: isLive ? 'WATCH LIVE' : 'GO TO PROFILE',
+            icon: isLive ? Icons.play_arrow : Icons.person,
             onPressed: isLive
                 ? (widget.onWatchLive ?? widget.onGoToProfile)
                 : widget.onGoToProfile,
-            icon: Icon(isLive ? Icons.play_arrow : Icons.person, size: 15),
-            label: Text(
-              isLive ? 'WATCH LIVE' : 'GO TO PROFILE',
-              style:
-                  const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800),
-            ),
           ),
         ],
       ),
+    );
+  }
+}
+
+/// The mockup's violet CTA pill: icon + uppercase label on a stadium-shaped
+/// Pi-violet fill. Shared by the reel overlay and the discovery body.
+class TrainingCtaButton extends StatelessWidget {
+  const TrainingCtaButton({
+    super.key,
+    required this.label,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return FilledButton.icon(
+      style: FilledButton.styleFrom(
+        backgroundColor: RadarTheme.pi,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        minimumSize: const Size(0, 32),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        visualDensity: VisualDensity.compact,
+        shape: const StadiumBorder(),
+        elevation: 0,
+        textStyle: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.4,
+        ),
+      ),
+      onPressed: onPressed,
+      icon: Icon(icon, size: 14),
+      label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
     );
   }
 }
