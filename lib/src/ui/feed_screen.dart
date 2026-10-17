@@ -546,11 +546,12 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     bool veryCompact = false,
   }) {
     final title = post.body.split('\n').first.trim();
+    final area = (post.areaName ?? '').trim();
+    // Hashtags are the brand and the post kind; the area is a location pill
+    // rather than a mangled '#Mycurrentspot'.
     final tags = <String>[
       '#${AppBrand.nameTitleCase.replaceAll(' ', '')}',
       '#${post.kind.label.replaceAll(' ', '')}',
-      if ((post.areaName ?? '').trim().isNotEmpty)
-        '#${post.areaName!.trim().replaceAll(' ', '')}',
     ];
 
     return Container(
@@ -580,7 +581,10 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
             Wrap(
               spacing: 6,
               runSpacing: 6,
-              children: [for (final tag in tags) _hashtagPill(tag)],
+              children: [
+              for (final tag in tags) _hashtagPill(tag),
+              if (area.isNotEmpty) _locationPill(area),
+            ],
             ),
           ],
           const SizedBox(height: 12),
@@ -597,21 +601,42 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
               onWatchLive: () =>
                   _openPlayerSession(training.event.hostProfileId),
             )
-          else
-            OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
+          else ...[
+            // No session on the radar for this player yet: keep the mockup's
+            // training block shape and point the CTA at their profile.
+            const Text(
+              'Next Live Training Info:',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.3,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'No session scheduled yet',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.75),
+                fontSize: 13,
+              ),
+            ),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              style: FilledButton.styleFrom(
+                backgroundColor: RadarTheme.pi,
                 foregroundColor: Colors.white,
-                side: BorderSide(color: Colors.white.withValues(alpha: 0.35)),
                 padding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
               ),
               onPressed: () => _openAuthor(post),
-              icon: const Icon(Icons.person_outline, size: 15),
+              icon: const Icon(Icons.person, size: 15),
               label: const Text(
-                'VIEW PROFILE',
+                'GO TO PROFILE',
                 style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800),
               ),
             ),
+          ],
         ],
       ),
     );
@@ -633,6 +658,38 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
           fontSize: 11,
           fontWeight: FontWeight.w700,
         ),
+      ),
+    );
+  }
+
+  /// Location pill: the post's coarse area, mockup-style chip next to the
+  /// hashtags (posts only ever carry a privacy-safe area name).
+  Widget _locationPill(String area) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.place_outlined, size: 12, color: Colors.white70),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              area,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.85),
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
