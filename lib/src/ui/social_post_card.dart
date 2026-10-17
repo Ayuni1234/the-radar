@@ -541,6 +541,68 @@ List<ViewerMedia> _galleryFromPosts(Iterable<FeedPost> posts) {
 
 /// Painted floodlit-pitch backdrop for the media area — pure CustomPainter,
 /// no network imagery required (demo-safe, deterministic in tests).
+/// Full-bleed cover rendering of one post's media — the background layer of
+/// the Reels feed.
+///
+/// Photos and device-video poster frames fill the frame edge to edge
+/// ([BoxFit.cover]); posts whose media is an external link (or missing) fall
+/// back to the painted floodlit pitch, so a reel always has a surface. The
+/// web `<video>` platform view is deliberately not embedded here — it cannot
+/// take part in Hero flights and a paged reel would mount one per page — so
+/// videos show their poster frame and open in the viewer on tap.
+class PostMediaSurface extends StatelessWidget {
+  const PostMediaSurface({
+    super.key,
+    required this.post,
+    this.onTap,
+    this.heroTag,
+  });
+
+  final FeedPost post;
+
+  /// Tap handler — the feed opens the full-screen viewer (gallery) with it.
+  final VoidCallback? onTap;
+
+  /// Hero tag for the viewer's zoom-in flight (see [SocialPostCard]).
+  final String? heroTag;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget surface = _cover();
+    if (heroTag != null) {
+      surface = Hero(tag: heroTag!, child: surface);
+    }
+    if (onTap != null) {
+      surface = GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: surface,
+      );
+    }
+    return surface;
+  }
+
+  Widget _cover() {
+    final url = post.isDevicePhoto
+        ? post.mediaUrl
+        : post.isDeviceVideo
+            ? post.mediaPosterUrl
+            : null;
+    if (url == null || url.isEmpty) return const _PitchCanvas();
+    return Image.network(
+      url,
+      fit: BoxFit.cover,
+      errorBuilder: (_, _, _) => const _PitchCanvas(),
+      loadingBuilder: (context, child, progress) {
+        if (progress?.cumulativeBytesLoaded == progress?.expectedTotalBytes) {
+          return child;
+        }
+        return const _PitchCanvas();
+      },
+    );
+  }
+}
+
 class _PitchCanvas extends StatelessWidget {
   const _PitchCanvas();
 

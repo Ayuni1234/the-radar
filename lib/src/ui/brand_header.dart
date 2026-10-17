@@ -66,7 +66,7 @@ class BrandHeaderBar extends StatelessWidget implements PreferredSizeWidget {
         ),
       ),
       actions: [
-        if (showBalance) _PiBalanceChip(),
+        if (showBalance) const PiBalanceChip(),
         const _ThemeHeaderToggle(),
         ...?actions,
       ],
@@ -75,7 +75,13 @@ class BrandHeaderBar extends StatelessWidget implements PreferredSizeWidget {
 }
 
 /// Gold 𝛑 balance chip displayed in the header — mockup spec "50.00𝛑".
-class _PiBalanceChip extends StatelessWidget {
+/// Shared with the Reels overlay header, which floats it over the media.
+class PiBalanceChip extends StatelessWidget {
+  const PiBalanceChip({super.key, this.amount = '50.00'});
+
+  /// Displayed balance, without the 𝛑 prefix.
+  final String amount;
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -91,7 +97,7 @@ class _PiBalanceChip extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              '𝛑 50.00',
+              '𝛑 $amount',
               style: TextStyle(
                 color: RadarTheme.gold,
                 fontSize: 12.5,

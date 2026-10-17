@@ -20,6 +20,8 @@ import 'next_training_overlay.dart';
 import 'player_live_session_screen.dart';
 import 'radar_map_screen.dart';
 import 'bounty_board_screen.dart';
+import 'brand_header.dart';
+import 'media_viewer.dart';
 import '../data/media_upload_service.dart';
 import '../state/theme_controller.dart';
 import 'player_cv_screen.dart';
@@ -99,6 +101,17 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
             bounty.status == 'accepted' ||
             bounty.status == 'live')
         .length;
+
+    // Reels-first: posts play as full-bleed vertical reels (the
+    // hackathon mockup's Reels screen). The discovery body below is what
+    // the tab shows while there is nothing to page through: a filter that
+    // excludes every post, a session-only scope, or an empty feed.
+    if (posts.isNotEmpty) {
+      return Scaffold(
+        backgroundColor: RadarTheme.ink,
+        body: _buildReels(posts, signedIn),
+      );
+    }
 
     return Scaffold(
       backgroundColor: RadarTheme.ink,
@@ -285,45 +298,6 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                 ),
               )
             else ...[
-              if (_scope != 2 && posts.isNotEmpty) ...[
-                const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                SliverToBoxAdapter(
-                  child: SectionHeader('Latest posts',
-                      trailing: Text('${posts.length}',
-                          style:  TextStyle(
-                              color: RadarTheme.textDim, fontSize: 12))),
-                ),
-                SliverList.builder(
-                  itemCount: posts.length,
-                  itemBuilder: (context, i) => Column(
-                    children: [
-                      SocialPostCard(
-                        // Edge-to-edge, Instagram-style: no card gutters —
-                        // the media runs the full width of the screen.
-                        framed: false,
-                        post: posts[i],
-                        // The full-screen viewer becomes a gallery that
-                        // flicks between every photo and video poster in
-                        // the feed.
-                        galleryPosts: posts,
-                        onOpenAuthor: () => _openAuthor(posts[i]),
-                        onDelete:
-                            ref.read(sessionProvider)?.profileId ==
-                                    posts[i].authorProfileId
-                                ? () => _confirmDelete(posts[i])
-                                : null,
-                        onOpenMapDeepLink: () => _openPostOnRadar(posts[i]),
-                        onReport: () => _openReportSheet(posts[i]),
-                      ),
-                      if (i != posts.length - 1)
-                        Container(
-                          height: 1,
-                          color: RadarTheme.stroke.withValues(alpha: 0.55),
-                        ),
-                    ],
-                  ),
-                ),
-              ],
               if (_scope != 1 && sessions.isNotEmpty) ...[
                 const SliverToBoxAdapter(child: SizedBox(height: 8)),
                 SliverToBoxAdapter(
@@ -350,6 +324,543 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
             ],
             const SliverToBoxAdapter(child: SizedBox(height: 32)),
           ],
+        ),
+      ),
+    );
+  }
+
+  // ------------------------------------------------------------------ reels
+
+  /// Full-bleed vertical reels — the hackathon mockup's Reels screen: one
+  /// post per page, its media edge to edge, with the overlay card carrying
+  /// the caption, hashtags, the posting player and their next live session.
+  Widget _buildReels(List<FeedPost> posts, bool signedIn) {
+    return PageView.builder(
+      // Restart at the top whenever the number of reels changes (a filter
+      // applied, the feed refreshed) instead of leaving the pager past its
+      // end.
+      key: ValueKey('reels-${posts.length}'),
+      scrollDirection: Axis.vertical,
+      itemCount: posts.length,
+      itemBuilder: (context, i) => _reel(posts[i], posts, signedIn),
+    );
+  }
+
+  Widget _reel(FeedPost post, List<FeedPost> posts, bool signedIn) {
+    final author = _authorOf(post);
+    final training = _trainingFor(post, author);
+    final size = MediaQuery.sizeOf(context);
+    // Short viewports (landscape phones, small browser windows) drop
+    // the overlay's optional lines instead of overflowing the card.
+    final compact = size.height < 700;
+    final veryCompact = size.height < 560;
+
+    // Phone-shaped reel: on a desktop window the media keeps a phone's
+    // width (centred) instead of stretching edge to edge.
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 560),
+        child: Stack(
+      fit: StackFit.expand,
+      children: [
+        PostMediaSurface(
+          post: post,
+          heroTag: 'media-hero-${post.id}',
+          onTap: () => _openViewer(post, posts),
+        ),
+        // Legibility scrims: the media runs under the header and the overlay.
+        Align(
+          alignment: Alignment.topCenter,
+          child: Container(
+            height: 150,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xB308060F), Color(0x0008060F)],
+              ),
+            ),
+          ),
+        ),
+        Align(
+          alignment: Alignment.bottomCenter,
+          child: Container(
+            height: 470,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+                colors: [Color(0xD908060F), Color(0x0008060F)],
+              ),
+            ),
+          ),
+        ),
+        Positioned(
+          left: 10,
+          right: 4,
+          top: 6,
+          child: _reelHeader(post, size.width),
+        ),
+        Positioned(
+          left: 12,
+          right: 12,
+          bottom: 12,
+          child: _reelOverlay(
+            post,
+            author,
+            training,
+            compact: compact,
+            veryCompact: veryCompact,
+          ),
+        ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Reels header — brand + 𝛑 balance + notifications + theme + compose,
+  /// with the overflow menu that keeps the discovery tools (sessions,
+  /// filters, map, safeguarding) on the reels tab.
+  Widget _reelHeader(FeedPost post, double width) {
+    final ownPost = ref.read(sessionProvider)?.profileId == post.authorProfileId;
+    return Row(
+      children: [
+        Expanded(
+          child: Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const RadarMark(size: 26),
+                  const SizedBox(width: 8),
+                  Text(
+                    AppBrand.name,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14,
+                      letterSpacing: 2.4,
+                      shadows: [Shadow(color: Color(0x99000000), blurRadius: 8)],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        if (width >= 400) const PiBalanceChip(),
+        IconButton(
+          tooltip: 'Notifications',
+          icon: const Icon(Icons.notifications_none, color: Colors.white),
+          onPressed: _showNotifications,
+        ),
+        const _ThemeHeaderToggle(),
+        IconButton(
+          tooltip: 'New post',
+          icon: const Icon(Icons.edit_note, color: Colors.white),
+          onPressed: _openComposer,
+        ),
+        PopupMenuButton<_ReelMenuAction>(
+          tooltip: 'More',
+          icon: const Icon(Icons.more_vert, color: Colors.white),
+          onSelected: (action) => _onReelMenu(action, post, ownPost),
+          itemBuilder: (context) => [
+            const PopupMenuItem(
+              value: _ReelMenuAction.sessions,
+              child: Text('Live & scheduled sessions'),
+            ),
+            const PopupMenuItem(
+              value: _ReelMenuAction.filter,
+              child: Text('Filter feed'),
+            ),
+            if (post.hasLocation)
+              const PopupMenuItem(
+                value: _ReelMenuAction.postOnMap,
+                child: Text('View post on the Radar map'),
+              ),
+            const PopupMenuItem(
+              value: _ReelMenuAction.map,
+              child: Text('Open the Radar map'),
+            ),
+            const PopupMenuItem(
+              value: _ReelMenuAction.safety,
+              child: Text('Safeguarding centre'),
+            ),
+            if (!ownPost)
+              const PopupMenuItem(
+                value: _ReelMenuAction.report,
+                child: Text('Report post'),
+              ),
+            if (ownPost)
+              const PopupMenuItem(
+                value: _ReelMenuAction.delete,
+                child: Text('Delete post'),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  void _onReelMenu(_ReelMenuAction action, FeedPost post, bool ownPost) {
+    switch (action) {
+      case _ReelMenuAction.sessions:
+        _openSessionsSheet();
+      case _ReelMenuAction.filter:
+        _openFilterSheet();
+      case _ReelMenuAction.postOnMap:
+        _openPostOnRadar(post);
+      case _ReelMenuAction.map:
+        HomeShell.goTo(context, 1);
+      case _ReelMenuAction.safety:
+        Navigator.of(context).push(MaterialPageRoute<void>(
+          builder: (_) => const SafeguardingScreen(),
+        ));
+      case _ReelMenuAction.report:
+        _openReportSheet(post);
+      case _ReelMenuAction.delete:
+        _confirmDelete(post);
+    }
+  }
+
+  void _showNotifications() {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: RadarTheme.panelHigh,
+      content: const Text('Notifications: new scout follows, bounty awards '
+          'and connection requests land here.'),
+    ));
+  }
+
+  /// The overlay card for one reel: caption + hashtags, the posting player
+  /// and the next live training block (mockup: "Live Skills #PiScout #Talent"
+  /// over the player row and "Next Live Training Info").
+  Widget _reelOverlay(
+    FeedPost post,
+    UserProfile? author,
+    NextTrainingInfo? training, {
+    bool compact = false,
+    bool veryCompact = false,
+  }) {
+    final title = post.body.split('\n').first.trim();
+    final tags = <String>[
+      '#${AppBrand.nameTitleCase.replaceAll(' ', '')}',
+      '#${post.kind.label.replaceAll(' ', '')}',
+      if ((post.areaName ?? '').trim().isNotEmpty)
+        '#${post.areaName!.trim().replaceAll(' ', '')}',
+    ];
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1230).withValues(alpha: 0.86),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title.isEmpty ? post.kind.label : title,
+            maxLines: compact ? 1 : 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+              height: 1.15,
+            ),
+          ),
+          if (!veryCompact) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [for (final tag in tags) _hashtagPill(tag)],
+            ),
+          ],
+          const SizedBox(height: 12),
+          _reelAuthorRow(post, author, showBio: !compact),
+          const SizedBox(height: 12),
+          Divider(height: 1, color: Colors.white.withValues(alpha: 0.12)),
+          const SizedBox(height: 12),
+          if (training != null)
+            NextTrainingOverlayCard(
+              flat: true,
+              info: training,
+              onGoToProfile: () =>
+                  _openPlayerSession(training.event.hostProfileId),
+              onWatchLive: () =>
+                  _openPlayerSession(training.event.hostProfileId),
+            )
+          else
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white,
+                side: BorderSide(color: Colors.white.withValues(alpha: 0.35)),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+              ),
+              onPressed: () => _openAuthor(post),
+              icon: const Icon(Icons.person_outline, size: 15),
+              label: const Text(
+                'VIEW PROFILE',
+                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// Hashtag pill, mockup-style: violet on a translucent violet chip.
+  Widget _hashtagPill(String tag) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: RadarTheme.pi.withValues(alpha: 0.22),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: RadarTheme.pi.withValues(alpha: 0.5)),
+      ),
+      child: Text(
+        tag,
+        style: TextStyle(
+          color: Color.lerp(RadarTheme.pi, Colors.white, 0.45),
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+
+  /// Player row: avatar, name (with the KYC tick), age/positions and bio —
+  /// mockup: "Joung Pame / Age: 28 / Position: Player / Bio: …".
+  Widget _reelAuthorRow(
+    FeedPost post,
+    UserProfile? author, {
+    bool showBio = true,
+  }) {
+    final meta = <String>[];
+    final age = author?.age;
+    if (age != null) meta.add('Age $age');
+    final positions = author?.positions ?? const <String>[];
+    if (positions.isNotEmpty) {
+      meta.add(positions.join(' · '));
+    } else if (post.authorRole.isNotEmpty) {
+      meta.add(_capitalize(post.authorRole));
+    }
+    final foot = author?.dominantFoot;
+    if (foot != null && foot.isNotEmpty) meta.add('${_capitalize(foot)} foot');
+    final bio = (author?.bio ?? '').trim();
+
+    return InkWell(
+      onTap: () => _openAuthor(post),
+      borderRadius: BorderRadius.circular(14),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  RadarTheme.radar.withValues(alpha: 0.6),
+                  RadarTheme.pi.withValues(alpha: 0.6),
+                ],
+              ),
+            ),
+            padding: const EdgeInsets.all(2),
+            child: const DecoratedBox(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Color(0xFF241B42),
+              ),
+              child: Icon(Icons.person, size: 18, color: Colors.white70),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        author?.bestName ?? post.authorName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    if (author?.kycVerified ?? false) ...[
+                      const SizedBox(width: 6),
+                      Icon(Icons.verified, size: 13, color: RadarTheme.radar),
+                    ],
+                  ],
+                ),
+                if (meta.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    meta.join(' · '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.75),
+                      fontSize: 11.5,
+                    ),
+                  ),
+                ],
+                if (showBio && bio.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    bio,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.6),
+                      fontSize: 11.5,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _capitalize(String value) => value.isEmpty
+      ? value
+      : '${value[0].toUpperCase()}${value.substring(1)}';
+
+  /// The reel's training line: the posting player's own next (or live)
+  /// session when they have one, else the next session on the radar at all.
+  NextTrainingInfo? _trainingFor(FeedPost post, UserProfile? author) {
+    final events = ref.read(radarEventsProvider).value ?? const <RadarEvent>[];
+    RadarEvent? mine;
+    for (final e in events) {
+      if (e.hostProfileId != post.authorProfileId) continue;
+      if (!(e.isLive || e.isUpcoming)) continue;
+      if (mine == null || e.startsAt.isBefore(mine.startsAt)) mine = e;
+    }
+    if (mine != null) {
+      return NextTrainingInfo(
+        event: mine,
+        playerName: author?.bestName ?? post.authorName,
+      );
+    }
+    return resolveNextTraining(events);
+  }
+
+  UserProfile? _authorOf(FeedPost post) {
+    final profiles = ref.read(profilesProvider).value ?? const <UserProfile>[];
+    for (final p in profiles) {
+      if (p.id == post.authorProfileId) return p;
+    }
+    return null;
+  }
+
+  /// Reel → full-screen gallery: every device photo and video poster in the
+  /// feed, opening on the tapped one. Link-only reels have nothing to zoom.
+  void _openViewer(FeedPost post, List<FeedPost> posts) {
+    final gallery = <ViewerMedia>[];
+    for (final p in posts) {
+      final url = p.isDevicePhoto
+          ? p.mediaUrl
+          : p.isDeviceVideo
+              ? p.mediaPosterUrl
+              : null;
+      if (url == null || url.isEmpty) continue;
+      gallery.add(ViewerMedia(
+        imageUrl: url,
+        authorName: p.authorName,
+        postId: p.id,
+      ));
+    }
+    final initial = gallery.indexWhere((m) => m.postId == post.id);
+    if (initial < 0) return;
+    showMediaViewer(
+      context,
+      media: gallery,
+      initialIndex: initial,
+      heroTag: 'media-hero-${post.id}',
+    );
+  }
+
+  /// The Reels tab keeps the feed's session list one tap away, so the
+  /// discovery flow the old scrolling feed offered is still reachable.
+  void _openSessionsSheet() {
+    final events = ref.read(filteredEventsProvider)
+        .where((e) =>
+            e.type == RadarEventType.trainingSession ||
+            e.type == RadarEventType.match ||
+            e.type == RadarEventType.trial)
+        .where(_matchesScoutFilters)
+        .toList();
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.72,
+        maxChildSize: 0.92,
+        builder: (sheetBodyContext, controller) => Container(
+          decoration: BoxDecoration(
+            color: RadarTheme.panel,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+            border: Border.all(color: RadarTheme.stroke),
+          ),
+          child: ListView(
+            controller: controller,
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+            children: [
+              Text(
+                'Live & scheduled sessions',
+                style: TextStyle(
+                  color: RadarTheme.textPrimary,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 14),
+              if (events.isEmpty)
+                Text(
+                  'No sessions match your filters right now.',
+                  style: TextStyle(color: RadarTheme.textDim, fontSize: 13),
+                )
+              else
+                for (final event in events)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _SessionCard(
+                      event: event,
+                      onTap: () {
+                        Navigator.of(sheetContext).pop();
+                        Navigator.of(context).push(MaterialPageRoute(
+                          builder: (_) => EventDetailScreen(event: event),
+                        ));
+                      },
+                    ),
+                  ),
+            ],
+          ),
         ),
       ),
     );
@@ -394,7 +905,13 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
       if (p.id == post.authorProfileId) profile = p;
     }
     final author = profile;
-    if (author == null) return;
+    if (author == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        behavior: SnackBarBehavior.floating,
+        content: Text('Player profile not available in this session.'),
+      ));
+      return;
+    }
     Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => PlayerCvScreen(profile: author),
     ));
@@ -2254,4 +2771,16 @@ class _ReportSheetState extends State<_ReportSheet> {
       ],
     );
   }
+}
+
+/// Actions in the Reels header's overflow menu — the discovery tools that
+/// no longer have a scrolling feed to live in.
+enum _ReelMenuAction {
+  sessions,
+  filter,
+  postOnMap,
+  map,
+  safety,
+  report,
+  delete,
 }

@@ -61,6 +61,7 @@ class NextTrainingOverlayCard extends ConsumerStatefulWidget {
     required this.info,
     required this.onGoToProfile,
     this.onWatchLive,
+    this.flat = false,
   });
 
   final NextTrainingInfo info;
@@ -70,6 +71,11 @@ class NextTrainingOverlayCard extends ConsumerStatefulWidget {
 
   /// Optional separate "watch live" action (defaults to [onGoToProfile]).
   final VoidCallback? onWatchLive;
+
+  /// Drops the card's own surface (fill, border, padding) so it reads as part
+  /// of a parent panel — the Reels overlay card, which already provides the
+  /// translucent violet surface behind the media.
+  final bool flat;
 
   @override
   ConsumerState<NextTrainingOverlayCard> createState() =>
@@ -84,17 +90,22 @@ class _NextTrainingOverlayCardState
     final isLive = info.event.isLive;
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-      decoration: BoxDecoration(
-        // Semi-transparent deep-violet overlay — readable over any media.
-        color: const Color(0xFF1A1230).withValues(alpha: 0.82),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isLive
-              ? RadarTheme.radar.withValues(alpha: 0.6)
-              : RadarTheme.gold.withValues(alpha: 0.35),
-        ),
-      ),
+      padding: widget.flat
+          ? EdgeInsets.zero
+          : const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: widget.flat
+          ? null
+          : BoxDecoration(
+              // Semi-transparent deep-violet overlay — readable over any
+              // media.
+              color: const Color(0xFF1A1230).withValues(alpha: 0.82),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: isLive
+                    ? RadarTheme.radar.withValues(alpha: 0.6)
+                    : RadarTheme.gold.withValues(alpha: 0.35),
+              ),
+            ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -108,71 +119,70 @@ class _NextTrainingOverlayCardState
               letterSpacing: 0.3,
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            '${info.pitch} · ${info.startTimeLabel}',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.85),
-              fontSize: 12.5,
-            ),
-          ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
+          // Pitch · kick-off on the left, the live countdown on the right —
+          // the mockup's "Main Pitch · 2.30pm   00:03:22:4h" row.
           Row(
             children: [
-              if (!isLive) ...[
-                Expanded(
-                  child: LiveCountdownText(
-                    target: info.event.startsAt,
-                    style: const TextStyle(
-                      color: Color(0xFFF5C043),
-                      fontSize: 19,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.2,
-                    ),
+              Expanded(
+                child: Text(
+                  '${info.pitch} · ${info.startTimeLabel}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
                   ),
-                ),
-              ] else
-                Expanded(
-                  child: Row(
-                    children: [
-                      Icon(Icons.podcasts,
-                          size: 16, color: RadarTheme.radar),
-                      const SizedBox(width: 6),
-                      const Text(
-                        'Broadcasting now',
-                        style: TextStyle(
-                          color: Color(0xFF3DFFA2),
-                          fontWeight: FontWeight.w700,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              const SizedBox(width: 10),
-              // GO TO PROFILE / WATCH LIVE — deep-links to the player's
-              // profile and GPS location broadcast.
-              FilledButton.icon(
-                style: FilledButton.styleFrom(
-                  backgroundColor: RadarTheme.gold,
-                  foregroundColor: const Color(0xFF1A1230),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 8),
-                ),
-                onPressed: isLive
-                    ? (widget.onWatchLive ?? widget.onGoToProfile)
-                    : widget.onGoToProfile,
-                icon: Icon(isLive ? Icons.play_arrow : Icons.person,
-                    size: 15),
-                label: Text(
-                  isLive ? 'WATCH LIVE' : 'GO TO PROFILE',
-                  style: const TextStyle(
-                      fontSize: 11.5, fontWeight: FontWeight.w800),
                 ),
               ),
+              const SizedBox(width: 10),
+              if (!isLive)
+                LiveCountdownText(
+                  target: info.event.startsAt,
+                  style: const TextStyle(
+                    color: Color(0xFFF5C043),
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.2,
+                  ),
+                )
+              else
+                Row(
+                  children: [
+                    Icon(Icons.podcasts, size: 16, color: RadarTheme.radar),
+                    const SizedBox(width: 6),
+                    const Text(
+                      'Broadcasting now',
+                      style: TextStyle(
+                        color: Color(0xFF3DFFA2),
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
             ],
+          ),
+          const SizedBox(height: 12),
+          // GO TO PROFILE / WATCH LIVE — deep-links to the player's profile
+          // and GPS location broadcast. Violet, per the mockup's CTA pill.
+          FilledButton.icon(
+            style: FilledButton.styleFrom(
+              backgroundColor: RadarTheme.pi,
+              foregroundColor: Colors.white,
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            ),
+            onPressed: isLive
+                ? (widget.onWatchLive ?? widget.onGoToProfile)
+                : widget.onGoToProfile,
+            icon: Icon(isLive ? Icons.play_arrow : Icons.person, size: 15),
+            label: Text(
+              isLive ? 'WATCH LIVE' : 'GO TO PROFILE',
+              style:
+                  const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800),
+            ),
           ),
         ],
       ),

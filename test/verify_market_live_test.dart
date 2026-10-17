@@ -131,8 +131,9 @@ void main() {
     (tester) async {
       await signInAndLandOnRadar(tester);
 
-      // Media-first: the app must open on the Feed.
-      expect(find.text('Latest posts'), findsOneWidget);
+      // Media-first: the app must open on the Feed — now a full-bleed
+      // vertical reel (PageView), not a scrolling card list.
+      expect(find.byType(PageView), findsOneWidget);
 
       // Profile is now the 4th tab in the hackathon 4-tab nav
       // (Reels / Map / Bounty / Profile).
@@ -169,7 +170,7 @@ void main() {
       await tester.pump(); // sheet transition
       await tester.pump(const Duration(milliseconds: 400));
       await tester.pump(const Duration(milliseconds: 200));
-      expect(find.text('New post'), findsNWidgets(2));
+      expect(find.text('New post'), findsOneWidget);
 
       // Both quick actions are present beneath the location field.
       expect(find.text('Use Current Location'), findsOneWidget);
