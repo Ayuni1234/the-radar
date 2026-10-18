@@ -772,9 +772,9 @@ void main() {
       addTearDown(() => RadarTheme.current = RadarPalette.dark);
       // Hackathon light spec: crisp cream/warm-gray background, white
       // elevated cards, dark-violet primary text.
-      expect(RadarTheme.ink, const Color(0xFFF8F6F0));
+      expect(RadarTheme.ink, const Color(0xFFF5F7F2));
       expect(RadarTheme.panel, const Color(0xFFFFFFFF));
-      expect(RadarTheme.textPrimary, const Color(0xFF241B42));
+      expect(RadarTheme.textPrimary, const Color(0xFF0C1710));
       // Accents keep their identity but deepen for white surfaces.
       expect(RadarTheme.radar, isNot(const Color(0xFF3DFFA2)));
       // Palette getters must agree with the active mode.
@@ -784,10 +784,10 @@ void main() {
     test('themeFor builds matching ThemeData for both modes', () {
       final dark = RadarTheme.themeFor(RadarBrightness.dark);
       final light = RadarTheme.themeFor(RadarBrightness.light);
-      // Hackathon dark spec: deep indigo/purple #1A1230 background.
-      expect(dark.scaffoldBackgroundColor, const Color(0xFF1A1230));
-      expect(light.scaffoldBackgroundColor, const Color(0xFFF8F6F0));
-      expect(light.textTheme.bodyLarge!.color, const Color(0xFF241B42));
+      // Uploaded dark spec: midnight-pitch surface #0F131D.
+      expect(dark.scaffoldBackgroundColor, const Color(0xFF0F131D));
+      expect(light.scaffoldBackgroundColor, const Color(0xFFF5F7F2));
+      expect(light.textTheme.bodyLarge!.color, const Color(0xFF0C1710));
       expect(dark.colorScheme.brightness, Brightness.dark);
       expect(light.colorScheme.brightness, Brightness.light);
     });
@@ -817,7 +817,7 @@ void main() {
       final panelBefore = (tester.widget<Container>(
               find.byType(Container).first))
           .color;
-      expect(panelBefore, const Color(0xFF241B42));
+      expect(panelBefore, const Color(0xFF1C2029));
 
       // Flip the palette the way the header/settings toggle does.
       RadarTheme.current = RadarPalette.light;

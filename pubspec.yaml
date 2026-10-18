@@ -33,3 +33,34 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  # Typography from the uploaded design spec (Nocturnal Athletic). Bundled
+  # rather than fetched at runtime so the Pi Browser renders the exact same
+  # faces offline.
+  fonts:
+    - family: Barlow Condensed
+      fonts:
+        - asset: assets/fonts/BarlowCondensed-600.ttf
+          weight: 600
+        - asset: assets/fonts/BarlowCondensed-700.ttf
+          weight: 700
+        - asset: assets/fonts/BarlowCondensed-800.ttf
+          weight: 800
+    - family: Plus Jakarta Sans
+      fonts:
+        - asset: assets/fonts/PlusJakartaSans-400.ttf
+          weight: 400
+        - asset: assets/fonts/PlusJakartaSans-500.ttf
+          weight: 500
+        - asset: assets/fonts/PlusJakartaSans-600.ttf
+          weight: 600
+        - asset: assets/fonts/PlusJakartaSans-700.ttf
+          weight: 700
+    - family: Space Grotesk
+      fonts:
+        - asset: assets/fonts/SpaceGrotesk-500.ttf
+          weight: 500
+        - asset: assets/fonts/SpaceGrotesk-600.ttf
+          weight: 600
+        - asset: assets/fonts/SpaceGrotesk-700.ttf
+          weight: 700

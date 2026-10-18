@@ -2,15 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
-import '../models/radar_event.dart';
 import '../models/enums.dart';
-import '../state/radar_providers.dart';
+import '../models/feed_post.dart' show distanceKm;
+import '../models/radar_event.dart';
+import '../state/auth_controller.dart';
+import 'design/radar_design.dart';
 import 'live_countdown.dart';
 import 'radar_theme.dart';
 
-/// Data for the floating "Next Live Training" overlay card on the Reels
-/// feed — the hackathon mockup's hero overlay ("Main Pitch · 3:20 PM",
-/// "00:03:22:4h", "GO TO PROFILE / WATCH LIVE").
+/// Data for the LIVE SESSION INVITATION card on the Discover reel — the
+/// uploaded design's hero overlay (`LIVE SESSION INVITATION`, countdown,
+/// pitch + distance + scout attendance, dual CTAs).
 class NextTrainingInfo {
   const NextTrainingInfo({
     required this.event,
@@ -30,19 +32,22 @@ class NextTrainingInfo {
       ? playerName!
       : (event.hostName.isNotEmpty ? event.hostName : 'Player');
 
-  String get pitch =>
-      pitchLabel ?? event.venueName ?? event.safeLocationLabel();
+  String get pitch => pitchLabel ??
+      (event.venueName != null && event.venueName!.isNotEmpty
+          ? event.venueName!
+          : event.safeLocationLabel());
 
   String get startTimeLabel => DateFormat('h:mm a').format(event.startsAt);
 }
 
 /// Resolve the viewer's next upcoming (or currently live) training session
-/// from the shared radar event provider — used by the Reels overlay.
+/// from the shared radar event provider — used by the Discover overlay.
 NextTrainingInfo? resolveNextTraining(List<RadarEvent> events) {
   RadarEvent? next;
   for (final e in events) {
     if (e.type != RadarEventType.trainingSession &&
-        e.type != RadarEventType.match) {
+        e.type != RadarEventType.match &&
+        e.type != RadarEventType.trial) {
       continue;
     }
     if (e.isLive || e.isUpcoming) {
@@ -52,282 +57,360 @@ NextTrainingInfo? resolveNextTraining(List<RadarEvent> events) {
   return next == null ? null : NextTrainingInfo(event: next);
 }
 
-/// Floating overlay card: "Next Live Training Info" + pitch + countdown +
-/// GO TO PROFILE / WATCH LIVE CTA. Semi-transparent dark surface in both
-/// themes (it sits on top of feed media), per the mockup.
-class NextTrainingOverlayCard extends ConsumerStatefulWidget {
+/// The uploaded design's live invitation card.
+///
+/// The whole card is a deep link: tapping it, or "SCOUT IN PERSON", closes the
+/// reel and selects the host's pitch pin on the Radar Map tab. "BOUNTY 25 π"
+/// opens the bounty composer for the same session.
+class NextTrainingOverlayCard extends StatelessWidget {
   const NextTrainingOverlayCard({
     super.key,
     required this.info,
-    required this.onGoToProfile,
-    this.onWatchLive,
-    this.flat = false,
-    this.dense = false,
+    required this.onScoutInPerson,
+    this.onBounty,
+    this.onOpenProfile,
+    this.overMedia = true,
+    this.compact = false,
   });
 
   final NextTrainingInfo info;
 
-  /// Deep link to the player's profile (CV + live session info tab).
-  final VoidCallback onGoToProfile;
+  /// Deep link → the player's pin on the Radar Map tab.
+  final VoidCallback onScoutInPerson;
 
-  /// Optional separate "watch live" action (defaults to [onGoToProfile]).
-  final VoidCallback? onWatchLive;
+  /// Opens the Pi bounty flow for this session.
+  final VoidCallback? onBounty;
 
-  /// Drops the card's own surface (fill, border, padding) so it reads as part
-  /// of a parent panel — the Reels overlay card, which already provides the
-  /// translucent violet surface behind the media.
-  final bool flat;
+  /// Optional profile route (avatar / name tap).
+  final VoidCallback? onOpenProfile;
 
-  /// Renders just the one-line training strip (status glyph, pitch · kick-off,
-  /// countdown) instead of the full labelled card. The reel's compact overlay
-  /// uses it so the translucent card over the media stays small and the photo
-  /// keeps most of the frame; tapping the strip opens the session.
-  final bool dense;
+  /// Renders on the spec's near-opaque well when it sits over photography.
+  final bool overMedia;
 
-  @override
-  ConsumerState<NextTrainingOverlayCard> createState() =>
-      _NextTrainingOverlayCardState();
-}
+  /// Drops the secondary lines on very short viewports.
+  final bool compact;
 
-class _NextTrainingOverlayCardState
-    extends ConsumerState<NextTrainingOverlayCard> {
   @override
   Widget build(BuildContext context) {
-    final info = widget.info;
-    final isLive = info.event.isLive;
+    final event = info.event;
+    final live = event.isLive;
+    final amount = event.bountyPi ?? 25;
+    final scouts = event.attendingCount;
+    final distance = _distanceLabel(context);
 
-    if (widget.dense) {
-      return InkWell(
-        onTap: widget.onWatchLive ?? widget.onGoToProfile,
-        borderRadius: BorderRadius.circular(8),
-        child: Row(
-          children: [
-            Icon(
-              isLive ? Icons.podcasts : Icons.schedule,
-              size: 12,
-              color: isLive ? RadarTheme.radar : RadarTheme.gold,
-            ),
-            const SizedBox(width: 5),
-            Expanded(
-              child: Text(
-                '${info.pitch} · ${info.startTimeLabel}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.9),
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w600,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        key: const ValueKey('live-invitation-card'),
+        onTap: onScoutInPerson,
+        borderRadius: BorderRadius.circular(RadarRadius.card),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(RadarRadius.card),
+          child: Container(
+            decoration: BoxDecoration(
+              color: (overMedia ? RadarTheme.panelLowest : RadarTheme.panel)
+                  .withValues(alpha: 0.95),
+              border: Border.all(color: RadarTheme.stroke),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0xA6000000),
+                  blurRadius: 32,
+                  offset: Offset(0, 8),
                 ),
-              ),
+              ],
             ),
-            const SizedBox(width: 6),
-            if (isLive)
-              const Text(
-                'BROADCASTING NOW',
-                style: TextStyle(
-                  color: Color(0xFF3DFFA2),
-                  fontWeight: FontWeight.w800,
-                  fontSize: 9.5,
-                  letterSpacing: 0.5,
-                ),
-              )
-            else
-              LiveCountdownText(
-                target: info.event.startsAt,
-                style: const TextStyle(
-                  color: Color(0xFFF5C043),
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.4,
-                  fontFeatures: [FontFeature.tabularFigures()],
-                ),
-              ),
-          ],
-        ),
-      );
-    }
-
-    return Container(
-      padding: widget.flat
-          ? EdgeInsets.zero
-          : const EdgeInsets.fromLTRB(14, 12, 14, 12),
-      decoration: widget.flat
-          ? null
-          : BoxDecoration(
-              // Semi-transparent deep-violet overlay — readable over any
-              // media.
-              color: const Color(0xFF1A1230).withValues(alpha: 0.82),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: isLive
-                    ? RadarTheme.radar.withValues(alpha: 0.6)
-                    : RadarTheme.gold.withValues(alpha: 0.35),
-              ),
-            ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // "Next Live Training Info:" — the mockup's label line, with the
-          // status glyph that turns green once the session is live.
-          Row(
-            children: [
-              Icon(
-                isLive ? Icons.podcasts : Icons.schedule,
-                size: 13,
-                color: isLive ? RadarTheme.radar : RadarTheme.gold,
-              ),
-              const SizedBox(width: 5),
-              Expanded(
-                child: Text(
-                  isLive
-                      ? 'Live Training In Progress'
-                      : 'Next Live Training Info:',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.2,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const LaserEdge(height: 2),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _header(context, live),
+                      const SizedBox(height: 8),
+                      _matchLine(event),
+                      if (!compact) ...[
+                        const SizedBox(height: 5),
+                        _distanceLine(distance),
+                        if (scouts > 0) ...[
+                          const SizedBox(height: 6),
+                          _scoutsPill(scouts, event),
+                        ],
+                      ],
+                      const SizedBox(height: 12),
+                      _ctas(amount),
+                    ],
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-          const SizedBox(height: 6),
-          // Pitch · kick-off on the left, the live countdown on the right —
-          // the mockup's "Main Pitch · 2.30pm   00:03:22:4h" row.
-          Row(
+        ),
+      ),
+    );
+  }
+
+  Widget _header(BuildContext context, bool live) {
+    return Row(
+      children: [
+        const LiveDot(size: 9, animate: false),
+        const SizedBox(width: 7),
+        Expanded(
+          child: Text(
+            live ? 'LIVE SESSION — IN PROGRESS' : 'LIVE SESSION INVITATION',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: RadarType.heading(
+              19,
+              weight: FontWeight.w700,
+              color: const Color(0xFFF0FFEE),
+              tracking: 0.9,
+              height: 1.05,
+            ),
+          ),
+        ),
+        const SizedBox(width: 6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: RadarTheme.panelHighest,
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Expanded(
-                child: Text(
-                  '${info.pitch} · ${info.startTimeLabel}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.92),
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              if (!isLive)
-                LiveCountdownText(
-                  target: info.event.startsAt,
-                  style: const TextStyle(
-                    color: Color(0xFFF5C043),
-                    fontSize: 15.5,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.6,
-                    fontFeatures: [FontFeature.tabularFigures()],
-                  ),
-                )
-              else
-                const Row(
-                  children: [
-                    Text(
-                      'BROADCASTING NOW',
-                      style: TextStyle(
-                        color: Color(0xFF3DFFA2),
-                        fontWeight: FontWeight.w800,
+              Icon(Icons.timer_outlined,
+                  size: 13, color: RadarTheme.radar),
+              const SizedBox(width: 4),
+              live
+                  ? Text(
+                      'LIVE NOW',
+                      style: RadarType.caps.copyWith(
                         fontSize: 10.5,
-                        letterSpacing: 0.6,
+                        color: RadarTheme.radar,
+                      ),
+                    )
+                  : LiveCountdownText(
+                      target: info.event.startsAt,
+                      formatter: formatClockCountdown,
+                      style: RadarType.metricMd.copyWith(
+                        fontSize: 12,
+                        height: 1.0,
+                        color: RadarTheme.radar,
                       ),
                     ),
-                  ],
-                ),
             ],
           ),
-          const SizedBox(height: 10),
-          // GO TO PROFILE / WATCH LIVE — deep-links to the player's profile
-          // and GPS location broadcast. Violet, per the mockup's CTA pill.
-          TrainingCtaButton(
-            label: isLive ? 'WATCH LIVE' : 'GO TO PROFILE',
-            icon: isLive ? Icons.play_arrow : Icons.person,
-            onPressed: isLive
-                ? (widget.onWatchLive ?? widget.onGoToProfile)
-                : widget.onGoToProfile,
+        ),
+      ],
+    );
+  }
+
+  Widget _matchLine(RadarEvent event) {
+    final title = event.title.trim().isEmpty ? 'Open training session' : event.title;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(Icons.stadium_outlined, size: 17, color: RadarTheme.info),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: RadarType.bodyMd.copyWith(
+              fontSize: 13.5,
+              height: 1.25,
+              fontWeight: FontWeight.w600,
+              color: RadarTheme.textPrimary,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _distanceLine(String? distance) {
+    return Row(
+      children: [
+        Icon(Icons.location_on_outlined,
+            size: 15, color: RadarTheme.alert),
+        const SizedBox(width: 5),
+        Flexible(
+          child: Text.rich(
+            TextSpan(
+              children: [
+                if (distance != null)
+                  TextSpan(
+                    text: distance,
+                    style: RadarType.bodySm.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: RadarTheme.textPrimary,
+                    ),
+                  ),
+                TextSpan(
+                  text: distance == null
+                      ? '${info.event.safeLocationLabel()} · from your sideline GPS'
+                      : ' away from your current sideline GPS',
+                  style: RadarType.bodySm.copyWith(
+                    fontSize: 11.5,
+                    color: RadarTheme.textDim,
+                  ),
+                ),
+              ],
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _scoutsPill(int scouts, RadarEvent event) {
+    final tag = event.hostName.trim().isEmpty ? 'Radar scouting network' : event.hostName;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: RadarTheme.panelHighest.withValues(alpha: 0.7),
+        borderRadius: BorderRadius.circular(RadarRadius.base),
+      ),
+      // A Wrap, not a Row: the attendance line and the host tag degrade onto a
+      // second line on a narrow phone instead of painting an overflow band.
+      child: Wrap(
+        spacing: 5,
+        runSpacing: 2,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          Icon(Icons.group_outlined, size: 15, color: RadarTheme.info),
+          Text(
+            '$scouts Verified ${scouts == 1 ? 'Scout' : 'Scouts'}',
+            style: RadarType.bodySm.copyWith(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
+              color: RadarTheme.info,
+            ),
+          ),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 190),
+            child: Text(
+              '($tag)',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: RadarType.bodySm.copyWith(
+                fontSize: 11,
+                color: RadarTheme.textDim,
+              ),
+            ),
           ),
         ],
       ),
     );
   }
-}
 
-/// The mockup's violet CTA pill: icon + uppercase label on a stadium-shaped
-/// Pi-violet fill. Shared by the reel overlay and the discovery body.
-class TrainingCtaButton extends StatelessWidget {
-  const TrainingCtaButton({
-    super.key,
-    required this.label,
-    required this.icon,
-    required this.onPressed,
-    this.dense = false,
-  });
-
-  final String label;
-  final IconData icon;
-  final VoidCallback? onPressed;
-
-  /// Small variant for the reel's compact info card, where the pill shares a
-  /// row with the avatar and the player's name.
-  final bool dense;
-
-  @override
-  Widget build(BuildContext context) {
-    return FilledButton.icon(
-      style: FilledButton.styleFrom(
-        backgroundColor: RadarTheme.pi,
-        foregroundColor: Colors.white,
-        padding: EdgeInsets.symmetric(
-          horizontal: dense ? 10 : 14,
-          vertical: dense ? 5 : 8,
+  Widget _ctas(double amount) {
+    return Row(
+      children: [
+        Expanded(
+          flex: 3,
+          child: RadarPrimaryButton(
+            label: 'Scout in Person',
+            icon: Icons.explore_outlined,
+            height: 42,
+            compactLabel: true,
+            onPressed: onScoutInPerson,
+          ),
         ),
-        minimumSize: Size(0, dense ? 26 : 32),
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        visualDensity: VisualDensity.compact,
-        shape: const StadiumBorder(),
-        elevation: 0,
-        textStyle: TextStyle(
-          fontSize: dense ? 9.5 : 11,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 0.4,
+        const SizedBox(width: 8),
+        Expanded(
+          flex: 2,
+          child: GestureDetector(
+            onTap: onBounty,
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              height: 42,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              decoration: BoxDecoration(
+                color: RadarTheme.panelHighest,
+                borderRadius: BorderRadius.circular(RadarRadius.base),
+                boxShadow: [
+                  BoxShadow(
+                    color: RadarTheme.gold.withValues(alpha: 0.20),
+                    blurRadius: 14,
+                    spreadRadius: -2,
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 16,
+                    height: 16,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: RadarTheme.goldBright,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      'π',
+                      style: RadarType.capsTight.copyWith(
+                        fontSize: 10,
+                        color: const Color(0xFF442B00),
+                        height: 1,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 5),
+                  Flexible(
+                    child: Text(
+                      'BOUNTY ${fmtPi(amount)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: RadarType.heading(
+                        14,
+                        weight: FontWeight.w700,
+                        color: RadarTheme.goldBright,
+                        tracking: 0.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
-      ),
-      onPressed: onPressed,
-      icon: Icon(icon, size: dense ? 12 : 14),
-      label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+      ],
     );
   }
-}
 
-/// Convenience provider-backed wrapper: picks the next session from the
-/// radar events and wires the deep link through [onOpenProfile].
-class NextTrainingOverlay extends ConsumerWidget {
-  const NextTrainingOverlay({
-    super.key,
-    required this.onOpenProfile,
-    this.onWatchLive,
-  });
-
-  /// Called with the host profile id of the next session.
-  final void Function(String hostProfileId) onOpenProfile;
-
-  final void Function(String hostProfileId)? onWatchLive;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final events = ref.watch(radarEventsProvider).value ?? const <RadarEvent>[];
-    final info = resolveNextTraining(events);
-    if (info == null) return const SizedBox.shrink();
-    return NextTrainingOverlayCard(
-      info: info,
-      onGoToProfile: () => onOpenProfile(info.event.hostProfileId),
-      onWatchLive: onWatchLive == null
-          ? null
-          : () => onWatchLive!(info.event.hostProfileId),
+  /// Distance from the signed-in viewer's regional base to the session, when
+  /// both coordinates are known. Deliberately derived from the profile's
+  /// regional base (not device GPS) so no permission prompt is needed.
+  String? _distanceLabel(BuildContext context) {
+    final session = _sessionOf(context);
+    final lat = session?.viewerLatitude;
+    final lon = session?.viewerLongitude;
+    if (lat == null || lon == null) return null;
+    final d = distanceKm(
+      lat1: lat,
+      lon1: lon,
+      lat2: info.event.latitude,
+      lon2: info.event.longitude,
     );
+    if (d <= 0 || d.isNaN || d.isInfinite) return null;
+    return '${d.toStringAsFixed(1)} km';
+  }
+
+  RadarSession? _sessionOf(BuildContext context) {
+    try {
+      return ProviderScope.containerOf(context, listen: false)
+          .read(sessionProvider);
+    } catch (_) {
+      return null;
+    }
   }
 }

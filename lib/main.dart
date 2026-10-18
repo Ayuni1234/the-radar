@@ -4,26 +4,28 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'src/app_brand.dart';
 import 'src/state/auth_controller.dart';
 import 'src/state/theme_controller.dart';
+import 'src/ui/design/radar_design.dart';
 import 'src/ui/feed_screen.dart';
 import 'src/ui/login_screen.dart';
 import 'src/ui/onboarding_screen.dart';
-import 'src/ui/profile_hub_screen.dart';
+import 'src/ui/player_passport_screen.dart';
 import 'src/ui/radar_map_screen.dart';
-import 'src/ui/bounty_board_screen.dart';
 import 'src/ui/radar_theme.dart';
+import 'src/ui/review_room_screen.dart';
+import 'src/ui/bounty_board_screen.dart';
 import 'src/ui/settings_screen.dart';
 import 'src/ui/shell.dart';
 
-/// Main navigation destinations — the hackathon 4-tab layout:
-/// Reels (feed) / Map (radar) / Bounty (gig board) / Profile (hub).
-/// Secondary/management areas (Inbox, PitchMarket, CV, Players directory,
-/// Pi Wallet, merchant sales, Safety Center) are consolidated inside the
-/// Profile hub instead of crowding the bottom bar.
+/// Main navigation destinations — exactly the five tabs drawn in the uploaded
+/// design spec: Discover / Radar Map / π Bounties / Passport / Review.
+/// Secondary areas (Inbox, PitchMarket, CV, directory, wallet, safety) live
+/// behind the header avatar in the account hub.
 final List<(String, String, IconData, Widget)> _destinations = [
-  ('Reels', 'Talent discovery feed', Icons.movie_outlined, const FeedScreen()),
-  ('Map', 'Geographic talent radar', Icons.map_outlined, const RadarMapScreen()),
-  ('Bounty', 'Pi gig marketplace', Icons.workspace_premium_outlined, const BountyBoardScreen()),
-  ('Profile', 'Bio & live broadcasts', Icons.person_outline, const ProfileHubScreen()),
+  ('Discover', 'Talent discovery reels', Icons.movie_outlined, const FeedScreen()),
+  ('Radar Map', 'Live pitch radar', Icons.radar, const RadarMapScreen()),
+  ('π Bounties', 'Pi escrow gig board', Icons.monetization_on_outlined, const BountyBoardScreen()),
+  ('Passport', 'Player passport & schedule', Icons.badge_outlined, const PlayerPassportScreen()),
+  ('Review', 'Scout review room', Icons.verified_outlined, const ReviewRoomScreen()),
 ];
 
 void main() async {
@@ -85,7 +87,7 @@ class RadarErrorPanel extends StatelessWidget {
     return Directionality(
       textDirection: TextDirection.ltr,
       child: ColoredBox(
-        color: const Color(0xFF1A1230),
+        color: const Color(0xFF0F131D),
         child: Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -98,16 +100,17 @@ class RadarErrorPanel extends StatelessWidget {
                   'This screen could not be drawn',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: Color(0xFFF6F3FF),
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
+                    color: Color(0xFFDFE2F0),
+                    fontFamily: RadarFonts.heading,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 8),
                 const Text(
                   'Reopen THE RADAR — the rest of the app keeps working.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Color(0xFFA79BC8), fontSize: 12.5),
+                  style: TextStyle(color: Color(0xFFB9CBB9), fontSize: 12.5),
                 ),
                 if (detail.isNotEmpty) ...[
                   const SizedBox(height: 12),
@@ -117,7 +120,7 @@ class RadarErrorPanel extends StatelessWidget {
                     maxLines: 4,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      color: Color(0xFF6F6390),
+                      color: Color(0xFF849584),
                       fontSize: 10.5,
                       height: 1.35,
                     ),
@@ -241,9 +244,10 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   }
 }
 
-/// Bottom navigation, mockup-shaped: a dark bar where the current tab is a
-/// violet pill carrying its icon and label side by side, and the other tabs
-/// sit quiet as an icon-over-label pair.
+/// Bottom navigation exactly as drawn in the spec: a fixed 80px bar on the
+/// deepest surface, five icon-over-label tabs in Space Grotesk caps, the active
+/// tab lit optic green with a lumen drop-shadow, and a pulsing Pi-gold beacon
+/// on Bounties.
 class _RadarNavBar extends StatelessWidget {
   const _RadarNavBar({required this.index, required this.onSelect});
 
@@ -254,17 +258,20 @@ class _RadarNavBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: RadarTheme.ink,
-        border: Border(
-          top: BorderSide(color: Colors.white.withValues(alpha: 0.07)),
-        ),
+        color: RadarTheme.panelLowest.withValues(alpha: 0.94),
+        border: Border(top: BorderSide(color: RadarTheme.stroke)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x80000000),
+            blurRadius: 24,
+            offset: Offset(0, -4),
+          ),
+        ],
       ),
       child: SafeArea(
         top: false,
-        // A fixed strip: the selected pill is centred, and a loose Row would
-        // let it stretch to the full height the Scaffold offers.
         child: SizedBox(
-          height: 58,
+          height: 80,
           child: Row(
             children: [
               for (final (i, d) in _destinations.indexed)
@@ -274,6 +281,7 @@ class _RadarNavBar extends StatelessWidget {
                     tooltip: d.$2,
                     icon: d.$3,
                     selected: i == index,
+                    beacon: i == 2,
                     onTap: () => onSelect(i),
                   ),
                 ),
@@ -292,74 +300,80 @@ class _NavBarItem extends StatelessWidget {
     required this.icon,
     required this.selected,
     required this.onTap,
+    this.beacon = false,
   });
 
   final String label;
   final String tooltip;
   final IconData icon;
   final bool selected;
+  final bool beacon;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    // The active pill reads violet-on-dark; the label brightens just enough
-    // to stay legible at 12pt.
-    final accent = Color.lerp(RadarTheme.pi, Colors.white, 0.5)!;
+    final color = selected ? RadarTheme.radar : RadarTheme.textDim;
     return Semantics(
       button: true,
       selected: selected,
       label: tooltip,
-      child: InkWell(
+      child: InkResponse(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(999),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
-          child: selected
-              ? Center(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 7),
-                    decoration: BoxDecoration(
-                      color: RadarTheme.pi.withValues(alpha: 0.20),
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(
-                          color: RadarTheme.pi.withValues(alpha: 0.55)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(icon, size: 17, color: accent),
-                        const SizedBox(width: 6),
-                        Text(
-                          label,
-                          maxLines: 1,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                            color: accent,
+        radius: 40,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Icon(
+                  icon,
+                  size: beacon ? 26 : 23,
+                  color: color,
+                  shadows: selected
+                      ? [
+                          Shadow(
+                            color: RadarTheme.radar.withValues(alpha: 0.55),
+                            blurRadius: 12,
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              : Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(icon, size: 20, color: RadarTheme.textDim),
-                    const SizedBox(height: 3),
-                    Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 9.5,
-                        fontWeight: FontWeight.w600,
-                        color: RadarTheme.textDim,
+                        ]
+                      : null,
+                ),
+                if (beacon)
+                  Positioned(
+                    top: -1,
+                    right: -3,
+                    child: Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: RadarTheme.goldBright,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: RadarTheme.gold
+                                .withValues(alpha: 0.7),
+                            blurRadius: 6,
+                          ),
+                        ],
                       ),
                     ),
-                  ],
-                ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 5),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: RadarType.caps.copyWith(
+                fontSize: 10,
+                letterSpacing: 0.2,
+                color: color,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              ),
+            ),
+          ],
         ),
       ),
     );

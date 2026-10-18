@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
-import '../app_brand.dart';
 import '../diagnostics/diagnostics.dart';
 import '../models/enums.dart';
 import '../models/content_report.dart';
@@ -11,6 +10,7 @@ import '../models/radar_event.dart';
 import '../models/stream_bounty.dart';
 import '../models/user_profile.dart';
 import '../state/auth_controller.dart';
+import '../state/map_focus.dart';
 import '../state/radar_providers.dart';
 import 'event_detail_screen.dart';
 import '../../main.dart' show HomeShell;
@@ -18,17 +18,20 @@ import '../data/location_service.dart';
 import '../data/radar_repository.dart';
 import 'next_training_overlay.dart';
 import 'player_live_session_screen.dart';
-import 'radar_map_screen.dart';
 import 'bounty_board_screen.dart';
 import '../data/media_upload_service.dart';
 import '../state/theme_controller.dart';
 import 'player_cv_screen.dart';
+import 'design/radar_design.dart';
+import 'payments_screen.dart';
+import 'profile_hub_screen.dart';
 import 'radar_theme.dart';
+import 'radar_top_bar.dart';
+import 'reel_view.dart';
 import 'media_viewer.dart';
 import 'sheet_scaffold.dart';
 import 'safeguarding_screen.dart';
 import 'shell.dart';
-import 'social_post_card.dart';
 
 /// Social Feeds & Live Training Schedules — highlights, drills and tactical
 /// sessions from players, academies and clubs, plus geotagged live pins and
@@ -50,6 +53,9 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
   double? _viewerLon;
   int _scope = 0; // 0 = posts+sessions, 1 = posts only, 2 = sessions only
 
+  /// Pill selected on the reels' scout rail (0 All … 4 Bounties).
+  int _discoverFilter = 0;
+
   /// Vertical pager for the reels — the header's back control walks up it
   /// before it leaves the tab.
   final PageController _reelPager = PageController();
@@ -67,6 +73,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
   Widget build(BuildContext context) {
     final postsAsync = ref.watch(feedPostsProvider);
     final events = ref.watch(filteredEventsProvider);
+    final nextTraining = resolveNextTraining(events);
     final auth = ref.watch(authProvider);
     final signedIn = auth.value is AuthSignedIn;
 
@@ -99,7 +106,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     if (posts.isNotEmpty) {
       return Scaffold(
         backgroundColor: RadarTheme.ink,
-        body: _buildReels(posts, signedIn),
+        body: _buildReels(posts),
       );
     }
 
@@ -110,7 +117,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
           // The tab's one header bar, pinned at the very top of the screen
           // (under the status bar) on every state of the tab — never repeated
           // inside a post or over the reel card.
-          _feedTopBar(overMedia: false),
+          _topBar(),
           Expanded(
             child: CustomScrollView(
               slivers: [
@@ -118,14 +125,25 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
             // pitch + start time + real-time countdown + GO TO PROFILE /
             // WATCH LIVE deep-link CTA straight into the player's live
             // GPS session broadcast.
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                child: NextTrainingOverlay(
-                  onOpenProfile: _openPlayerSession,
+            if (nextTraining != null)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                  child: NextTrainingOverlayCard(
+                    info: nextTraining,
+                    overMedia: false,
+                    onScoutInPerson: () => _flyToPlayer(
+                      profileId: nextTraining.event.hostProfileId,
+                      lat: nextTraining.event.latitude,
+                      lon: nextTraining.event.longitude,
+                      label: nextTraining.pitch,
+                    ),
+                    onBounty: () => _postBountyEvent(nextTraining.event),
+                    onOpenProfile: () =>
+                        _openPlayerSession(nextTraining.event.hostProfileId),
+                  ),
                 ),
               ),
-            ),
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
@@ -215,285 +233,71 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
 
   // ------------------------------------------------------------------ reels
 
-  /// Full-bleed vertical reels — the hackathon mockup's Reels screen: one
-  /// post per page, its media edge to edge, with the overlay card carrying
-  /// the caption, hashtags, the posting player and their next live session.
-  Widget _buildReels(List<FeedPost> posts, bool signedIn) {
+  /// Discover reels drawn to the uploaded spec: the one brand top bar, the
+  /// horizontal scout-filter rail, then a full-bleed reel per page carrying the
+  /// identity block, the live invitation card and the action rail.
+  Widget _buildReels(List<FeedPost> posts) {
     final index = _reelIndex.clamp(0, posts.length - 1);
     final current = posts[index];
     final ownPost =
         ref.read(sessionProvider)?.profileId == current.authorProfileId;
-    return Stack(
-      fit: StackFit.expand,
+    final openGigs = (ref.watch(streamBountiesProvider).value ??
+            const <StreamBounty>[])
+        .where((bounty) => bounty.isFunded || bounty.isOpen)
+        .length;
+
+    return Column(
       children: [
-        PageView.builder(
-          controller: _reelPager,
-          // Restart at the top whenever the number of reels changes (a filter
-          // applied, the feed refreshed) instead of leaving the pager past
-          // its end.
-          key: ValueKey('reels-${posts.length}'),
-          scrollDirection: Axis.vertical,
-          onPageChanged: (i) => setState(() => _reelIndex = i),
-          itemCount: posts.length,
-          itemBuilder: (context, i) => _reel(posts[i], posts, signedIn),
+        // One bar for the tab — never repeated inside the pager.
+        _topBar(post: current, ownPost: ownPost),
+        _DiscoverFilterRail(
+          active: _discoverFilter,
+          bountyCount: openGigs,
+          onSelect: _applyDiscoverFilter,
         ),
-        // One header for the whole tab, laid over the media instead of being
-        // rebuilt by every page — paging can never leave two of them on
-        // screen, and it stays pinned at the top of the screen.
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 560),
-              child: _feedTopBar(
-                overMedia: true,
-                post: current,
-                ownPost: ownPost,
-              ),
-            ),
+        Expanded(
+          child: PageView.builder(
+            controller: _reelPager,
+            // Restart at the top whenever the number of reels changes (a
+            // filter applied, the feed refreshed) instead of leaving the pager
+            // past its end.
+            key: ValueKey('reels-${posts.length}'),
+            scrollDirection: Axis.vertical,
+            onPageChanged: (i) => setState(() => _reelIndex = i),
+            itemCount: posts.length,
+            itemBuilder: (context, i) => _reel(posts[i], posts),
           ),
         ),
       ],
     );
   }
 
-  Widget _reel(FeedPost post, List<FeedPost> posts, bool signedIn) {
+  /// One page of the reel pager. On a desktop window the media keeps a phone's
+  /// width (centred) instead of stretching edge to edge.
+  Widget _reel(FeedPost post, List<FeedPost> posts) {
     final author = _authorOf(post);
     final training = _trainingFor(post, author);
-    final size = MediaQuery.sizeOf(context);
-    // Short viewports (landscape phones, small browser windows) drop the
-    // overlay's optional lines instead of overflowing the card.
-    final compact = size.height < 700;
-    final veryCompact = size.height < 560;
-
-    // Phone-shaped reel: on a desktop window the media keeps a phone's
-    // width (centred) instead of stretching edge to edge.
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 560),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // Edge-to-edge media — the mockup's full-bleed photo.
-            PostMediaSurface(
-              post: post,
-              heroTag: 'media-hero-${post.id}',
-              onTap: () => _openViewer(post, posts),
-            ),
-            // Legibility scrims: the media runs under the header and the
-            // caption/card stack at the bottom.
-            Align(
-              alignment: Alignment.topCenter,
-              child: Container(
-                height: 140,
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Color(0xB308060F), Color(0x0008060F)],
-                  ),
-                ),
-              ),
-            ),
-            Align(
-              alignment: Alignment.bottomCenter,
-              child: Container(
-                // Shallow ramp: only the bottom fifth needs tinting now that
-                // the info card is compact, so the photo stays readable.
-                height: veryCompact ? 210 : (compact ? 230 : 260),
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.bottomCenter,
-                    end: Alignment.topCenter,
-                    colors: [Color(0xCC08060F), Color(0x0008060F)],
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              left: 14,
-              right: 14,
-              bottom: 12,
-              child: _reelOverlay(
-                post,
-                author,
-                training,
-                compact: compact,
-                veryCompact: veryCompact,
-              ),
-            ),
-          ],
+        child: ReelView(
+          post: post,
+          author: author,
+          training: training,
+          onOpenViewer: () => _openViewer(post, posts),
+          onOpenAuthor: () => _openAuthor(post),
+          onScoutInPerson: () => _scoutInPerson(post, training),
+          onBounty: () => _postBountyFor(post, training),
+          onOpenSession: training == null
+              ? null
+              : () => _openPlayerSession(training.event.hostProfileId),
         ),
       ),
     );
   }
 
-  /// The tab's single header bar: back, brand, notifications, brightness,
-  /// composer and the overflow menu. Built once per screen — never per post —
-  /// and it pins itself under the status bar.
-  ///
-  /// [overMedia] swaps the palette for the reel's full-bleed photo (white ink
-  /// over a dark scrim); the discovery body gets the solid ink bar.
-  Widget _feedTopBar({
-    required bool overMedia,
-    FeedPost? post,
-    bool ownPost = false,
-  }) {
-    final brand = overMedia ? Colors.white : RadarTheme.textPrimary;
-    final dim = overMedia ? Colors.white : RadarTheme.textDim;
-    const whiteShadow = [Shadow(color: Color(0x99000000), blurRadius: 8)];
-    final shadows = overMedia ? whiteShadow : null;
-    final isDark = ref.watch(themeModeProvider) == RadarBrightness.dark;
-
-    final bar = Row(
-      children: [
-        _barButton(
-          icon: Icons.arrow_back,
-          tooltip: 'Back',
-          color: brand,
-          shadows: shadows,
-          onPressed: _stepBack,
-        ),
-        Expanded(
-          child: Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const RadarMark(size: 22),
-                  const SizedBox(width: 7),
-                  Text(
-                    AppBrand.name,
-                    style: TextStyle(
-                      color: brand,
-                      fontWeight: FontWeight.w800,
-                      fontSize: overMedia ? 13.5 : 14,
-                      letterSpacing: 2.2,
-                      shadows: shadows,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-        _barButton(
-          icon: Icons.notifications_none,
-          tooltip: 'Notifications',
-          color: dim,
-          shadows: shadows,
-          onPressed: _showNotifications,
-        ),
-        _barButton(
-          icon: isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
-          tooltip: isDark ? 'Switch to light theme' : 'Switch to dark theme',
-          color: dim,
-          shadows: shadows,
-          onPressed: _toggleTheme,
-        ),
-        _barButton(
-          icon: Icons.edit_note,
-          tooltip: 'New post',
-          color: dim,
-          shadows: shadows,
-          onPressed: _openComposer,
-        ),
-        SizedBox(
-          width: 34,
-          height: 34,
-          child: PopupMenuButton<_ReelMenuAction>(
-            tooltip: 'More',
-            iconSize: 21,
-            padding: EdgeInsets.zero,
-            icon: Icon(Icons.more_vert, color: dim, size: 21, shadows: shadows),
-            onSelected: (action) => _onReelMenu(action, post, ownPost),
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: _ReelMenuAction.sessions,
-                child: Text('Live & scheduled sessions'),
-              ),
-              const PopupMenuItem(
-                value: _ReelMenuAction.filter,
-                child: Text('Filter feed'),
-              ),
-              if (post != null && post.hasLocation)
-                const PopupMenuItem(
-                  value: _ReelMenuAction.postOnMap,
-                  child: Text('View post on the Radar map'),
-                ),
-              const PopupMenuItem(
-                value: _ReelMenuAction.map,
-                child: Text('Open the Radar map'),
-              ),
-              const PopupMenuItem(
-                value: _ReelMenuAction.theme,
-                child: Text('Switch light / dark theme'),
-              ),
-              const PopupMenuItem(
-                value: _ReelMenuAction.safety,
-                child: Text('Safeguarding centre'),
-              ),
-              if (post != null && !ownPost)
-                const PopupMenuItem(
-                  value: _ReelMenuAction.report,
-                  child: Text('Report post'),
-                ),
-              if (post != null && ownPost)
-                const PopupMenuItem(
-                  value: _ReelMenuAction.delete,
-                  child: Text('Delete post'),
-                ),
-            ],
-          ),
-        ),
-      ],
-    );
-
-    return Container(
-      key: const ValueKey('feed-top-bar'),
-      color: overMedia ? Colors.transparent : RadarTheme.ink,
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(4, 2, 2, overMedia ? 8 : 6),
-          child: bar,
-        ),
-      ),
-    );
-  }
-
-  /// Compact, evenly sized header action so five of them (back, plus four
-  /// tools) still fit beside the wordmark on a 360px phone.
-  Widget _barButton({
-    required IconData icon,
-    required String tooltip,
-    required Color color,
-    required VoidCallback onPressed,
-    List<Shadow>? shadows,
-  }) {
-    return IconButton(
-      tooltip: tooltip,
-      onPressed: onPressed,
-      visualDensity: VisualDensity.compact,
-      padding: EdgeInsets.zero,
-      constraints: const BoxConstraints.tightFor(width: 34, height: 34),
-      icon: Icon(icon, size: 21, color: color, shadows: shadows),
-    );
-  }
-
-  void _toggleTheme() {
-    final next = ref.read(themeModeProvider.notifier).toggle();
-    RadarTheme.current =
-        next == RadarBrightness.dark ? RadarPalette.dark : RadarPalette.light;
-    persistThemePreference(next);
-  }
-
-  /// The header's back control: close a pushed route, else walk back through
-  /// the tabs the viewer came from, else step up one reel.
+  /// The bar's back control: close a pushed route, else walk back through the
+  /// tabs the viewer came from, else step up one reel.
   void _stepBack() {
     final navigator = Navigator.of(context);
     if (navigator.canPop()) {
@@ -515,10 +319,182 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     ));
   }
 
+  /// The tab's single bar: the spec's brand header, with the overflow menu that
+  /// still carries the discovery tools (composer, sessions, filters, theme,
+  /// safeguarding, report).
+  Widget _topBar({FeedPost? post, bool ownPost = false}) {
+    return RadarTopBar(
+      onBack: _stepBack,
+      onAvatarTap: _openAccountHub,
+      onBalanceTap: _openWallet,
+      trailing: PopupMenuButton<_ReelMenuAction>(
+        tooltip: 'More',
+        padding: EdgeInsets.zero,
+        child: Icon(Icons.more_vert, size: 19, color: RadarTheme.textDim),
+        onSelected: (action) => _onReelMenu(action, post, ownPost),
+        itemBuilder: (context) => [
+          const PopupMenuItem(
+            value: _ReelMenuAction.compose,
+            child: Text('New post'),
+          ),
+          const PopupMenuItem(
+            value: _ReelMenuAction.notifications,
+            child: Text('Notifications'),
+          ),
+          const PopupMenuItem(
+            value: _ReelMenuAction.sessions,
+            child: Text('Live & scheduled sessions'),
+          ),
+          const PopupMenuItem(
+            value: _ReelMenuAction.filter,
+            child: Text('Filter feed'),
+          ),
+          if (post != null && post.hasLocation)
+            const PopupMenuItem(
+              value: _ReelMenuAction.postOnMap,
+              child: Text('View post on the Radar map'),
+            ),
+          const PopupMenuItem(
+            value: _ReelMenuAction.map,
+            child: Text('Open the Radar map'),
+          ),
+          const PopupMenuItem(
+            value: _ReelMenuAction.theme,
+            child: Text('Switch light / dark theme'),
+          ),
+          const PopupMenuItem(
+            value: _ReelMenuAction.safety,
+            child: Text('Safeguarding centre'),
+          ),
+          if (post != null && !ownPost)
+            const PopupMenuItem(
+              value: _ReelMenuAction.report,
+              child: Text('Report post'),
+            ),
+          if (post != null && ownPost)
+            const PopupMenuItem(
+              value: _ReelMenuAction.delete,
+              child: Text('Delete post'),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// Deep link from the live invitation card to the host's pin on the Radar Map
+  /// tab — the requirement the reel overlay exists for.
+  void _scoutInPerson(FeedPost post, NextTrainingInfo? training) {
+    final event = training?.event;
+    final hasEventPin = event != null && (event.latitude != 0 || event.longitude != 0);
+    _flyToPlayer(
+      profileId: event?.hostProfileId ?? post.authorProfileId,
+      lat: hasEventPin ? event.latitude : post.latitude,
+      lon: hasEventPin ? event.longitude : post.longitude,
+      label: training?.pitch ?? post.areaName,
+    );
+  }
+
+  /// Select a player's pin on the Radar Map tab and switch to it. The request
+  /// travels through [mapFocusProvider] because the map lives in a sibling
+  /// branch of the shell's IndexedStack.
+  void _flyToPlayer({
+    required String profileId,
+    double? lat,
+    double? lon,
+    String? label,
+  }) {
+    ref.read(mapFocusProvider.notifier).focusPlayer(
+          profileId: profileId,
+          lat: lat,
+          lon: lon,
+          label: label,
+        );
+    HomeShell.goTo(context, 1); // Radar Map tab
+  }
+
+  /// "BOUNTY n π" on the invitation card: open the escrow composer, pre-filled
+  /// from the reel's session.
+  Future<void> _postBountyFor(FeedPost post, NextTrainingInfo? training) async {
+    final event = training?.event;
+    final title = (event?.title ?? '').trim();
+    await showPostBountySheet(
+      context,
+      title: title.isEmpty ? post.body.split('\n').first.trim() : title,
+      amountPi: event?.bountyPi ?? 25,
+      areaName: event?.areaName ?? post.areaName,
+    );
+  }
+
+  Future<void> _postBountyEvent(RadarEvent event) => showPostBountySheet(
+        context,
+        title: event.title.trim().isEmpty ? null : event.title,
+        amountPi: event.bountyPi ?? 25,
+        areaName: event.areaName,
+      );
+
+  void _openAccountHub() {
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => const ProfileHubScreen(),
+    ));
+  }
+
+  void _openWallet() {
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => const PaymentsScreen(),
+    ));
+  }
+
+  /// The reel rail's pills drive the same scout filters the filter sheet
+  /// writes, so the reels, the map and the session list stay in sync.
+  /// Bounties is a cross-tab jump, not a filter.
+  void _applyDiscoverFilter(int index) {
+    if (index == 4) {
+      HomeShell.goTo(context, 2); // π Bounties tab
+      return;
+    }
+    setState(() {
+      _discoverFilter = index;
+      switch (index) {
+        case 0:
+          _ageFilter = null;
+          _positionFilter.clear();
+          _radiusKm = null;
+        case 1:
+          _ageFilter = AgeBracket.u17;
+          _positionFilter.clear();
+          _radiusKm = null;
+        case 2:
+          _ageFilter = null;
+          _positionFilter
+            ..clear()
+            ..addAll(const ['ST', 'LW', 'RW']);
+          _radiusKm = null;
+        case 3:
+          _ageFilter = null;
+          _positionFilter.clear();
+          _radiusKm = 50;
+          final session = ref.read(sessionProvider);
+          _viewerLat = session?.viewerLatitude ?? 5.6037;
+          _viewerLon = session?.viewerLongitude ?? -0.1870;
+      }
+    });
+  }
+
+  void _toggleTheme() {
+    final next = ref.read(themeModeProvider.notifier).toggle();
+    RadarTheme.current =
+        next == RadarBrightness.dark ? RadarPalette.dark : RadarPalette.light;
+    persistThemePreference(next);
+  }
+
   /// [post] is the reel currently on screen — null in the discovery body,
   /// where the post-scoped entries are hidden from the menu anyway.
   void _onReelMenu(_ReelMenuAction action, FeedPost? post, bool ownPost) {
     switch (action) {
+      case _ReelMenuAction.compose:
+        _openComposer();
+      case _ReelMenuAction.notifications:
+        _showNotifications();
       case _ReelMenuAction.sessions:
         _openSessionsSheet();
       case _ReelMenuAction.filter:
@@ -548,265 +524,6 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
           'and connection requests land here.'),
     ));
   }
-
-  /// The overlay for one reel: caption and hashtag line straight on the media,
-  /// then a deliberately compact translucent card carrying the posting player,
-  /// the CTA and their next live session. The card is sized to stay inside the
-  /// bottom fifth of the frame so the photo keeps the rest.
-  Widget _reelOverlay(
-    FeedPost post,
-    UserProfile? author,
-    NextTrainingInfo? training, {
-    bool compact = false,
-    bool veryCompact = false,
-  }) {
-    final title = post.body.split('\n').first.trim();
-    final area = (post.areaName ?? '').trim();
-    // Inline hashtags, mockup-style — "#PiScout #Talent" under the caption
-    // rather than boxed chips.
-    final tags = '#${AppBrand.nameTitleCase.replaceAll(' ', '')} '
-        '#${post.kind.label.replaceAll(' ', '')}';
-
-    return Column(
-      key: const ValueKey('reel-overlay'),
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 4, right: 4, bottom: 7),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title.isEmpty ? post.kind.label : title,
-                maxLines: compact ? 1 : 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  height: 1.15,
-                  shadows: [Shadow(color: Color(0xAA000000), blurRadius: 12)],
-                ),
-              ),
-              const SizedBox(height: 2),
-              Row(
-                children: [
-                  Flexible(
-                    child: Text(
-                      tags,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Color(0xFFCBB9FF),
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w700,
-                        shadows: [
-                          Shadow(color: Color(0xAA000000), blurRadius: 12)
-                        ],
-                      ),
-                    ),
-                  ),
-                  if (area.isNotEmpty && !veryCompact) ...[
-                    const SizedBox(width: 8),
-                    const Icon(Icons.place_outlined,
-                        size: 10, color: Color(0xB3FFFFFF)),
-                    const SizedBox(width: 2),
-                    Flexible(
-                      child: Text(
-                        area,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Color(0xCCFFFFFF),
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ],
-          ),
-        ),
-        Container(
-          padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
-          decoration: BoxDecoration(
-            // Translucent violet panel, the mockup's player card — kept flat
-            // and shallow so it reads as a caption strip, not a panel.
-            color: const Color(0xFF221A3C).withValues(alpha: 0.88),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x59000000),
-                blurRadius: 16,
-                offset: Offset(0, 6),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _reelAuthorRow(post, author, training: training),
-              const SizedBox(height: 7),
-              if (training != null)
-                NextTrainingOverlayCard(
-                  dense: true,
-                  info: training,
-                  onGoToProfile: () =>
-                      _openPlayerSession(training.event.hostProfileId),
-                  onWatchLive: () =>
-                      _openPlayerSession(training.event.hostProfileId),
-                )
-              else
-                Row(
-                  children: [
-                    Icon(Icons.schedule, size: 12, color: RadarTheme.gold),
-                    const SizedBox(width: 5),
-                    Expanded(
-                      child: Text(
-                        'No session scheduled yet',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.75),
-                          fontSize: 10.5,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// Player row of the compact card: avatar, name with the blue tick, one
-  /// muted meta line and the CTA pill — all on a single row.
-  Widget _reelAuthorRow(
-    FeedPost post,
-    UserProfile? author, {
-    NextTrainingInfo? training,
-  }) {
-    final positions = author?.positions ?? const <String>[];
-    final roleLabel = positions.isNotEmpty
-        ? positions.join(' · ')
-        : (post.authorRole.isNotEmpty ? _capitalize(post.authorRole) : '');
-    final meta = <String>[
-      if (author?.age != null) 'Age ${author!.age}',
-      if (positions.isNotEmpty)
-        roleLabel
-      else if (roleLabel.isNotEmpty)
-        'Role: $roleLabel',
-    ].join(' · ');
-    final avatarUrl = (author?.avatarUrl ?? '').trim();
-    final isLive = training?.event.isLive ?? false;
-
-    return Row(
-      children: [
-        InkWell(
-          onTap: () => _openAuthor(post),
-          customBorder: const CircleBorder(),
-          child: Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  RadarTheme.radar.withValues(alpha: 0.6),
-                  RadarTheme.pi.withValues(alpha: 0.6),
-                ],
-              ),
-            ),
-            padding: const EdgeInsets.all(1.4),
-            child: ClipOval(
-              child: avatarUrl.isEmpty
-                  ? const ColoredBox(
-                      color: Color(0xFF2B2149),
-                      child: Icon(Icons.person, size: 15, color: Colors.white70),
-                    )
-                  : Image.network(
-                      avatarUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => const ColoredBox(
-                        color: Color(0xFF2B2149),
-                        child:
-                            Icon(Icons.person, size: 15, color: Colors.white70),
-                      ),
-                    ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: InkWell(
-            onTap: () => _openAuthor(post),
-            borderRadius: BorderRadius.circular(10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        author?.bestName ?? post.authorName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                    if (author?.kycVerified ?? false) ...[
-                      const SizedBox(width: 4),
-                      const Icon(Icons.verified,
-                          size: 12, color: Color(0xFF4CC3FF)),
-                    ],
-                  ],
-                ),
-                if (meta.isNotEmpty)
-                  Text(
-                    meta,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.72),
-                      fontSize: 10.5,
-                      height: 1.3,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(width: 6),
-        TrainingCtaButton(
-          dense: true,
-          label: isLive ? 'WATCH LIVE' : 'GO TO PROFILE',
-          icon: isLive ? Icons.play_arrow : Icons.person,
-          onPressed: () => training != null
-              ? _openPlayerSession(training.event.hostProfileId)
-              : _openAuthor(post),
-        ),
-      ],
-    );
-  }
-
-  String _capitalize(String value) => value.isEmpty
-      ? value
-      : '${value[0].toUpperCase()}${value.substring(1)}';
 
   /// The reel's training line: the posting player's own next (or live)
   /// session when they have one, else the next session on the radar at all.
@@ -930,6 +647,23 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     var list = all;
     if (_kindFilter != null) {
       list = list.where((p) => p.kind == _kindFilter).toList();
+    }
+    // The reel rail writes the same age / position filters as the filter
+    // sheet, so the reels themselves narrow with the pills.
+    if (_ageFilter != null) {
+      final bracket = _ageFilter!;
+      list = list
+          .where((p) => bracket.matches(_authorOf(p)?.age, _authorOf(p)?.age))
+          .toList();
+    }
+    if (_positionFilter.isNotEmpty) {
+      final wanted = _positionFilter.map((p) => p.toUpperCase()).toSet();
+      list = list.where((p) {
+        final have = (_authorOf(p)?.positions ?? const <String>[])
+            .map((x) => x.toUpperCase())
+            .toSet();
+        return have.isEmpty || have.intersection(wanted).isNotEmpty;
+      }).toList();
     }
     return list;
   }
@@ -1095,16 +829,12 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
       ));
       return;
     }
-    HomeShell.goTo(context, 1); // Radar tab
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      RadarMapScreen.focusFromOutside(
-        context,
-        lat: lat!,
-        lon: lon!,
-        venue: venue,
-      );
-    });
+    _flyToPlayer(
+      profileId: post.authorProfileId,
+      lat: lat,
+      lon: lon,
+      label: venue,
+    );
   }
 
   Future<void> _openLivePinDialog() async {
@@ -1150,6 +880,64 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
             }
           });
           Navigator.pop(context);
+        },
+      ),
+    );
+  }
+}
+
+/// The scout-filter pill rail from the uploaded Reels design.
+class _DiscoverFilterRail extends StatelessWidget {
+  const _DiscoverFilterRail({
+    required this.active,
+    required this.bountyCount,
+    required this.onSelect,
+  });
+
+  final int active;
+  final int bountyCount;
+  final ValueChanged<int> onSelect;
+
+  static const _labels = ['All', 'U-17', 'Strikers', 'Near Me', 'Bounties'];
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 44,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(RadarSpace.md, 2, RadarSpace.md, 8),
+        itemCount: _labels.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 6),
+        itemBuilder: (context, i) {
+          final selected = active == i;
+          final label = i == 4 && bountyCount > 0
+              ? '${_labels[i]} · $bountyCount'
+              : _labels[i];
+          return GestureDetector(
+            key: ValueKey('discover-filter-$i'),
+            onTap: () => onSelect(i),
+            child: Container(
+              alignment: Alignment.center,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: selected ? RadarTheme.radar : RadarTheme.panelHigh,
+                borderRadius: BorderRadius.circular(RadarRadius.base),
+                border: Border.all(
+                  color: selected ? RadarTheme.radar : RadarTheme.stroke,
+                ),
+              ),
+              child: Text(
+                label.toUpperCase(),
+                style: RadarType.caps.copyWith(
+                  fontSize: 10.5,
+                  letterSpacing: 0.8,
+                  fontWeight: selected ? FontWeight.w800 : FontWeight.w700,
+                  color: selected ? RadarTheme.onAccent : RadarTheme.textDim,
+                ),
+              ),
+            ),
+          );
         },
       ),
     );
@@ -2809,6 +2597,8 @@ class _ReportSheetState extends State<_ReportSheet> {
 /// Actions in the Reels header's overflow menu — the discovery tools that
 /// no longer have a scrolling feed to live in.
 enum _ReelMenuAction {
+  compose,
+  notifications,
   sessions,
   filter,
   postOnMap,

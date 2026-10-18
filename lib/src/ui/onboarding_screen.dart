@@ -40,11 +40,19 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   // name-entry requirement (the field is optional and editable).
   // NOTE: the text is captured at initState time — `ref` must not be
   // touched from dispose-time lazy initializers.
-  late final _nameCtrl = TextEditingController(text: _piDisplayName());
+  late final TextEditingController _nameCtrl;
   final _bioCtrl = TextEditingController();
 
+  @override
+  void initState() {
+    super.initState();
+    // Read the verified Pi identity here, where `ref` is safe. A lazy
+    // initializer would instead run from dispose() when the name field was
+    // never built, and reading a provider after deactivation throws.
+    _nameCtrl = TextEditingController(text: _piDisplayName());
+  }
+
   String _piDisplayName() {
-    if (!mounted) return '';
     final auth = ref.read(authProvider).value;
     if (auth is AuthSignedIn) {
       return auth.session.displayName ?? auth.session.username;

@@ -7,18 +7,20 @@ import 'package:the_radar/src/models/feed_post.dart';
 import 'package:the_radar/src/models/user_profile.dart';
 import 'package:the_radar/src/state/auth_controller.dart'
     show AuthController, AuthSignedIn, AuthState, RadarSession, authProvider;
+import 'package:the_radar/src/state/map_focus.dart';
 import 'package:the_radar/src/state/radar_providers.dart'
     show FeedPostsController, ProfilesController, feedPostsProvider, profilesProvider;
 import 'package:the_radar/src/ui/feed_screen.dart';
 import 'package:the_radar/src/ui/next_training_overlay.dart';
 import 'package:the_radar/src/ui/radar_theme.dart';
+import 'package:the_radar/src/ui/reel_view.dart';
 import 'package:the_radar/src/ui/social_post_card.dart';
 
-/// The Reels tab is a full-bleed vertical reel: the post's media runs edge to
-/// edge behind a floating header (brand + 𝛑 balance) and an overlay card
-/// carrying the caption, hashtag pills, the posting player and the live
-/// training CTA. These are the mockup's defining elements, so they are pinned
-/// against the layout regressing back into a boxed scrolling feed.
+/// The Discover tab as drawn in the uploaded Reels spec: one brand top bar,
+/// the scout-filter pill rail, then a full-bleed reel per page carrying the
+/// player identity block, the LIVE SESSION INVITATION card and the action
+/// rail. These are the design's defining elements, so they are pinned against
+/// the layout drifting back into a boxed scrolling feed.
 void main() {
   Future<void> pumpReels(WidgetTester tester, {bool withProfile = false}) async {
     tester.view.physicalSize = const Size(412, 892);
@@ -38,145 +40,114 @@ void main() {
     while (tester.takeException() != null) {}
   }
 
-  testWidgets('reels page is a full-bleed reel with the mockup overlay',
-      (tester) async {
-    await pumpReels(tester);
-
-    final screen = tester.getSize(find.byType(FeedScreen));
-    final media = tester.getRect(find.byType(PostMediaSurface).first);
-
-    // Edge to edge: the media covers the whole reels surface.
-    expect(media.width, screen.width);
-    expect(media.height, screen.height);
-
-    // Header: the brand sits in the top strip, over the media.
-    final brand = tester.getRect(find.text('THE RADAR'));
-    expect(brand.top, lessThan(screen.height * 0.12),
-        reason: 'the brand header floats over the top of the reel');
-    expect(brand.left, lessThan(screen.width / 2));
-
-    // Overlay card: caption, hashtags, the posting player and the live
-    // training block, all in the lower half of the reel.
-    final caption = tester.getRect(find.text('Sprint day.'));
-    expect(caption.top, greaterThan(screen.height * 0.5),
-        reason: 'the caption belongs to the bottom overlay card');
-
-    final hashtag = find.textContaining('#');
-    expect(hashtag, findsWidgets,
-        reason: 'hashtag pills are part of the reel overlay');
-    final hashtagRect = tester.getRect(hashtag.first);
-    expect(hashtagRect.top, greaterThan(caption.top));
-
-    expect(find.text('Scout'), findsWidgets,
-        reason: 'the posting player is named on the reel');
-    expect(find.byType(NextTrainingOverlayCard), findsOneWidget);
-    expect(find.text('GO TO PROFILE'), findsOneWidget);
-
-    // Vertical paging: the second post is one reel below the first.
-    await tester.drag(find.byType(PageView), const Offset(0, -600));
-    await tester.pump(const Duration(milliseconds: 400));
-    while (tester.takeException() != null) {}
-    expect(find.text('Top bins.'), findsOneWidget);
-  });
-
-  testWidgets('the overlay is a compact strip over the lower edge of the reel',
+  testWidgets('the reel is full-bleed under the spec top bar and pill rail',
       (tester) async {
     await pumpReels(tester, withProfile: true);
 
     final screen = tester.getSize(find.byType(FeedScreen));
-    final caption = tester.getRect(find.text('Sprint day.'));
-    final tags = tester.getRect(find.text('#TheRadar #Highlight'));
-    final name = tester.getRect(find.text('Joung Pame'));
-    final training = tester.getRect(find.byType(NextTrainingOverlayCard));
-    final cta = tester.getRect(find.text('GO TO PROFILE'));
-    final overlay = tester.getRect(find.byKey(const ValueKey('reel-overlay')));
+    final media = tester.getRect(find.byType(PostMediaSurface).first);
 
-    expect(tags.top, greaterThan(caption.bottom - 1),
-        reason: 'the hashtag line sits under the caption');
-    expect(name.top, greaterThan(tags.bottom),
-        reason: 'the player row starts below the caption block');
-    expect(cta.top, lessThan(name.bottom),
-        reason: 'the CTA shares the player row instead of adding a line');
-    expect(cta.bottom, greaterThan(name.top));
-    expect(training.top, greaterThan(cta.bottom - 1),
-        reason: 'the training strip sits under the player row');
+    // Edge to edge, and the media owns everything under the rail.
+    expect(media.width, screen.width);
+    expect(media.bottom, screen.height);
+    expect(media.height, greaterThan(screen.height * 0.7));
 
-    // The requirement this pins: the translucent info card (with the caption
-    // line above it) must not eat the photo — it stays inside the bottom
-    // fifth of the reel and hugs the lower edge.
-    expect(overlay.height, lessThanOrEqualTo(screen.height * 0.20),
-        reason: 'the overlay must cover no more than 20% of the media');
-    expect(overlay.bottom, greaterThan(screen.height * 0.94));
-
-    // The player is still identified, compactly: one meta line, KYC tick.
-    expect(find.text('Age 24 · ST · LW'), findsOneWidget);
-    expect(find.byIcon(Icons.verified), findsOneWidget,
-        reason: 'KYC players wear the verified tick next to their name');
-
-    // The media still runs edge to edge behind it all.
-    expect(tester.getRect(find.byType(PostMediaSurface).first).width,
-        screen.width);
-  });
-
-  testWidgets('one header bar, pinned at the top, with a back control',
-      (tester) async {
-    await pumpReels(tester);
-
-    final screen = tester.getSize(find.byType(FeedScreen));
-    final bar = tester.getRect(find.byKey(const ValueKey('feed-top-bar')));
-    expect(bar.top, lessThanOrEqualTo(2),
-        reason: 'the header is the very top strip, under the status bar');
-    expect(bar.bottom, lessThan(screen.height * 0.12));
-
-    // Back, brand, bell, brightness, composer and the overflow menu.
-    expect(find.byIcon(Icons.arrow_back), findsOneWidget);
+    // The one branded bar, above the media: mark, wordmark, Pi balance chip.
+    final bar = tester.getRect(find.byKey(const ValueKey('radar-top-bar')));
+    expect(bar.top, lessThanOrEqualTo(2));
+    expect(bar.bottom, lessThan(screen.height * 0.18));
     expect(find.text('THE RADAR'), findsOneWidget);
-    expect(find.byIcon(Icons.notifications_none), findsOneWidget);
-    expect(find.byTooltip('Switch to light theme'), findsOneWidget);
-    expect(find.byIcon(Icons.edit_note), findsOneWidget);
-    expect(find.byTooltip('More'), findsOneWidget);
+    expect(find.byKey(const ValueKey('pi-balance-chip')), findsOneWidget);
 
-    // The header belongs to the screen, not to a post: paging the reel cannot
-    // paint a second copy.
-    expect(
-      find.descendant(
-        of: find.byType(PageView),
-        matching: find.text('THE RADAR'),
-      ),
-      findsNothing,
-    );
-    await tester.drag(find.byType(PageView), const Offset(0, -400));
+    // The scout-filter rail on the spec's five pills.
+    for (final label in const ['ALL', 'U-17', 'STRIKERS']) {
+      expect(find.text(label), findsOneWidget, reason: '$label pill');
+    }
+    await tester.drag(
+        find.byKey(const ValueKey('discover-filter-0')), const Offset(-220, 0));
     await tester.pump();
-    expect(find.text('THE RADAR'), findsOneWidget,
-        reason: 'mid-swipe both reels are mounted; the bar must stay single');
-    expect(find.byIcon(Icons.arrow_back), findsOneWidget);
+    expect(find.textContaining('BOUNTIES'), findsWidgets,
+        reason: 'the Bounties pill is the last stop on the rail');
+
+    // Player identity block from the spec: condensed name, verified tick,
+    // age / position pill, club line and caption.
+    expect(find.text('JOUNG PAME'), findsOneWidget);
+    expect(find.byIcon(Icons.verified), findsWidgets);
+    expect(find.text('24 Y/O • ST / LW'), findsOneWidget);
+    expect(find.textContaining('Right foot forward'), findsOneWidget);
+
+    // The live invitation card with its countdown and dual CTAs.
+    final invite = find.byType(NextTrainingOverlayCard);
+    expect(invite, findsOneWidget);
+    expect(find.byKey(const ValueKey('live-invitation-card')), findsOneWidget);
+    expect(find.textContaining('LIVE SESSION'), findsOneWidget);
+    expect(find.text('SCOUT IN PERSON'), findsOneWidget);
+    expect(find.textContaining('BOUNTY'), findsOneWidget);
+
+    // The card sits on the lower half of the frame, clear of the rail.
+    final inviteRect = tester.getRect(invite);
+    expect(inviteRect.top, greaterThan(screen.height * 0.4));
+
+    // The right-hand action rail from the spec.
+    expect(find.text('Scout'), findsWidgets);
+    expect(find.byIcon(Icons.share), findsOneWidget);
+    expect(find.byIcon(Icons.graphic_eq), findsOneWidget);
   });
 
-  testWidgets('back walks up the reel, then reports the start of the feed',
+  testWidgets('the pager plays the next reel on a swipe', (tester) async {
+    await pumpReels(tester);
+    expect(find.textContaining('Sprint day.'), findsOneWidget);
+
+    await tester.drag(find.byType(PageView), const Offset(0, -600));
+    await tester.pump(const Duration(milliseconds: 400));
+    while (tester.takeException() != null) {}
+    expect(find.textContaining('Top bins.'), findsOneWidget);
+  });
+
+  testWidgets('the invitation card deep-links to the player pin on the map',
       (tester) async {
     await pumpReels(tester);
+    final container =
+        ProviderScope.containerOf(tester.element(find.byType(FeedScreen)));
+    expect(container.read(mapFocusProvider), isNull);
 
-    await tester.fling(find.byType(PageView), const Offset(0, -700), 1200);
+    await tester.tap(find.byKey(const ValueKey('live-invitation-card')));
     await tester.pump();
-    await tester.pump(const Duration(seconds: 1));
-    expect(find.text('Top bins.'), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 200));
+    while (tester.takeException() != null) {}
 
-    await tester.tap(find.byIcon(Icons.arrow_back));
-    await tester.pump();
-    await tester.pump(const Duration(seconds: 1));
-    expect(find.text('Sprint day.'), findsOneWidget,
-        reason: 'back steps up to the previous reel');
-    expect(find.text('Top bins.'), findsNothing);
-
-    await tester.tap(find.byIcon(Icons.arrow_back));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-    expect(find.text('Already at the start of the feed.'), findsOneWidget,
-        reason: 'at the top of the reel the back control says so instead of '
-            'doing nothing');
+    final focus = container.read(mapFocusProvider);
+    expect(focus, isNotNull,
+        reason: 'the card must hand a focus request to the Radar Map tab');
+    expect(focus!.profileId, isNotEmpty,
+        reason: 'the request names the hosting player');
+    expect(focus.lat, isNotNull,
+        reason: 'the request carries the pitch pin coordinates, so the map '
+            'selects the exact pitch the invitation names');
+    expect(focus.lon, isNotNull);
   });
 
-  testWidgets('the discovery body keeps the same single header bar',
+  testWidgets('the filter rail narrows the reels to its scout filter',
+      (tester) async {
+    await pumpReels(tester, withProfile: true);
+    expect(find.textContaining('Right foot forward'), findsOneWidget);
+
+    // "Strikers" keeps the ST / LW player on screen...
+    await tester.tap(find.byKey(const ValueKey('discover-filter-2')));
+    await tester.pump();
+    expect(find.text('JOUNG PAME'), findsOneWidget);
+
+    // ...and an age bracket the profile falls outside of empties the reel out
+    // into the discovery body instead of showing a blank page.
+    await tester.tap(find.byKey(const ValueKey('discover-filter-1')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    while (tester.takeException() != null) {}
+    expect(find.textContaining('Right foot forward'), findsNothing);
+    expect(find.text('Talent is everywhere.'), findsOneWidget);
+  });
+
+  testWidgets('the discovery body keeps the same single top bar',
       (tester) async {
     tester.view.physicalSize = const Size(412, 892);
     tester.view.devicePixelRatio = 1.0;
@@ -193,34 +164,42 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     while (tester.takeException() != null) {}
 
-    // With nothing to page through, the tab falls back to the discovery body
-    // — still under one top bar, not a second app bar of its own.
-    final bar = tester.getRect(find.byKey(const ValueKey('feed-top-bar')));
+    final bar = tester.getRect(find.byKey(const ValueKey('radar-top-bar')));
     expect(bar.top, lessThanOrEqualTo(2));
-    expect(find.byIcon(Icons.arrow_back), findsOneWidget);
     expect(find.text('THE RADAR'), findsOneWidget);
     expect(find.byType(SliverAppBar), findsNothing);
     expect(find.text('Talent is everywhere.'), findsOneWidget);
   });
 
-  testWidgets('the reels header keeps the composer and the discovery tools',
+  testWidgets('the one bar keeps the discovery tools behind its overflow menu',
       (tester) async {
     await pumpReels(tester);
 
-    expect(find.byIcon(Icons.edit_note), findsOneWidget);
-    expect(find.byIcon(Icons.notifications_none), findsOneWidget);
+    expect(find.text('THE RADAR'), findsOneWidget);
     expect(find.byTooltip('More'), findsOneWidget,
-        reason: 'the overflow menu keeps the discovery tools on the reels tab');
+        reason: 'the overflow menu keeps the discovery tools on the tab');
 
-    await tester.tap(find.byIcon(Icons.edit_note));
+    await tester.tap(find.byTooltip('More'));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump(const Duration(milliseconds: 300));
     while (tester.takeException() != null) {}
     expect(find.text('New post'), findsOneWidget);
+    expect(find.text('Filter feed'), findsOneWidget);
+    expect(find.text('Safeguarding centre'), findsOneWidget);
+  });
+
+  testWidgets('the single bar is not repainted inside the pager',
+      (tester) async {
+    await pumpReels(tester);
+
+    await tester.drag(find.byType(PageView), const Offset(0, -200));
+    await tester.pump();
+    expect(find.text('THE RADAR'), findsOneWidget,
+        reason: 'mid-swipe both reels are mounted; the bar must stay single');
   });
 
   for (final height in const [600.0, 520.0, 460.0]) {
-    testWidgets('the reel overlay fits a ${height.toInt()}px-tall viewport',
+    testWidgets('the reel fits a ${height.toInt()}px-tall viewport',
         (tester) async {
       tester.view.physicalSize = Size(412, height);
       tester.view.devicePixelRatio = 1.0;
@@ -230,6 +209,7 @@ void main() {
         overrides: [
           authProvider.overrideWith(_FixedAuth.new),
           feedPostsProvider.overrideWith(_FixedFeedPosts.new),
+          profilesProvider.overrideWith(_FixedProfiles.new),
         ],
         child: MaterialApp(theme: RadarTheme.dark, home: const FeedScreen()),
       ));
@@ -248,6 +228,26 @@ void main() {
           reason: 'short-viewport reel overflow:\n${overflows.join('\n')}');
     });
   }
+
+  test('the metric chips are a stable projection of the profile', () {
+    final profile = UserProfile(
+      id: 'a1',
+      piUid: 'pi-a1',
+      username: 'jpame',
+      displayName: 'Joung Pame',
+      role: UserRole.player,
+      credibilityScore: 62,
+      kycVerified: true,
+      createdAt: DateTime(2026, 1, 1),
+      positions: const ['ST', 'LW'],
+      birthYear: 2002,
+    );
+    final chips = reelMetricChips(profile);
+    expect(chips, reelMetricChips(profile),
+        reason: 'the same player always reads the same scouting index');
+    expect(chips.pac, inInclusiveRange(40, 99));
+    expect(chips.topPct, inInclusiveRange(1, 25));
+  });
 }
 
 /// Fixed signed-in session (no Pi SDK in widget tests).
@@ -261,8 +261,8 @@ class _FixedAuth extends AuthController {
       )));
 }
 
-/// One KYC-verified player profile, so the reel card renders the mockup's
-/// "Age / Position / Bio" block instead of the bare author name.
+/// One KYC-verified player profile, so the reel renders the spec's
+/// "name / verified / age · position" identity block instead of a bare name.
 class _FixedProfiles extends ProfilesController {
   @override
   Future<List<UserProfile>> build() async => [

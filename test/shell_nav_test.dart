@@ -9,10 +9,10 @@ import 'package:the_radar/src/ui/radar_theme.dart';
 
 import 'helpers/mock_path_provider.dart';
 
-/// The phone shell's bottom bar — the mockup's chrome under the reels: a dark
-/// bar where the open tab is a violet pill (icon + label) and the rest sit as
-/// quiet icon-over-label pairs. The map stays mounted inside the shell's
-/// IndexedStack, hence the map-cache path mock.
+/// The phone shell's bottom bar from the uploaded spec: a fixed bar on the
+/// deepest surface with five icon-over-label tabs, the open one lit in the
+/// optic pitch green. The map stays mounted inside the shell's IndexedStack,
+/// hence the map-cache path mock.
 void main() {
   mockPathProviderForMapCache();
 
@@ -34,34 +34,33 @@ void main() {
     while (tester.takeException() != null) {}
   }
 
-  testWidgets('the phone shell shows the four-tab bar with a violet active pill',
-      (tester) async {
+  testWidgets('the phone shell shows the five-tab spec bar', (tester) async {
     await pumpShell(tester, const Size(412, 892));
 
-    // Every tab is labelled, and the bar is the custom mockup one — not
-    // Material's NavigationBar.
-    expect(find.text('Reels'), findsOneWidget);
-    expect(find.text('Map'), findsOneWidget);
-    expect(find.text('Bounty'), findsOneWidget);
-    expect(find.text('Profile'), findsOneWidget);
+    // Every tab of the spec's bar is labelled, and the bar is the custom
+    // design's — not Material's NavigationBar.
+    expect(find.text('Discover'), findsOneWidget);
+    expect(find.text('Radar Map'), findsOneWidget);
+    expect(find.text('π Bounties'), findsOneWidget);
+    expect(find.text('Passport'), findsOneWidget);
+    expect(find.text('Review'), findsOneWidget);
     expect(find.byType(NavigationBar), findsNothing);
 
-    final reels = tester.getRect(find.text('Reels'));
-    final map = tester.getRect(find.text('Map'));
-    // One bottom band, active pill first: the mockup puts "Reels" on the left
-    // inside the violet pill, with Map / Bounty / Profile beside it.
-    expect(reels.top, greaterThan(892 * 0.88));
+    final discover = tester.getRect(find.text('Discover'));
+    final map = tester.getRect(find.text('Radar Map'));
+    // One bottom band, rail order left to right.
+    expect(discover.top, greaterThan(892 * 0.88));
     expect(map.top, greaterThan(892 * 0.88));
-    expect(reels.left, lessThan(map.left));
+    expect(discover.left, lessThan(map.left));
 
-    await tester.tap(find.text('Bounty'));
+    await tester.tap(find.text('π Bounties'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     while (tester.takeException() != null) {}
 
     expect(find.byType(BountyBoardScreen), findsOneWidget,
-        reason: 'tapping Bounty swaps the shell body to the gig board');
-    expect(find.text('Reels'), findsOneWidget,
+        reason: 'tapping the Bounties tab swaps the shell body to the board');
+    expect(find.text('Discover'), findsOneWidget,
         reason: 'the bar stays mounted while the tab changes');
   });
 
@@ -69,10 +68,10 @@ void main() {
       (tester) async {
     await pumpShell(tester, const Size(1200, 900));
 
-    expect(find.text('Map'), findsOneWidget);
-    expect(find.text('Bounty'), findsOneWidget);
+    expect(find.text('Radar Map'), findsOneWidget);
+    expect(find.text('π Bounties'), findsOneWidget);
     // Rail entries sit above the fold; the bottom bar's copies are gone.
-    final first = tester.getRect(find.text('Reels').first);
+    final first = tester.getRect(find.text('Discover').first);
     expect(first.top, lessThan(900 * 0.5));
   });
 }

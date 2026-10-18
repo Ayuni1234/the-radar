@@ -66,7 +66,10 @@ void main() {
         ProviderScope.containerOf(tester.element(find.byType(RadarApp)));
     final auth = container.read(authProvider.notifier);
     unawaited(auth.signInDemo());
-    await tester.pumpAndSettle(const Duration(milliseconds: 600));
+    // The shell runs continuous live HUD animations, so settle with a
+    // bounded pump instead of waiting for a still frame.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
     unawaited(auth.finishOnboarding(
       role: UserRole.scout,
       displayName: 'Demo Scout',
@@ -85,6 +88,13 @@ void main() {
       final overflows = OverflowCollector()..install();
       addTearDown(overflows.uninstall);
 
+      // Both the view (what MediaQuery reports, and so every responsive
+      // breakpoint) and the surface (what is actually painted) must match the
+      // width named in the test, or the app lays out for one viewport while
+      // believing it has another.
+      tester.view.physicalSize = Size(width, 892);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
       await tester.binding.setSurfaceSize(Size(width, 892));
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -102,7 +112,7 @@ void main() {
         (0, 'FeedScreen'),
         (1, 'RadarMapScreen'),
         (2, 'BountyBoardScreen'),
-        (3, 'ProfileHubScreen'),
+        (3, 'PlayerPassportScreen'),
       ]) {
         HomeShell.goTo(
           tester.element(find.byType(RadarMapScreen, skipOffstage: false)),
@@ -131,10 +141,16 @@ void main() {
 
       // 4. The post composer, opened from the feed.
       await tester.pumpWidget(const ProviderScope(child: RadarApp()));
-      await tester.pumpAndSettle();
+      // A restored session boots straight into the live HUD, which never
+      // reaches a still frame — pump a bounded number of frames instead.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 600));
       await signIn(tester);
       expect(find.byType(FeedScreen), findsOneWidget);
-      await tester.tap(find.byIcon(Icons.edit_note));
+      await tester.tap(find.byTooltip('More'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(find.text('New post'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
       await tester.pump(const Duration(milliseconds: 300));

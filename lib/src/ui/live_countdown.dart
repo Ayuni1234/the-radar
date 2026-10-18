@@ -20,6 +20,15 @@ String formatHackathonCountdown(Duration d) {
   return '$hh:$mm:$ss:${tenth < 9 ? tenth : 9}h';
 }
 
+/// The clock format drawn on the live invitation card: `01h 42m 18s`.
+String formatClockCountdown(Duration d) {
+  if (d.isNegative) d = Duration.zero;
+  final h = d.inHours.toString().padLeft(2, '0');
+  final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+  final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+  return '${h}h ${m}m ${s}s';
+}
+
 /// Live ticking countdown — rebuilds once per second. Hot stage 0.
 class LiveCountdownText extends StatefulWidget {
   const LiveCountdownText({
@@ -28,7 +37,12 @@ class LiveCountdownText extends StatefulWidget {
     this.style,
     this.onExpired,
     this.expiredLabel = 'LIVE NOW',
+    this.formatter,
   });
+
+  /// Overrides the default `HH:MM:SS:Xh` format (the reel card uses
+  /// `formatClockCountdown` for its `01h 42m 18s` readout).
+  final String Function(Duration)? formatter;
 
   /// The moment the countdown runs toward.
   final DateTime target;
@@ -100,7 +114,7 @@ class _LiveCountdownTextState extends State<LiveCountdownText> {
       );
     }
     return Text(
-      formatHackathonCountdown(remaining),
+      (widget.formatter ?? formatHackathonCountdown)(remaining),
       style: widget.style ??
           TextStyle(
             color: RadarTheme.gold,
