@@ -179,6 +179,12 @@ class HomeShell extends ConsumerStatefulWidget {
     context.findAncestorStateOfType<_HomeShellState>()?.goTo(index);
   }
 
+  /// Walks back through the tabs the viewer has visited — the feed header's
+  /// back control calls this before it leaves the shell. Returns false when
+  /// there is nothing left to go back to.
+  static bool goBack(BuildContext context) =>
+      context.findAncestorStateOfType<_HomeShellState>()?.goBack() ?? false;
+
   @override
   ConsumerState<HomeShell> createState() => _HomeShellState();
 }
@@ -186,7 +192,30 @@ class HomeShell extends ConsumerStatefulWidget {
 class _HomeShellState extends ConsumerState<HomeShell> {
   int _index = 0;
 
-  void goTo(int i) => setState(() => _index = i);
+  /// Tabs visited before the current one, most recent last. Bounded so a long
+  /// session cannot grow it without limit.
+  final List<int> _trail = <int>[];
+
+  void goTo(int i) {
+    if (i == _index) return;
+    setState(() {
+      _trail.add(_index);
+      if (_trail.length > 8) _trail.removeAt(0);
+      _index = i;
+    });
+  }
+
+  bool goBack() {
+    if (_trail.isNotEmpty) {
+      setState(() => _index = _trail.removeLast());
+      return true;
+    }
+    if (_index != 0) {
+      setState(() => _index = 0);
+      return true;
+    }
+    return false;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -196,7 +225,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
       body: Row(
         children: [
           if (size == WindowSize.expanded)
-            _SideRail(index: _index, onSelect: (i) => setState(() => _index = i)),
+            _SideRail(index: _index, onSelect: goTo),
           Expanded(
             child: IndexedStack(
               index: _index,
@@ -206,10 +235,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         ],
       ),
       bottomNavigationBar: size == WindowSize.compact
-          ? _RadarNavBar(
-              index: _index,
-              onSelect: (i) => setState(() => _index = i),
-            )
+          ? _RadarNavBar(index: _index, onSelect: goTo)
           : null,
     );
   }

@@ -50,27 +50,18 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
   double? _viewerLon;
   int _scope = 0; // 0 = posts+sessions, 1 = posts only, 2 = sessions only
 
-  /// Rebuilds the header stat line when providers tick beneath the sliver
-  /// (Riverpod doesn't rebuild an ancestor SliverAppBar's title by itself).
-  final ValueNotifier<int> _statsTick = ValueNotifier(0);
+  /// Vertical pager for the reels — the header's back control walks up it
+  /// before it leaves the tab.
+  final PageController _reelPager = PageController();
 
-  @override
-  void initState() {
-    super.initState();
-    ref.listenManual(radarEventsProvider, (_, _) => _statsTick.value++);
-    ref.listenManual(streamBountiesProvider, (_, _) => _statsTick.value++);
-  }
+  /// Which reel the fixed header's per-post actions apply to.
+  int _reelIndex = 0;
 
   @override
   void dispose() {
-    _statsTick.dispose();
+    _reelPager.dispose();
     super.dispose();
   }
-
-  bool get _hasSessionFilters =>
-      _positionFilter.isNotEmpty ||
-      _ageFilter != null ||
-      (_radiusKm != null && _radiusKm! > 0);
 
   @override
   Widget build(BuildContext context) {
@@ -114,123 +105,15 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
 
     return Scaffold(
       backgroundColor: RadarTheme.ink,
-      body: SafeArea(
-        child: CustomScrollView(
-          slivers: [              SliverAppBar(
-              pinned: true,
-              backgroundColor: RadarTheme.ink.withValues(alpha: 0.96),
-              title: Row(children: [
-                 Flexible(
-                  child: Text(AppBrand.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                          color: RadarTheme.textPrimary,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 1.6,
-                          fontSize: 17)),
-                ),
-                const SizedBox(width: 10),
-                Flexible(
-                  child: ValueListenableBuilder<int>(
-                    valueListenable: _statsTick,
-                    builder: (_, _, _) {
-                      final liveCount = (ref.watch(radarEventsProvider).value ??
-                              const <RadarEvent>[])
-                          .where((e) => e.isLive)
-                          .length;
-                      final bountyCount = (ref.watch(streamBountiesProvider).value ??
-                              const <StreamBounty>[])
-                          .where((b) =>
-                              b.status == 'funded' ||
-                              b.status == 'accepted' ||
-                              b.status == 'live')
-                          .length;
-                      return Text(
-                        '$liveCount active · $bountyCount bounties',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style:  TextStyle(
-                            color: RadarTheme.textDim,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500),
-                      );
-                    },
-                  ),
-                ),
-                const Spacer(),
-                IconButton(
-                  tooltip: 'Open the Radar map',
-                  icon:  Icon(Icons.travel_explore,
-                      size: 21, color: RadarTheme.textDim),
-                  onPressed: () => HomeShell.goTo(context, 1),
-                ),
-                IconButton(
-                  tooltip: 'Notifications',
-                  icon: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                       Icon(Icons.notifications_none,
-                          color: RadarTheme.textDim),
-                      Positioned(
-                        right: -1,
-                        top: -1,
-                        child: Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: RadarTheme.radar,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                                color: RadarTheme.ink, width: 1.5),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                     SnackBar(
-                      behavior: SnackBarBehavior.floating,
-                      backgroundColor: RadarTheme.panelHigh,
-                      content: Text(
-                          'Notifications: new scout follows, bounty awards and '
-                          'connection requests land here.'),
-                    ),
-                  ),
-                ),
-                IconButton(
-                  tooltip: 'Safeguarding centre',
-                  icon:  Icon(Icons.shield_outlined,
-                      size: 21, color: RadarTheme.textDim),
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                        builder: (_) => const SafeguardingScreen()),
-                  ),
-                ),
-                const _ThemeHeaderToggle(),
-                IconButton(
-                  tooltip: 'Filter feed',
-                  icon: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                       Icon(Icons.tune, color: RadarTheme.textDim),
-                      if (_kindFilter != null || _scope != 0 || _hasSessionFilters)
-                        Positioned(
-                          right: -2,
-                          top: -2,
-                          child: Container(
-                            width: 8,
-                            height: 8,
-                            decoration:  BoxDecoration(
-                                color: RadarTheme.radar, shape: BoxShape.circle),
-                          ),
-                        ),
-                    ],
-                  ),
-                  onPressed: _openFilterSheet,
-                ),
-              ]),
-            ),
+      body: Column(
+        children: [
+          // The tab's one header bar, pinned at the very top of the screen
+          // (under the status bar) on every state of the tab — never repeated
+          // inside a post or over the reel card.
+          _feedTopBar(overMedia: false),
+          Expanded(
+            child: CustomScrollView(
+              slivers: [
             // Floating "Next Live Training" overlay card (hackathon mockup):
             // pitch + start time + real-time countdown + GO TO PROFILE /
             // WATCH LIVE deep-link CTA straight into the player's live
@@ -322,8 +205,10 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
               ],
             ],
             const SliverToBoxAdapter(child: SizedBox(height: 32)),
-          ],
-        ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -334,14 +219,43 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
   /// post per page, its media edge to edge, with the overlay card carrying
   /// the caption, hashtags, the posting player and their next live session.
   Widget _buildReels(List<FeedPost> posts, bool signedIn) {
-    return PageView.builder(
-      // Restart at the top whenever the number of reels changes (a filter
-      // applied, the feed refreshed) instead of leaving the pager past its
-      // end.
-      key: ValueKey('reels-${posts.length}'),
-      scrollDirection: Axis.vertical,
-      itemCount: posts.length,
-      itemBuilder: (context, i) => _reel(posts[i], posts, signedIn),
+    final index = _reelIndex.clamp(0, posts.length - 1);
+    final current = posts[index];
+    final ownPost =
+        ref.read(sessionProvider)?.profileId == current.authorProfileId;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        PageView.builder(
+          controller: _reelPager,
+          // Restart at the top whenever the number of reels changes (a filter
+          // applied, the feed refreshed) instead of leaving the pager past
+          // its end.
+          key: ValueKey('reels-${posts.length}'),
+          scrollDirection: Axis.vertical,
+          onPageChanged: (i) => setState(() => _reelIndex = i),
+          itemCount: posts.length,
+          itemBuilder: (context, i) => _reel(posts[i], posts, signedIn),
+        ),
+        // One header for the whole tab, laid over the media instead of being
+        // rebuilt by every page — paging can never leave two of them on
+        // screen, and it stays pinned at the top of the screen.
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 560),
+              child: _feedTopBar(
+                overMedia: true,
+                post: current,
+                ownPost: ownPost,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -386,26 +300,22 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
             Align(
               alignment: Alignment.bottomCenter,
               child: Container(
-                height: veryCompact ? 300 : (compact ? 370 : 450),
+                // Shallow ramp: only the bottom fifth needs tinting now that
+                // the info card is compact, so the photo stays readable.
+                height: veryCompact ? 210 : (compact ? 230 : 260),
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.bottomCenter,
                     end: Alignment.topCenter,
-                    colors: [Color(0xE608060F), Color(0x0008060F)],
+                    colors: [Color(0xCC08060F), Color(0x0008060F)],
                   ),
                 ),
               ),
             ),
             Positioned(
-              left: 12,
-              right: 4,
-              top: 4,
-              child: _reelHeader(post, size.width),
-            ),
-            Positioned(
               left: 14,
               right: 14,
-              bottom: 10,
+              bottom: 12,
               child: _reelOverlay(
                 post,
                 author,
@@ -420,14 +330,32 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     );
   }
 
-  /// Reels header — the mockup's floating chrome: the mark + wordmark on the
-  /// left, notifications / compose / overflow on the right. The discovery
-  /// tools (sessions, filters, map, safeguarding, theme) live in the overflow
-  /// menu so the media keeps the frame's full width.
-  Widget _reelHeader(FeedPost post, double width) {
-    final ownPost = ref.read(sessionProvider)?.profileId == post.authorProfileId;
-    return Row(
+  /// The tab's single header bar: back, brand, notifications, brightness,
+  /// composer and the overflow menu. Built once per screen — never per post —
+  /// and it pins itself under the status bar.
+  ///
+  /// [overMedia] swaps the palette for the reel's full-bleed photo (white ink
+  /// over a dark scrim); the discovery body gets the solid ink bar.
+  Widget _feedTopBar({
+    required bool overMedia,
+    FeedPost? post,
+    bool ownPost = false,
+  }) {
+    final brand = overMedia ? Colors.white : RadarTheme.textPrimary;
+    final dim = overMedia ? Colors.white : RadarTheme.textDim;
+    const whiteShadow = [Shadow(color: Color(0x99000000), blurRadius: 8)];
+    final shadows = overMedia ? whiteShadow : null;
+    final isDark = ref.watch(themeModeProvider) == RadarBrightness.dark;
+
+    final bar = Row(
       children: [
+        _barButton(
+          icon: Icons.arrow_back,
+          tooltip: 'Back',
+          color: brand,
+          shadows: shadows,
+          onPressed: _stepBack,
+        ),
         Expanded(
           child: Align(
             alignment: AlignmentDirectional.centerStart,
@@ -436,16 +364,16 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const RadarMark(size: 24),
-                  const SizedBox(width: 8),
+                  const RadarMark(size: 22),
+                  const SizedBox(width: 7),
                   Text(
                     AppBrand.name,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: brand,
                       fontWeight: FontWeight.w800,
-                      fontSize: 13.5,
+                      fontSize: overMedia ? 13.5 : 14,
                       letterSpacing: 2.2,
-                      shadows: [Shadow(color: Color(0x99000000), blurRadius: 8)],
+                      shadows: shadows,
                     ),
                   ),
                 ],
@@ -453,108 +381,162 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
             ),
           ),
         ),
-        _reelIcon(
+        _barButton(
           icon: Icons.notifications_none,
           tooltip: 'Notifications',
+          color: dim,
+          shadows: shadows,
           onPressed: _showNotifications,
         ),
-        _reelIcon(
+        _barButton(
+          icon: isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+          tooltip: isDark ? 'Switch to light theme' : 'Switch to dark theme',
+          color: dim,
+          shadows: shadows,
+          onPressed: _toggleTheme,
+        ),
+        _barButton(
           icon: Icons.edit_note,
           tooltip: 'New post',
+          color: dim,
+          shadows: shadows,
           onPressed: _openComposer,
         ),
-        PopupMenuButton<_ReelMenuAction>(
-          tooltip: 'More',
-          iconSize: 22,
-          icon: const Icon(Icons.more_vert, color: Colors.white, size: 22),
-          padding: const EdgeInsets.only(left: 4, right: 8),
-          onSelected: (action) => _onReelMenu(action, post, ownPost),
-          itemBuilder: (context) => [
-            const PopupMenuItem(
-              value: _ReelMenuAction.sessions,
-              child: Text('Live & scheduled sessions'),
-            ),
-            const PopupMenuItem(
-              value: _ReelMenuAction.filter,
-              child: Text('Filter feed'),
-            ),
-            if (post.hasLocation)
+        SizedBox(
+          width: 34,
+          height: 34,
+          child: PopupMenuButton<_ReelMenuAction>(
+            tooltip: 'More',
+            iconSize: 21,
+            padding: EdgeInsets.zero,
+            icon: Icon(Icons.more_vert, color: dim, size: 21, shadows: shadows),
+            onSelected: (action) => _onReelMenu(action, post, ownPost),
+            itemBuilder: (context) => [
               const PopupMenuItem(
-                value: _ReelMenuAction.postOnMap,
-                child: Text('View post on the Radar map'),
+                value: _ReelMenuAction.sessions,
+                child: Text('Live & scheduled sessions'),
               ),
-            const PopupMenuItem(
-              value: _ReelMenuAction.map,
-              child: Text('Open the Radar map'),
-            ),
-            const PopupMenuItem(
-              value: _ReelMenuAction.theme,
-              child: Text('Switch light / dark theme'),
-            ),
-            const PopupMenuItem(
-              value: _ReelMenuAction.safety,
-              child: Text('Safeguarding centre'),
-            ),
-            if (!ownPost)
               const PopupMenuItem(
-                value: _ReelMenuAction.report,
-                child: Text('Report post'),
+                value: _ReelMenuAction.filter,
+                child: Text('Filter feed'),
               ),
-            if (ownPost)
+              if (post != null && post.hasLocation)
+                const PopupMenuItem(
+                  value: _ReelMenuAction.postOnMap,
+                  child: Text('View post on the Radar map'),
+                ),
               const PopupMenuItem(
-                value: _ReelMenuAction.delete,
-                child: Text('Delete post'),
+                value: _ReelMenuAction.map,
+                child: Text('Open the Radar map'),
               ),
-          ],
+              const PopupMenuItem(
+                value: _ReelMenuAction.theme,
+                child: Text('Switch light / dark theme'),
+              ),
+              const PopupMenuItem(
+                value: _ReelMenuAction.safety,
+                child: Text('Safeguarding centre'),
+              ),
+              if (post != null && !ownPost)
+                const PopupMenuItem(
+                  value: _ReelMenuAction.report,
+                  child: Text('Report post'),
+                ),
+              if (post != null && ownPost)
+                const PopupMenuItem(
+                  value: _ReelMenuAction.delete,
+                  child: Text('Delete post'),
+                ),
+            ],
+          ),
         ),
       ],
     );
+
+    return Container(
+      key: const ValueKey('feed-top-bar'),
+      color: overMedia ? Colors.transparent : RadarTheme.ink,
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(4, 2, 2, overMedia ? 8 : 6),
+          child: bar,
+        ),
+      ),
+    );
   }
 
-  /// Overlay header icon: white on a soft dark disc so it stays legible over
-  /// bright media.
-  Widget _reelIcon({
+  /// Compact, evenly sized header action so five of them (back, plus four
+  /// tools) still fit beside the wordmark on a 360px phone.
+  Widget _barButton({
     required IconData icon,
     required String tooltip,
+    required Color color,
     required VoidCallback onPressed,
+    List<Shadow>? shadows,
   }) {
     return IconButton(
       tooltip: tooltip,
       onPressed: onPressed,
       visualDensity: VisualDensity.compact,
-      icon: Icon(
-        icon,
-        size: 22,
-        color: Colors.white,
-        shadows: const [Shadow(color: Color(0x99000000), blurRadius: 8)],
-      ),
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints.tightFor(width: 34, height: 34),
+      icon: Icon(icon, size: 21, color: color, shadows: shadows),
     );
   }
 
-  void _onReelMenu(_ReelMenuAction action, FeedPost post, bool ownPost) {
+  void _toggleTheme() {
+    final next = ref.read(themeModeProvider.notifier).toggle();
+    RadarTheme.current =
+        next == RadarBrightness.dark ? RadarPalette.dark : RadarPalette.light;
+    persistThemePreference(next);
+  }
+
+  /// The header's back control: close a pushed route, else walk back through
+  /// the tabs the viewer came from, else step up one reel.
+  void _stepBack() {
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.maybePop();
+      return;
+    }
+    if (HomeShell.goBack(context)) return;
+    if (_reelIndex > 0 && _reelPager.hasClients) {
+      _reelPager.previousPage(
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutCubic,
+      );
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: RadarTheme.panelHigh,
+      content: const Text('Already at the start of the feed.'),
+    ));
+  }
+
+  /// [post] is the reel currently on screen — null in the discovery body,
+  /// where the post-scoped entries are hidden from the menu anyway.
+  void _onReelMenu(_ReelMenuAction action, FeedPost? post, bool ownPost) {
     switch (action) {
       case _ReelMenuAction.sessions:
         _openSessionsSheet();
       case _ReelMenuAction.filter:
         _openFilterSheet();
       case _ReelMenuAction.postOnMap:
-        _openPostOnRadar(post);
+        if (post != null) _openPostOnRadar(post);
       case _ReelMenuAction.map:
         HomeShell.goTo(context, 1);
       case _ReelMenuAction.theme:
-        final next = ref.read(themeModeProvider.notifier).toggle();
-        RadarTheme.current = next == RadarBrightness.dark
-            ? RadarPalette.dark
-            : RadarPalette.light;
-        persistThemePreference(next);
+        _toggleTheme();
       case _ReelMenuAction.safety:
         Navigator.of(context).push(MaterialPageRoute<void>(
           builder: (_) => const SafeguardingScreen(),
         ));
       case _ReelMenuAction.report:
-        _openReportSheet(post);
+        if (post != null) _openReportSheet(post);
       case _ReelMenuAction.delete:
-        _confirmDelete(post);
+        if (post != null) _confirmDelete(post);
     }
   }
 
@@ -567,9 +549,10 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     ));
   }
 
-  /// The overlay stack for one reel, mockup-shaped: the caption and hashtag
-  /// line sit straight on the media, and a translucent card underneath carries
-  /// the posting player and their next live session.
+  /// The overlay for one reel: caption and hashtag line straight on the media,
+  /// then a deliberately compact translucent card carrying the posting player,
+  /// the CTA and their next live session. The card is sized to stay inside the
+  /// bottom fifth of the frame so the photo keeps the rest.
   Widget _reelOverlay(
     FeedPost post,
     UserProfile? author,
@@ -580,16 +563,17 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     final title = post.body.split('\n').first.trim();
     final area = (post.areaName ?? '').trim();
     // Inline hashtags, mockup-style — "#PiScout #Talent" under the caption
-    // rather than the old boxed chips.
+    // rather than boxed chips.
     final tags = '#${AppBrand.nameTitleCase.replaceAll(' ', '')} '
         '#${post.kind.label.replaceAll(' ', '')}';
 
     return Column(
+      key: const ValueKey('reel-overlay'),
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.only(left: 4, right: 4, bottom: 10),
+          padding: const EdgeInsets.only(left: 4, right: 4, bottom: 7),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -600,31 +584,35 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 21,
+                  fontSize: 18,
                   fontWeight: FontWeight.w800,
-                  height: 1.12,
+                  height: 1.15,
                   shadows: [Shadow(color: Color(0xAA000000), blurRadius: 12)],
                 ),
               ),
-              const SizedBox(height: 3),
-              Text(
-                tags,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Color(0xFFCBB9FF),
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w700,
-                  shadows: [Shadow(color: Color(0xAA000000), blurRadius: 12)],
-                ),
-              ),
-              if (area.isNotEmpty && !veryCompact) ...[
-                const SizedBox(height: 4),
-                Row(
-                  children: [
+              const SizedBox(height: 2),
+              Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      tags,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xFFCBB9FF),
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        shadows: [
+                          Shadow(color: Color(0xAA000000), blurRadius: 12)
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (area.isNotEmpty && !veryCompact) ...[
+                    const SizedBox(width: 8),
                     const Icon(Icons.place_outlined,
-                        size: 12, color: Color(0xCCFFFFFF)),
-                    const SizedBox(width: 3),
+                        size: 10, color: Color(0xB3FFFFFF)),
+                    const SizedBox(width: 2),
                     Flexible(
                       child: Text(
                         area,
@@ -632,29 +620,30 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           color: Color(0xCCFFFFFF),
-                          fontSize: 11.5,
+                          fontSize: 10.5,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
                   ],
-                ),
-              ],
+                ],
+              ),
             ],
           ),
         ),
         Container(
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+          padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
           decoration: BoxDecoration(
-            // Translucent violet panel, the mockup's "Joung Pame" card.
+            // Translucent violet panel, the mockup's player card — kept flat
+            // and shallow so it reads as a caption strip, not a panel.
             color: const Color(0xFF221A3C).withValues(alpha: 0.88),
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
             boxShadow: const [
               BoxShadow(
-                color: Color(0x66000000),
-                blurRadius: 22,
-                offset: Offset(0, 10),
+                color: Color(0x59000000),
+                blurRadius: 16,
+                offset: Offset(0, 6),
               ),
             ],
           ),
@@ -662,50 +651,35 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _reelAuthorRow(post, author, showBio: !compact),
-              const SizedBox(height: 11),
-              Container(
-                height: 1,
-                color: Colors.white.withValues(alpha: 0.10),
-              ),
-              const SizedBox(height: 11),
+              _reelAuthorRow(post, author, training: training),
+              const SizedBox(height: 7),
               if (training != null)
                 NextTrainingOverlayCard(
-                  flat: true,
+                  dense: true,
                   info: training,
                   onGoToProfile: () =>
                       _openPlayerSession(training.event.hostProfileId),
                   onWatchLive: () =>
                       _openPlayerSession(training.event.hostProfileId),
                 )
-              else ...[
-                // No session on the radar for this player yet: keep the
-                // mockup's training block shape and point the CTA at their
-                // profile.
-                const Text(
-                  'Next Live Training Info:',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.2,
-                  ),
+              else
+                Row(
+                  children: [
+                    Icon(Icons.schedule, size: 12, color: RadarTheme.gold),
+                    const SizedBox(width: 5),
+                    Expanded(
+                      child: Text(
+                        'No session scheduled yet',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.75),
+                          fontSize: 10.5,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 5),
-                Text(
-                  'No session scheduled yet',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.75),
-                    fontSize: 12.5,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                TrainingCtaButton(
-                  label: 'GO TO PROFILE',
-                  icon: Icons.person,
-                  onPressed: () => _openAuthor(post),
-                ),
-              ],
             ],
           ),
         ),
@@ -713,29 +687,35 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     );
   }
 
-  /// Player row, mockup-shaped: avatar, name with the blue tick, then
-  /// "Age: 28" / "Position: Player" / "Bio: …" lines.
+  /// Player row of the compact card: avatar, name with the blue tick, one
+  /// muted meta line and the CTA pill — all on a single row.
   Widget _reelAuthorRow(
     FeedPost post,
     UserProfile? author, {
-    bool showBio = true,
+    NextTrainingInfo? training,
   }) {
     final positions = author?.positions ?? const <String>[];
     final roleLabel = positions.isNotEmpty
         ? positions.join(' · ')
         : (post.authorRole.isNotEmpty ? _capitalize(post.authorRole) : '');
-    final bio = (author?.bio ?? '').trim();
+    final meta = <String>[
+      if (author?.age != null) 'Age ${author!.age}',
+      if (positions.isNotEmpty)
+        roleLabel
+      else if (roleLabel.isNotEmpty)
+        'Role: $roleLabel',
+    ].join(' · ');
     final avatarUrl = (author?.avatarUrl ?? '').trim();
+    final isLive = training?.event.isLive ?? false;
 
-    return InkWell(
-      onTap: () => _openAuthor(post),
-      borderRadius: BorderRadius.circular(14),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 40,
-            height: 40,
+    return Row(
+      children: [
+        InkWell(
+          onTap: () => _openAuthor(post),
+          customBorder: const CircleBorder(),
+          child: Container(
+            width: 28,
+            height: 28,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               gradient: LinearGradient(
@@ -747,12 +727,12 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                 ],
               ),
             ),
-            padding: const EdgeInsets.all(1.6),
+            padding: const EdgeInsets.all(1.4),
             child: ClipOval(
               child: avatarUrl.isEmpty
                   ? const ColoredBox(
                       color: Color(0xFF2B2149),
-                      child: Icon(Icons.person, size: 19, color: Colors.white70),
+                      child: Icon(Icons.person, size: 15, color: Colors.white70),
                     )
                   : Image.network(
                       avatarUrl,
@@ -760,13 +740,17 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                       errorBuilder: (_, _, _) => const ColoredBox(
                         color: Color(0xFF2B2149),
                         child:
-                            Icon(Icons.person, size: 19, color: Colors.white70),
+                            Icon(Icons.person, size: 15, color: Colors.white70),
                       ),
                     ),
             ),
           ),
-          const SizedBox(width: 10),
-          Expanded(
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: InkWell(
+            onTap: () => _openAuthor(post),
+            borderRadius: BorderRadius.circular(10),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
@@ -780,7 +764,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 14,
+                          fontSize: 13,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
@@ -788,41 +772,35 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                     if (author?.kycVerified ?? false) ...[
                       const SizedBox(width: 4),
                       const Icon(Icons.verified,
-                          size: 13, color: Color(0xFF4CC3FF)),
+                          size: 12, color: Color(0xFF4CC3FF)),
                     ],
                   ],
                 ),
-                if (author?.age != null)
-                  _reelMeta('Age', '${author!.age}'),
-                if (roleLabel.isNotEmpty)
-                  // Players get the mockup's "Position"; everyone else on the
-                  // feed (academies, clubs, scouts) is labelled by role.
-                  _reelMeta(positions.isNotEmpty ? 'Position' : 'Role', roleLabel),
-                if (showBio && bio.isNotEmpty)
-                  _reelMeta('Bio', bio, maxLines: 2),
+                if (meta.isNotEmpty)
+                  Text(
+                    meta,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.72),
+                      fontSize: 10.5,
+                      height: 1.3,
+                    ),
+                  ),
               ],
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  /// One "Label: value" line of the reel card's player block — mockup
-  /// typography: muted, one line each, truncating instead of wrapping.
-  Widget _reelMeta(String label, String value, {int maxLines = 1}) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 2),
-      child: Text(
-        '$label: $value',
-        maxLines: maxLines,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          color: Colors.white.withValues(alpha: 0.78),
-          fontSize: 11.5,
-          height: 1.3,
         ),
-      ),
+        const SizedBox(width: 6),
+        TrainingCtaButton(
+          dense: true,
+          label: isLive ? 'WATCH LIVE' : 'GO TO PROFILE',
+          icon: isLive ? Icons.play_arrow : Icons.person,
+          onPressed: () => training != null
+              ? _openPlayerSession(training.event.hostProfileId)
+              : _openAuthor(post),
+        ),
+      ],
     );
   }
 
@@ -2032,33 +2010,6 @@ class _ComposerSheetState extends ConsumerState<_ComposerSheet> {
               ]),
             ),
       ],
-    );
-  }
-}
-
-/// Compact dark/light switch for the feed header: sun in dark mode (tap
-/// for light), moon in light mode. Persists across sessions.
-class _ThemeHeaderToggle extends ConsumerWidget {
-  const _ThemeHeaderToggle();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final mode = ref.watch(themeModeProvider);
-    final isDark = mode == RadarBrightness.dark;
-    return IconButton(
-      tooltip: isDark ? 'Switch to light theme' : 'Switch to dark theme',
-      icon: Icon(
-        isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
-        size: 21,
-        color: RadarTheme.textDim,
-      ),
-      onPressed: () async {
-        final next = ref.read(themeModeProvider.notifier).toggle();
-        RadarTheme.current = next == RadarBrightness.dark
-            ? RadarPalette.dark
-            : RadarPalette.light;
-        await persistThemePreference(next);
-      },
     );
   }
 }

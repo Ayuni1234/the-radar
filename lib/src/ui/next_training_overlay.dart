@@ -62,6 +62,7 @@ class NextTrainingOverlayCard extends ConsumerStatefulWidget {
     required this.onGoToProfile,
     this.onWatchLive,
     this.flat = false,
+    this.dense = false,
   });
 
   final NextTrainingInfo info;
@@ -77,6 +78,12 @@ class NextTrainingOverlayCard extends ConsumerStatefulWidget {
   /// translucent violet surface behind the media.
   final bool flat;
 
+  /// Renders just the one-line training strip (status glyph, pitch · kick-off,
+  /// countdown) instead of the full labelled card. The reel's compact overlay
+  /// uses it so the translucent card over the media stays small and the photo
+  /// keeps most of the frame; tapping the strip opens the session.
+  final bool dense;
+
   @override
   ConsumerState<NextTrainingOverlayCard> createState() =>
       _NextTrainingOverlayCardState();
@@ -88,6 +95,57 @@ class _NextTrainingOverlayCardState
   Widget build(BuildContext context) {
     final info = widget.info;
     final isLive = info.event.isLive;
+
+    if (widget.dense) {
+      return InkWell(
+        onTap: widget.onWatchLive ?? widget.onGoToProfile,
+        borderRadius: BorderRadius.circular(8),
+        child: Row(
+          children: [
+            Icon(
+              isLive ? Icons.podcasts : Icons.schedule,
+              size: 12,
+              color: isLive ? RadarTheme.radar : RadarTheme.gold,
+            ),
+            const SizedBox(width: 5),
+            Expanded(
+              child: Text(
+                '${info.pitch} · ${info.startTimeLabel}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.9),
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+            if (isLive)
+              const Text(
+                'BROADCASTING NOW',
+                style: TextStyle(
+                  color: Color(0xFF3DFFA2),
+                  fontWeight: FontWeight.w800,
+                  fontSize: 9.5,
+                  letterSpacing: 0.5,
+                ),
+              )
+            else
+              LiveCountdownText(
+                target: info.event.startsAt,
+                style: const TextStyle(
+                  color: Color(0xFFF5C043),
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.4,
+                  fontFeatures: [FontFeature.tabularFigures()],
+                ),
+              ),
+          ],
+        ),
+      );
+    }
 
     return Container(
       padding: widget.flat
@@ -206,11 +264,16 @@ class TrainingCtaButton extends StatelessWidget {
     required this.label,
     required this.icon,
     required this.onPressed,
+    this.dense = false,
   });
 
   final String label;
   final IconData icon;
   final VoidCallback? onPressed;
+
+  /// Small variant for the reel's compact info card, where the pill shares a
+  /// row with the avatar and the player's name.
+  final bool dense;
 
   @override
   Widget build(BuildContext context) {
@@ -218,20 +281,23 @@ class TrainingCtaButton extends StatelessWidget {
       style: FilledButton.styleFrom(
         backgroundColor: RadarTheme.pi,
         foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        minimumSize: const Size(0, 32),
+        padding: EdgeInsets.symmetric(
+          horizontal: dense ? 10 : 14,
+          vertical: dense ? 5 : 8,
+        ),
+        minimumSize: Size(0, dense ? 26 : 32),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         visualDensity: VisualDensity.compact,
         shape: const StadiumBorder(),
         elevation: 0,
-        textStyle: const TextStyle(
-          fontSize: 11,
+        textStyle: TextStyle(
+          fontSize: dense ? 9.5 : 11,
           fontWeight: FontWeight.w800,
           letterSpacing: 0.4,
         ),
       ),
       onPressed: onPressed,
-      icon: Icon(icon, size: 14),
+      icon: Icon(icon, size: dense ? 12 : 14),
       label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
     );
   }
