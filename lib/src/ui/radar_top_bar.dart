@@ -102,7 +102,9 @@ class RadarTopBar extends ConsumerWidget {
                               ),
                             ),
                           ),
-                          if (showPro) ...[
+                          // The PRO pill is dropped on phones narrower than 360px
+                          // so the wordmark keeps room beside the actions.
+                          if (showPro && MediaQuery.sizeOf(context).width >= 360) ...[
                             const SizedBox(width: 5),
                             Container(
                               padding: const EdgeInsets.symmetric(

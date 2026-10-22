@@ -198,10 +198,10 @@ void main() {
         reason: 'mid-swipe both reels are mounted; the bar must stay single');
   });
 
-  for (final height in const [600.0, 520.0, 460.0]) {
-    testWidgets('the reel fits a ${height.toInt()}px-tall viewport',
+  for (final size in const [Size(412, 600), Size(412, 520), Size(412, 460), Size(320, 640), Size(320, 568)]) {
+    testWidgets('the reel fits a ${size.width.toInt()}x${size.height.toInt()} viewport',
         (tester) async {
-      tester.view.physicalSize = Size(412, height);
+      tester.view.physicalSize = size;
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
 
@@ -222,6 +222,7 @@ void main() {
         if (error == null) break;
         problems.add(error.toString());
       }
+
       final overflows =
           problems.where((p) => p.contains('overflowed by')).toList();
       expect(overflows, isEmpty,
