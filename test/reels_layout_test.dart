@@ -10,7 +10,10 @@ import 'package:the_radar/src/state/auth_controller.dart'
 import 'package:the_radar/src/state/map_focus.dart';
 import 'package:the_radar/src/state/radar_providers.dart'
     show FeedPostsController, ProfilesController, feedPostsProvider, profilesProvider;
+import 'package:the_radar/src/ui/bounty_board_screen.dart';
 import 'package:the_radar/src/ui/feed_screen.dart';
+import 'package:the_radar/src/ui/profile_hub_screen.dart';
+import 'package:the_radar/src/ui/radar_map_screen.dart';
 import 'package:the_radar/src/ui/next_training_overlay.dart';
 import 'package:the_radar/src/ui/radar_theme.dart';
 import 'package:the_radar/src/ui/reel_view.dart';
@@ -228,6 +231,43 @@ void main() {
       expect(overflows, isEmpty,
           reason: 'short-viewport reel overflow:\n${overflows.join('\n')}');
     });
+  }
+
+  final tabs = <String, Widget Function()>{
+    'Reels': () => const FeedScreen(),
+    'Map': () => const RadarMapScreen(),
+    'Bounty': () => const BountyBoardScreen(),
+    'Profile': () => const ProfileHubScreen(),
+  };
+  for (final width in const [320.0, 360.0, 412.0]) {
+    for (final tab in tabs.entries) {
+      testWidgets('${tab.key} tab has no overflow at ${width.toInt()}px',
+          (tester) async {
+        tester.view.physicalSize = Size(width, 800);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.reset);
+
+        await tester.pumpWidget(ProviderScope(
+          overrides: [
+            authProvider.overrideWith(_FixedAuth.new),
+            feedPostsProvider.overrideWith(_FixedFeedPosts.new),
+            profilesProvider.overrideWith(_FixedProfiles.new),
+          ],
+          child: MaterialApp(theme: RadarTheme.dark, home: tab.value()),
+        ));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+
+        final overflows = <String>[];
+        while (true) {
+          final error = tester.takeException();
+          if (error == null) break;
+          final text = error.toString();
+          if (text.contains('overflowed by')) overflows.add(text.split('\n').first);
+        }
+        expect(overflows, isEmpty, reason: overflows.join('\n'));
+      });
+    }
   }
 
   test('the metric chips are a stable projection of the profile', () {

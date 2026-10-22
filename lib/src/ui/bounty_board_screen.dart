@@ -1027,11 +1027,15 @@ class _CompactEscrowCardState extends ConsumerState<_CompactEscrowCard> {
               Icon(Icons.navigation_outlined,
                   size: 13, color: RadarTheme.cyanDeep),
               const SizedBox(width: 3),
-              Text(
-                distance == null ? b.areaName : '$distance km away',
-                style: RadarType.capsTight.copyWith(
-                  fontSize: 8.5,
-                  color: RadarTheme.textPrimary,
+              Flexible(
+                child: Text(
+                  distance == null ? b.areaName : '$distance km away',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: RadarType.capsTight.copyWith(
+                    fontSize: 8.5,
+                    color: RadarTheme.textPrimary,
+                  ),
                 ),
               ),
               const SizedBox(width: 10),
