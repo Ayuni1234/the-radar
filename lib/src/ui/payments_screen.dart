@@ -445,7 +445,7 @@ class _StatusTimeline extends StatelessWidget {
           const _Step(
               n: '2',
               text:
-                  'onReadyForServerApproval → our Supabase edge function '
+                  'onReadyForServerApproval → our server function '
                   'approves the payment server-side.'),
           const _Step(
               n: '3',

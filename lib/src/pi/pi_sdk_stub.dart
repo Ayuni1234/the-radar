@@ -35,7 +35,7 @@ class PiSdkStub implements PiSdkApi {
     required PiPaymentCallbacks callbacks,
   }) {
     callbacks.onError(
-      'Pi SDK is only available inside the Pi Browser (Flutter Web).',
+      'Pi is only available inside the Pi Browser (Flutter Web).',
       null,
     );
   }

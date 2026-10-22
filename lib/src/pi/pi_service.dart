@@ -214,7 +214,7 @@ class PiService {
   Future<AuthSessionOutcome> authenticate() async {
     if (!isSdkAvailable) {
       throw PiBridgeException(
-          'Pi SDK unavailable. Open The Radar inside the Pi Browser.');
+          'Pi unavailable. Open The Radar inside the Pi Browser.');
     }
     if (!_initialized) {
       final ok = await init();
@@ -270,7 +270,7 @@ class PiService {
     if (!isSdkAvailable) {
       yield const PiPaymentState(
         phase: PiPaymentPhase.error,
-        error: 'Pi SDK unavailable — payments require the Pi Browser.',
+        error: 'Pi unavailable — payments require the Pi Browser.',
       );
       return;
     }
@@ -303,7 +303,7 @@ class PiService {
     if (!isSdkAvailable || !_initialized) {
       emit(const PiPaymentState(
         phase: PiPaymentPhase.error,
-        error: 'Pi SDK unavailable — payments require the Pi Browser.',
+        error: 'Pi unavailable — payments require the Pi Browser.',
       ));
       return controller.stream..listen(null, onDone: controller.close);
     }

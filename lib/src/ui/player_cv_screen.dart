@@ -245,7 +245,7 @@ class _HighlightReel extends StatelessWidget {
     'youtu.be': ('YouTube', RadarTheme.alert),
     'vimeo.com': ('Vimeo', RadarTheme.info),
     'minepi.com': ('Pi media', RadarTheme.pi),
-    'drive.google.com': ('Drive', RadarTheme.gold),
+    'drive.google.com': ('Cloud file', RadarTheme.gold),
   };
 
   (String, Color) _hostInfo(String url) {

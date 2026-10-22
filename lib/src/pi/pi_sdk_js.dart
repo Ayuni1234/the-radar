@@ -141,7 +141,7 @@ class PiSdkWeb implements PiSdkApi {
   }) async {
     final pi = _sdk();
     if (pi == null) {
-      throw StateError('Pi SDK unavailable — open The Radar in the Pi Browser.');
+      throw StateError('Pi unavailable — open The Radar in the Pi Browser.');
     }
 
     void handleIncomplete(_PiPaymentDto dto) =>
@@ -183,7 +183,7 @@ class PiSdkWeb implements PiSdkApi {
     final pi = _sdk();
     if (pi == null) {
       callbacks.onError(
-        'Pi SDK unavailable — open The Radar in the Pi Browser.',
+        'Pi unavailable — open The Radar in the Pi Browser.',
         null,
       );
       return;

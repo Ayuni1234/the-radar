@@ -1305,7 +1305,7 @@ class _ComposerSheetState extends ConsumerState<_ComposerSheet> {
     'youtu.be': 'YouTube',
     'vimeo.com': 'Vimeo',
     'pi.media': 'Pi Media',
-    'drive.google.com': 'Drive',
+    'drive.google.com': 'Cloud file',
   };
 
   /// 'Use Current Location' — fetches device GPS and pins the spot.

@@ -168,7 +168,7 @@ class AuthController extends AsyncNotifier<AuthState> {
     final service = _pi;
     if (service == null || !service.isSdkAvailable) {
       state = AsyncData(AuthSignedOut(
-        reason: 'Pi SDK not available in this browser. Use demo sign-in.',
+        reason: 'Pi not available in this browser. Use demo sign-in.',
       ));
       return;
     }

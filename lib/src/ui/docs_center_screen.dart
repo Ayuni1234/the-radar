@@ -98,7 +98,7 @@ class DocsCenterScreen extends StatelessWidget {
         DocSection(
           title: 'Verified authentication',
           steps: [
-            'The Radar authenticates through the Pi SDK inside the Pi Browser — you approve the sign-in, we never see your passphrase.',
+            'The Radar authenticates through Pi inside the Pi Browser — you approve the sign-in, we never see your passphrase.',
             'A server-side exchange with Pi\u2019s App Studio verifies the identity before any session or profile is created; the browser-supplied identity alone is worthless.',
             'Row-level security ties every profile to that verified identity (profile id equals the authenticated user id and the Pi uid claim).',
           ],
@@ -149,11 +149,11 @@ class DocsCenterScreen extends StatelessWidget {
         DocSection(
           title: 'Open-source attributions',
           steps: [
-            'Flutter and Material — Google, BSD-3-Clause.',
+            'Flutter framework and Material widgets — BSD-3-Clause.',
             'Riverpod — flutter_riverpod authors, MIT.',
-            'Supabase client stack (supabase_flutter, gotrue, realtime_client, functions_client) — Supabase, Apache-2.0.',
+            'Backend client libraries (session, realtime and functions clients) — Apache-2.0.',
             'connectivity_plus — fluttercommunity contributors, BSD-3-Clause. Intl — Dart project, BSD-3-Clause.',
-            'Pi Platform SDK — Pi Network, used under the Pi developer terms.',
+            'Pi platform integration, used under the Pi developer terms.',
           ],
         ),
         DocSection(

@@ -425,7 +425,7 @@ class _IdentityCard extends StatelessWidget {
               Wrap(spacing: 6, runSpacing: 4, children: [
                 InfoPill(
                   icon: live ? Icons.cloud_done : Icons.offline_bolt,
-                  label: live ? 'Supabase connected' : 'Demo mode',
+                  label: live ? 'Connected' : 'Demo mode',
                   color: live ? RadarTheme.radar : RadarTheme.gold,
                 ),
                 InfoPill(
@@ -698,7 +698,7 @@ class _SessionSection extends StatelessWidget {
             s == null ? '—' : 'Pi user · ${s.username}'),
         _kv('Wallet address',
             s?.piUid.isEmpty ?? true ? '—' : 'pi:${s!.piUid}'),
-        _kv('Session state', live ? 'Active (live Supabase session)' : 'Demo (offline)'),
+        _kv('Session state', live ? 'Active (live session)' : 'Demo (offline)'),
         _kv('Access token', tokenPreview),
         const SizedBox(height: 12),
         Row(children: [

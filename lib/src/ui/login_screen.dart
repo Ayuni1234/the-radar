@@ -147,8 +147,8 @@ class _PiSignInCard extends ConsumerWidget {
             canPi
                 ? 'Authenticate with your Pi account. We capture your Pi UID, username and KYC verification status.'
                 : sdkAvailable
-                    ? 'Pi SDK detected but Pi logins are disabled in this build config.'
-                    : 'Pi SDK not detected — open The Radar inside the Pi Browser for full sign-in, or explore demo mode.',
+                    ? 'Pi detected but Pi logins are disabled in this build config.'
+                    : 'Pi not detected — open The Radar inside the Pi Browser for full sign-in, or explore demo mode.',
             style:  TextStyle(color: RadarTheme.textDim, fontSize: 12.5),
           ),
           const SizedBox(height: 16),
@@ -210,7 +210,7 @@ class _EnvFootnote extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final pi = ref.read(authProvider.notifier).pi;
-    final env = 'Pi SDK v${PiConfig.current.sdkVersion}';
+    final env = 'v${PiConfig.current.sdkVersion}';
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -228,8 +228,8 @@ class _EnvFootnote extends ConsumerWidget {
         Flexible(
           child: Text(
             (pi?.isSdkAvailable ?? false)
-                ? 'Pi SDK ready · $env'
-                : 'Pi SDK absent · demo environment',
+                ? 'Pi ready · $env'
+                : 'Pi unavailable · demo environment',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style:  TextStyle(fontSize: 11.5, color: RadarTheme.textDim),

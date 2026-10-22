@@ -112,7 +112,7 @@ class _SystemHealthScreenState extends ConsumerState<SystemHealthScreen> {
                 ? Text(
                     live
                         ? 'Could not load security diagnostics — check the logs below.'
-                        : 'Demo mode: connect Supabase to inspect live policies.',
+                        : 'Demo mode: connect the backend to inspect live policies.',
                     style:  TextStyle(
                         fontSize: 12.5, color: RadarTheme.textDim),
                   )
@@ -302,8 +302,8 @@ class _ModeCard extends StatelessWidget {
         Expanded(
           child: Text(
             live
-                ? 'Live Supabase project — diagnostics run against production'
-                : 'Demo mode — Supabase not configured; probes are limited',
+                ? 'Live project — diagnostics run against production'
+                : 'Demo mode — backend not configured; probes are limited',
             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
           ),
         ),
