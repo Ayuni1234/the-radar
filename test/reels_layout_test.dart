@@ -12,7 +12,8 @@ import 'package:the_radar/src/state/radar_providers.dart'
     show FeedPostsController, ProfilesController, feedPostsProvider, profilesProvider;
 import 'package:the_radar/src/ui/bounty_board_screen.dart';
 import 'package:the_radar/src/ui/feed_screen.dart';
-import 'package:the_radar/src/ui/profile_hub_screen.dart';
+import 'package:the_radar/src/ui/player_passport_screen.dart';
+import 'package:the_radar/src/ui/review_room_screen.dart';
 import 'package:the_radar/src/ui/radar_map_screen.dart';
 import 'package:the_radar/src/ui/next_training_overlay.dart';
 import 'package:the_radar/src/ui/radar_theme.dart';
@@ -234,10 +235,11 @@ void main() {
   }
 
   final tabs = <String, Widget Function()>{
-    'Reels': () => const FeedScreen(),
-    'Map': () => const RadarMapScreen(),
-    'Bounty': () => const BountyBoardScreen(),
-    'Profile': () => const ProfileHubScreen(),
+    'Discover': () => const FeedScreen(),
+    'Radar Map': () => const RadarMapScreen(),
+    'Bounties': () => const BountyBoardScreen(),
+    'Passport': () => const PlayerPassportScreen(),
+    'Review': () => const ReviewRoomScreen(),
   };
   for (final width in const [320.0, 360.0, 412.0]) {
     for (final tab in tabs.entries) {

@@ -523,7 +523,7 @@ class _TelemetrySection extends StatelessWidget {
           physics: const NeverScrollableScrollPhysics(),
           mainAxisSpacing: 6,
           crossAxisSpacing: 6,
-          childAspectRatio: 1.18,
+          childAspectRatio: 1.0,
           children: [
             _SpecTile(
               label: 'Position',

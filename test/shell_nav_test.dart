@@ -34,32 +34,33 @@ void main() {
     while (tester.takeException() != null) {}
   }
 
-  testWidgets('the phone shell shows the four-tab bar', (tester) async {
+  testWidgets('the phone shell shows the five-tab bar', (tester) async {
     await pumpShell(tester, const Size(412, 892));
 
     // Every tab of the bar is labelled, and the bar is the custom
     // design's — not Material's NavigationBar.
-    expect(find.text('Reels'), findsOneWidget);
-    expect(find.text('Map'), findsOneWidget);
-    expect(find.text('Bounty'), findsOneWidget);
-    expect(find.text('Profile'), findsOneWidget);
+    expect(find.text('Discover'), findsOneWidget);
+    expect(find.text('Radar Map'), findsOneWidget);
+    expect(find.text('π Bounties'), findsOneWidget);
+    expect(find.text('Passport'), findsOneWidget);
+    expect(find.text('Review'), findsOneWidget);
     expect(find.byType(NavigationBar), findsNothing);
 
-    final discover = tester.getRect(find.text('Reels'));
-    final map = tester.getRect(find.text('Map'));
+    final discover = tester.getRect(find.text('Discover'));
+    final map = tester.getRect(find.text('Radar Map'));
     // One bottom band, rail order left to right.
     expect(discover.top, greaterThan(892 * 0.88));
     expect(map.top, greaterThan(892 * 0.88));
     expect(discover.left, lessThan(map.left));
 
-    await tester.tap(find.text('Bounty'));
+    await tester.tap(find.text('π Bounties'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     while (tester.takeException() != null) {}
 
     expect(find.byType(BountyBoardScreen), findsOneWidget,
-        reason: 'tapping the Bounty tab swaps the shell body to the board');
-    expect(find.text('Reels'), findsOneWidget,
+        reason: 'tapping the π Bounties tab swaps the shell body to the board');
+    expect(find.text('Discover'), findsOneWidget,
         reason: 'the bar stays mounted while the tab changes');
   });
 
@@ -67,10 +68,10 @@ void main() {
       (tester) async {
     await pumpShell(tester, const Size(1200, 900));
 
-    expect(find.text('Map'), findsOneWidget);
-    expect(find.text('Bounty'), findsOneWidget);
+    expect(find.text('Radar Map'), findsOneWidget);
+    expect(find.text('π Bounties'), findsOneWidget);
     // Rail entries sit above the fold; the bottom bar's copies are gone.
-    final first = tester.getRect(find.text('Reels').first);
+    final first = tester.getRect(find.text('Discover').first);
     expect(first.top, lessThan(900 * 0.5));
   });
 }

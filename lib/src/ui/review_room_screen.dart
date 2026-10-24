@@ -252,8 +252,10 @@ class _MissionHeader extends StatelessWidget {
               const SizedBox(width: 6),
               const LiveDot(size: 6, animate: false),
               const SizedBox(width: 4),
-              RadarCaps('TELEMETRY SYNCED',
-                  size: 8, color: RadarTheme.radar),
+              Flexible(
+                child: RadarCaps('TELEMETRY SYNCED',
+                    size: 8, color: RadarTheme.radar),
+              ),
               const Spacer(),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),

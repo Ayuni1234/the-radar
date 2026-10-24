@@ -7,9 +7,10 @@ import 'src/state/theme_controller.dart';
 import 'src/ui/feed_screen.dart';
 import 'src/ui/login_screen.dart';
 import 'src/ui/onboarding_screen.dart';
-import 'src/ui/profile_hub_screen.dart';
+import 'src/ui/player_passport_screen.dart';
 import 'src/ui/radar_map_screen.dart';
 import 'src/ui/bounty_board_screen.dart';
+import 'src/ui/review_room_screen.dart';
 import 'src/ui/radar_theme.dart';
 import 'src/ui/settings_screen.dart';
 import 'src/ui/shell.dart';
@@ -20,10 +21,11 @@ import 'src/ui/shell.dart';
 /// Pi Wallet, merchant sales, Safety Center) are consolidated inside the
 /// Profile hub instead of crowding the bottom bar.
 final List<(String, String, IconData, Widget)> _destinations = [
-  ('Reels', 'Talent discovery feed', Icons.movie_outlined, const FeedScreen()),
-  ('Map', 'Geographic talent radar', Icons.map_outlined, const RadarMapScreen()),
-  ('Bounty', 'Pi gig marketplace', Icons.workspace_premium_outlined, const BountyBoardScreen()),
-  ('Profile', 'Bio & live broadcasts', Icons.person_outline, const ProfileHubScreen()),
+  ('Discover', 'Talent discovery feed', Icons.movie_outlined, const FeedScreen()),
+  ('Radar Map', 'Geographic talent radar', Icons.radar, const RadarMapScreen()),
+  ('π Bounties', 'Pi gig marketplace', Icons.paid_outlined, const BountyBoardScreen()),
+  ('Passport', 'Player passport', Icons.badge_outlined, const PlayerPassportScreen()),
+  ('Review', 'Scout review room', Icons.fact_check_outlined, const ReviewRoomScreen()),
 ];
 
 void main() async {
