@@ -62,7 +62,7 @@ class _RadarMapScreenState extends ConsumerState<RadarMapScreen> {
     });
 
     final activeBounties =
-        bounties.where((b) => b.isFunded || b.isOpen).toList();
+        bounties.where((b) => b.isFunded).toList();
     final visible = _applyFilter(events);
     final selected = _selected ??
         (visible.isNotEmpty ? visible.first : (events.isNotEmpty ? events.first : null));

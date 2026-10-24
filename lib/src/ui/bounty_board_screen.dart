@@ -35,7 +35,6 @@ class BountyBoardScreen extends ConsumerWidget {
 
     final all = bountiesAsync.value ?? const <StreamBounty>[];
     final funded = all.where((b) => b.isFunded).toList();
-    final open = all.where((b) => b.isOpen).toList();
     final completed = all.where((b) => b.status == 'completed').toList();
     final earnings = completed.fold<double>(0, (sum, b) => sum + b.amountPi);
 
@@ -47,7 +46,8 @@ class BountyBoardScreen extends ConsumerWidget {
       }
     }
 
-    final entries = [...funded, ...open];
+    // Unfunded posts stay off the streamer board until their escrow is paid.
+    final entries = funded;
 
     return Scaffold(
       backgroundColor: RadarTheme.ink,
@@ -84,7 +84,7 @@ class BountyBoardScreen extends ConsumerWidget {
                     reputation: me?.credibilityScore ?? 0,
                   ),
                   const SizedBox(height: 12),
-                  _ProximityRadar(count: funded.length, open: open.length),
+                  _ProximityRadar(count: funded.length),
                   const SizedBox(height: 18),
                   Row(
                     children: [
@@ -417,14 +417,13 @@ class _MetricBox extends StatelessWidget {
 }
 
 class _ProximityRadar extends StatelessWidget {
-  const _ProximityRadar({required this.count, required this.open});
+  const _ProximityRadar({required this.count});
 
   final int count;
-  final int open;
 
   @override
   Widget build(BuildContext context) {
-    final total = count + open;
+    final total = count;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(

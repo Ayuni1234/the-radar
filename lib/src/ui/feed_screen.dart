@@ -93,7 +93,6 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     final openGigs = (ref.watch(streamBountiesProvider).value ??
             const <StreamBounty>[])
         .where((bounty) =>
-            bounty.status == 'open' ||
             bounty.status == 'funded' ||
             bounty.status == 'accepted' ||
             bounty.status == 'live')
@@ -243,7 +242,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
         ref.read(sessionProvider)?.profileId == current.authorProfileId;
     final openGigs = (ref.watch(streamBountiesProvider).value ??
             const <StreamBounty>[])
-        .where((bounty) => bounty.isFunded || bounty.isOpen)
+        .where((bounty) => bounty.isFunded)
         .length;
 
     return Column(
