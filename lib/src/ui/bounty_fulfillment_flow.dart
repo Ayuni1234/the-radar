@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 
+import '../data/location_service.dart';
 import '../models/stream_bounty.dart';
 import '../pi/pi_service.dart' show PiPaymentPhase;
 import '../state/radar_providers.dart';
@@ -51,8 +53,12 @@ class _BountyFulfillmentFlowState extends ConsumerState<BountyFulfillmentFlow> {
     Icons.account_balance_wallet_outlined,
   ];
 
+  /// Maximum distance from the pinned pitch that still counts as on the pitch.
+  static const _geofenceMeters = 150.0;
+
   final Set<int> _done = {};
   int _active = 1;
+  bool _locating = false;
   bool _busy = false;
   bool _uploading = false;
   double _uploadProgress = 0;
@@ -64,9 +70,9 @@ class _BountyFulfillmentFlowState extends ConsumerState<BountyFulfillmentFlow> {
   @override
   void initState() {
     super.initState();
-    if (b.latitude != null && b.longitude != null) _done.add(1);
     if (b.streamUrl != null) {
       _done
+        ..add(1)
         ..add(2)
         ..add(3);
     }
@@ -115,6 +121,7 @@ class _BountyFulfillmentFlowState extends ConsumerState<BountyFulfillmentFlow> {
                         key: const ValueKey('gps'),
                         bounty: b,
                         done: _done.contains(1),
+                        locating: _locating,
                         onConfirm: _confirmGps,
                       ),
                     2 => _RecordStep(
@@ -158,12 +165,38 @@ class _BountyFulfillmentFlowState extends ConsumerState<BountyFulfillmentFlow> {
 
   // ------------------------------------------------------------- step actions
 
-  void _confirmGps() {
-    setState(() {
-      _done.add(1);
-      _active = 2;
-    });
-    _toast('GPS verified — you are on ${b.venueName ?? b.areaName}');
+  Future<void> _confirmGps() async {
+    final venueLat = b.venueLatitude;
+    final venueLon = b.venueLongitude;
+    if (venueLat == null || venueLon == null) {
+      _toast('The poster has not pinned the pitch yet — GPS check-in is unavailable.');
+      return;
+    }
+    setState(() => _locating = true);
+    try {
+      final here = await LocationService.instance.getCurrent();
+      final meters = Geolocator.distanceBetween(
+        here.lat,
+        here.lon,
+        venueLat,
+        venueLon,
+      );
+      if (!mounted) return;
+      if (meters > _geofenceMeters) {
+        _toast(
+            'You are ${meters.round()} m from the pitch — move within ${_geofenceMeters.round()} m to check in.');
+        return;
+      }
+      setState(() {
+        _done.add(1);
+        _active = 2;
+      });
+      _toast('GPS verified — you are on ${b.venueName ?? b.areaName}');
+    } on LocationException catch (e) {
+      if (mounted) _toast(e.reason);
+    } finally {
+      if (mounted) setState(() => _locating = false);
+    }
   }
 
   void _toggleRecording() {
@@ -451,11 +484,13 @@ class _GpsStep extends StatelessWidget {
     super.key,
     required this.bounty,
     required this.done,
+    required this.locating,
     required this.onConfirm,
   });
 
   final StreamBounty bounty;
   final bool done;
+  final bool locating;
   final VoidCallback onConfirm;
 
   @override
@@ -494,7 +529,9 @@ class _GpsStep extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       RadarCaps(
-                        '${bounty.latitude?.toStringAsFixed(4) ?? '—'}° N • ${bounty.longitude?.toStringAsFixed(4) ?? '—'}° W',
+                        bounty.venueLatitude == null || bounty.venueLongitude == null
+                            ? 'Pitch not pinned'
+                            : '${bounty.venueLatitude!.abs().toStringAsFixed(4)}° ${bounty.venueLatitude! >= 0 ? 'N' : 'S'} • ${bounty.venueLongitude!.abs().toStringAsFixed(4)}° ${bounty.venueLongitude! >= 0 ? 'E' : 'W'}',
                         size: 8,
                         color: RadarTheme.cyanDeep,
                       ),
@@ -533,9 +570,13 @@ class _GpsStep extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           RadarPrimaryButton(
-            label: done ? 'GPS verified' : 'Confirm I am on the pitch',
+            label: done
+                ? 'GPS verified'
+                : locating
+                    ? 'Locating…'
+                    : 'Check in on the pitch',
             icon: done ? Icons.check_circle : Icons.my_location,
-            onPressed: done ? null : onConfirm,
+            onPressed: (done || locating) ? null : onConfirm,
           ),
         ],
       ),

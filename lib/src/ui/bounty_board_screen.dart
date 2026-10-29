@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../models/feed_post.dart' show distanceKm;
+import '../data/location_service.dart';
 import '../models/stream_bounty.dart';
 import '../models/user_profile.dart';
 import '../pi/pi_service.dart' show PiPaymentPhase;
@@ -1289,6 +1290,8 @@ class _PostBountySheetState extends ConsumerState<_PostBountySheet> {
   late final TextEditingController _areaCtrl =
       TextEditingController(text: widget.initialArea ?? '');
   final _venueCtrl = TextEditingController();
+  ({double lat, double lon})? _venuePin;
+  String? _pinError;
   late double _amount = (widget.initialAmount ?? 50).clamp(5, 500).toDouble();
   int _duration = 90;
   DateTime _kickoff = DateTime.now().add(const Duration(days: 1));
@@ -1301,6 +1304,20 @@ class _PostBountySheetState extends ConsumerState<_PostBountySheet> {
     _areaCtrl.dispose();
     _venueCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _pinVenue() async {
+    try {
+      final here = await LocationService.instance.getCurrent();
+      if (!mounted) return;
+      setState(() {
+        _venuePin = here;
+        _pinError = null;
+      });
+    } on LocationException catch (e) {
+      if (!mounted) return;
+      setState(() => _pinError = e.reason);
+    }
   }
 
   Future<void> _submit() async {
@@ -1316,6 +1333,8 @@ class _PostBountySheetState extends ConsumerState<_PostBountySheet> {
           brief: _briefCtrl.text,
           areaName: _areaCtrl.text,
           venueName: _venueCtrl.text,
+          venueLatitude: _venuePin?.lat,
+          venueLongitude: _venuePin?.lon,
           amountPi: _amount,
           durationMinutes: _duration,
           kickoffAt: _kickoff,
@@ -1399,6 +1418,23 @@ class _PostBountySheetState extends ConsumerState<_PostBountySheet> {
             prefixIcon: Icon(Icons.stadium_outlined, size: 20),
           ),
         ),
+        const SizedBox(height: 6),
+        Row(children: [
+          Expanded(
+            child: Text(
+              _pinError ??
+                  (_venuePin == null
+                      ? 'Pin the pitch: stand on it and tap Use my location.'
+                      : 'Pitch pinned — ${_venuePin!.lat.toStringAsFixed(4)}, ${_venuePin!.lon.toStringAsFixed(4)}'),
+              style: TextStyle(color: RadarTheme.textDim, fontSize: 12),
+            ),
+          ),
+          TextButton.icon(
+            onPressed: _pinVenue,
+            icon: const Icon(Icons.my_location, size: 16),
+            label: const Text('Use my location'),
+          ),
+        ]),
         const SizedBox(height: 14),
         Row(children: [
           Text('Escrow',

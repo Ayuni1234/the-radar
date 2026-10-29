@@ -21,6 +21,8 @@ class StreamBounty {
     this.venueName,
     this.latitude,
     this.longitude,
+    this.venueLatitude,
+    this.venueLongitude,
     this.kickoffAt,
     this.streamerProfileId,
     this.streamerName,
@@ -40,6 +42,10 @@ class StreamBounty {
   final String? venueName;
   final double? latitude;
   final double? longitude;
+
+  /// Exact pitch pin set by the poster; the GPS check-in geofences against it.
+  final double? venueLatitude;
+  final double? venueLongitude;
   final double amountPi;
 
   /// Requested stream length in minutes (e.g. a 90-minute match).
@@ -90,6 +96,8 @@ class StreamBounty {
         venueName: venueName,
         latitude: latitude,
         longitude: longitude,
+        venueLatitude: venueLatitude,
+        venueLongitude: venueLongitude,
         kickoffAt: kickoffAt,
         streamerProfileId: streamerProfileId ?? this.streamerProfileId,
         streamerName: streamerName ?? this.streamerName,
@@ -114,6 +122,8 @@ class StreamBounty {
       venueName: str(json['venue_name']),
       latitude: (json['latitude'] as num?)?.toDouble(),
       longitude: (json['longitude'] as num?)?.toDouble(),
+      venueLatitude: (json['venue_latitude'] as num?)?.toDouble(),
+      venueLongitude: (json['venue_longitude'] as num?)?.toDouble(),
       amountPi: (json['amount_pi'] as num?)?.toDouble() ?? 0,
       durationMinutes: (json['duration_minutes'] as num?)?.toInt() ?? 90,
       kickoffAt:
