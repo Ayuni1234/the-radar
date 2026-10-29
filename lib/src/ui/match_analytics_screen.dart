@@ -139,6 +139,10 @@ class _ReportView extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        if (session.simulated) ...[
+          const _SimulatedBanner(),
+          const SizedBox(height: 14),
+        ],
         _HeaderCard(session: session, report: report, bounty: bounty),
         const SizedBox(height: 14),
         _HeatmapCard(report: report),
@@ -150,6 +154,44 @@ class _ReportView extends StatelessWidget {
         _HighlightReelCard(report: report),
         const SizedBox(height: 30),
       ],
+    );
+  }
+}
+
+// ------------------------------------------------------------------ banner
+
+/// Makes clear that the numbers come from the simulator, not a real CV feed.
+class _SimulatedBanner extends StatelessWidget {
+  const _SimulatedBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: RadarTheme.gold.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: RadarTheme.gold.withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.science_outlined, size: 18, color: RadarTheme.gold),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Simulated Demo Data. These figures are generated locally and are '
+              'not measured from video. Live computer-vision tracking is not '
+              'connected yet.',
+              style: TextStyle(
+                color: RadarTheme.textPrimary,
+                fontSize: 12.5,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

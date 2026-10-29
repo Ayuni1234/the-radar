@@ -15,6 +15,7 @@ class TrackingSession {
     List<TrackSample>? samples,
     this.lockConfidence = 0.93,
     this.report,
+    this.simulated = false,
   }) : samples = samples ?? const [];
 
   final String id;
@@ -31,6 +32,11 @@ class TrackingSession {
   final double lockConfidence;
 
   final List<TrackSample> samples;
+
+  /// True when the telemetry was generated locally by [synthetic] rather
+  /// than produced by a computer-vision feed. UI must label such data as
+  /// simulated demo output.
+  final bool simulated;
 
   /// Cached breakdown — computed once the telemetry stream completes.
   final MatchReport? report;
@@ -118,6 +124,7 @@ class TrackingSession {
       lockConfidence: 0.90 + rng.nextDouble() * 0.08,
       samples: samples,
       report: TrackingEngine.analyze(samples),
+      simulated: true,
     );
   }
 }
