@@ -10,6 +10,7 @@ import '../models/radar_event.dart';
 import '../models/stream_bounty.dart';
 import '../models/user_profile.dart';
 import '../state/auth_controller.dart';
+import '../state/age_verification.dart';
 import '../state/map_focus.dart';
 import '../state/radar_providers.dart';
 import 'event_detail_screen.dart';
@@ -1317,12 +1318,17 @@ class _ComposerSheetState extends ConsumerState<_ComposerSheet> {
     try {
       final fix = await LocationService.instance.getCurrent();
       if (!mounted) return;
+      // Minors never keep the exact fix: it is generalized to ~5-6 km before
+      // it is stored or labelled.
+      final isMinorUser = ref.read(sessionProvider)?.isMinor ?? false;
+      final pin = generalizeForMinor(fix.lat, fix.lon, isMinor: isMinorUser);
       setState(() {
         _locating = false;
-        _pinLat = fix.lat;
-        _pinLon = fix.lon;
-        _pinLabel =
-            'GPS pin · ${fix.lat.toStringAsFixed(4)}, ${fix.lon.toStringAsFixed(4)}';
+        _pinLat = pin.lat;
+        _pinLon = pin.lon;
+        _pinLabel = isMinorUser
+            ? 'Approximate area · ${pin.lat.toStringAsFixed(1)}, ${pin.lon.toStringAsFixed(1)}'
+            : 'GPS pin · ${fix.lat.toStringAsFixed(4)}, ${fix.lon.toStringAsFixed(4)}';
         if (_areaCtrl.text.trim().isEmpty) {
           _areaCtrl.text = 'My current spot';
         }

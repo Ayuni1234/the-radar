@@ -75,6 +75,7 @@ void main() {
       displayName: 'Demo Scout',
       country: 'United Kingdom',
       city: 'London',
+      birthYear: 1990,
     ));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 600));

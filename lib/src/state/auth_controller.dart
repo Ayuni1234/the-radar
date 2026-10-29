@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/demo_seed.dart';
 import '../data/radar_repository.dart';
+import 'age_verification.dart';
 import '../models/connection_request.dart';
 import '../models/enums.dart';
 import '../models/user_profile.dart';
@@ -275,8 +276,13 @@ class AuthController extends AsyncNotifier<AuthState> {
     String? bio,
     String? country,
     String? city,
-    bool isMinor = false,
+    int? birthYear,
   }) async {
+    // Minor status is derived from the verified birth year, never a flag.
+    if (checkBirthYear(birthYear) != AgeCheck.valid) {
+      throw StateError('A valid birth year is required to finish signup.');
+    }
+    final isMinor = isMinorFromBirthYear(birthYear);
     final auth = state.value;
     if (auth is! AuthSignedIn) {
       throw StateError('Cannot finish onboarding while signed out.');
@@ -317,6 +323,7 @@ class AuthController extends AsyncNotifier<AuthState> {
       bio: bio?.trim(),
       country: country?.trim(),
       city: city?.trim(),
+      birthYear: birthYear,
       isMinor: isMinor,
       onboardedAt: DateTime.now(),
       updatedAt: DateTime.now(),

@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/enums.dart';
+import '../state/age_verification.dart';
 import '../state/auth_controller.dart';
+import '../state/radar_providers.dart';
 import 'radar_theme.dart';
 import 'shell.dart' show InfoPill, RadarMark;
 
@@ -33,26 +35,25 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   // Step 2 — region & demographics.
   final _countryCtrl = TextEditingController();
   final _cityCtrl = TextEditingController();
-  bool _isMinor = false;
+  final _birthYearCtrl = TextEditingController();
+
+  /// Derived from the verified birth year; never self-declared.
+  bool get _isMinor => isMinorFromBirthYear(_birthYear);
+  int? get _birthYear => int.tryParse(_birthYearCtrl.text.trim());
+
+  // Step 2b — guardian invite, required only when the birth year is a minor's.
+  final _guardianCtrl = TextEditingController();
 
   // Step 3 — profile. Prefilled from the Pi identity: the verified Pi
   // username seeds the display name, so there is no redundant manual
   // name-entry requirement (the field is optional and editable).
   // NOTE: the text is captured at initState time — `ref` must not be
   // touched from dispose-time lazy initializers.
-  late final TextEditingController _nameCtrl;
+  late final _nameCtrl = TextEditingController(text: _piDisplayName());
   final _bioCtrl = TextEditingController();
 
-  @override
-  void initState() {
-    super.initState();
-    // Read the verified Pi identity here, where `ref` is safe. A lazy
-    // initializer would instead run from dispose() when the name field was
-    // never built, and reading a provider after deactivation throws.
-    _nameCtrl = TextEditingController(text: _piDisplayName());
-  }
-
   String _piDisplayName() {
+    if (!mounted) return '';
     final auth = ref.read(authProvider).value;
     if (auth is AuthSignedIn) {
       return auth.session.displayName ?? auth.session.username;
@@ -64,6 +65,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   void dispose() {
     _countryCtrl.dispose();
     _cityCtrl.dispose();
+    _birthYearCtrl.dispose();
+    _guardianCtrl.dispose();
     _nameCtrl.dispose();
     _bioCtrl.dispose();
     super.dispose();
@@ -74,7 +77,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       case 0:
         return _role != null;
       case 1:
-        return _countryCtrl.text.trim().isNotEmpty;
+        if (_countryCtrl.text.trim().isEmpty) return false;
+        if (checkBirthYear(_birthYear) != AgeCheck.valid) return false;
+        if (_isMinor && _guardianCtrl.text.trim().isEmpty) return false;
+        return true;
       default:
         // Name is prefilled from Pi identity; step 3 only asks for an
         // (optional) short bio — always passable.
@@ -88,13 +94,22 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       _error = null;
     });
     try {
+      // A minor's guardian must be invited before signup completes. The link
+      // stays pending until the guardian approves it, and the minor's exact
+      // location stays generalized until then.
+      if (_isMinor) {
+        final err = await ref
+            .read(guardianLinksProvider.notifier)
+            .inviteGuardian(_guardianCtrl.text.trim());
+        if (err != null) throw StateError(err);
+      }
       await ref.read(authProvider.notifier).finishOnboarding(
             role: _role ?? UserRole.player,
             displayName: _nameCtrl.text.trim(),
             bio: _bioCtrl.text.trim(),
             country: _countryCtrl.text.trim(),
             city: _cityCtrl.text.trim(),
-            isMinor: _isMinor,
+            birthYear: _birthYear,
           );
       // RadarApp watches authProvider and routes to HomeShell on
       // AuthSignedIn, which unmounts this wizard mid-await — never touch
@@ -166,8 +181,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                   key: const ValueKey(1),
                                   countryCtrl: _countryCtrl,
                                   cityCtrl: _cityCtrl,
+                                  birthYearCtrl: _birthYearCtrl,
+                                  guardianCtrl: _guardianCtrl,
                                   isMinor: _isMinor,
-                                  onMinorChanged: (v) => setState(() => _isMinor = v),
+                                  birthYearCheck: checkBirthYear(_birthYear),
                                   onTextChanged: () => setState(() {}),
                                 )
                               : _ProfileStep(
@@ -389,18 +406,28 @@ class _RegionStep extends StatelessWidget {
     super.key,
     required this.countryCtrl,
     required this.cityCtrl,
+    required this.birthYearCtrl,
+    required this.guardianCtrl,
     required this.isMinor,
-    required this.onMinorChanged,
+    required this.birthYearCheck,
     required this.onTextChanged,
   });
 
   final TextEditingController countryCtrl;
   final TextEditingController cityCtrl;
+  final TextEditingController birthYearCtrl;
+  final TextEditingController guardianCtrl;
   final bool isMinor;
-  final ValueChanged<bool> onMinorChanged;
+  final AgeCheck birthYearCheck;
 
   /// Notifies the wizard state so the Continue button re-evaluates.
   final VoidCallback onTextChanged;
+
+  String? get _birthYearError => switch (birthYearCheck) {
+        AgeCheck.valid || AgeCheck.missing => null,
+        AgeCheck.invalid => 'Enter a real birth year (1900 or later).',
+        AgeCheck.future => 'Birth year cannot be in the future.',
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -429,36 +456,46 @@ class _RegionStep extends StatelessWidget {
             hint: 'e.g. Douala',
             onChanged: (_) => onTextChanged(),
           ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'I am under 18',
-                      style: TextStyle(
-                          fontWeight: FontWeight.w600, fontSize: 13.5),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Your exact location is never shown — only an approximate '
-                      'area name. Adults see the same safeguarding on your '
-                      'sessions.',
-                      style: TextStyle(
-                          fontSize: 11.5, color: RadarTheme.textDim),
-                    ),
-                  ],
-                ),
-              ),
-              Switch(
-                value: isMinor,
-                onChanged: onMinorChanged,
-                activeThumbColor: RadarTheme.pi,
-              ),
-            ],
+          const SizedBox(height: 12),
+          _LabeledField(
+            key: const ValueKey('onboarding-birth-year'),
+            label: 'Birth year *',
+            controller: birthYearCtrl,
+            hint: 'e.g. 2012',
+            onChanged: (_) => onTextChanged(),
           ),
+          if (_birthYearError != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              _birthYearError!,
+              style: TextStyle(color: RadarTheme.alert, fontSize: 11.5),
+            ),
+          ],
+          const SizedBox(height: 10),
+          Text(
+            isMinor
+                ? 'Players under 18 need a parent or guardian. Your exact '
+                    'location is never shown — only an approximate area.'
+                : 'Your birth year is used only to confirm you are 18 or older. '
+                    'It is never shown on your profile.',
+            style: TextStyle(fontSize: 11.5, color: RadarTheme.textDim),
+          ),
+          if (isMinor) ...[
+            const SizedBox(height: 14),
+            _LabeledField(
+              key: const ValueKey('onboarding-guardian'),
+              label: 'Guardian Pi username *',
+              controller: guardianCtrl,
+              hint: "e.g. proud_rugby_dad",
+              onChanged: (_) => onTextChanged(),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'We send your guardian an invite. Consent controls stay off '
+              'until they approve it.',
+              style: TextStyle(fontSize: 11.5, color: RadarTheme.textDim),
+            ),
+          ],
         ],
       ),
     );

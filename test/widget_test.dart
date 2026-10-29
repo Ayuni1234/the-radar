@@ -50,6 +50,9 @@ void main() {
         find.byKey(const ValueKey('onboarding-country')), 'Cameroon');
     await tester.enterText(
         find.byKey(const ValueKey('onboarding-city')), 'Douala');
+    await tester.enterText(
+        find.byKey(const ValueKey('onboarding-birth-year')), '1998');
+    await tester.pump(const Duration(milliseconds: 200));
     await tester.scrollUntilVisible(
       find.text('Continue'),
       200,

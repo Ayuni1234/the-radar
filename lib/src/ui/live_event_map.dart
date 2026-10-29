@@ -4,6 +4,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../models/radar_event.dart';
 import '../models/stream_bounty.dart';
+import '../state/age_verification.dart';
 import 'city_map_canvas.dart';
 import 'radar_theme.dart';
 
@@ -14,6 +15,14 @@ import 'radar_theme.dart';
 /// the camera fits all of them, defaulting to London when nothing is live.
 /// If tile servers are unreachable (offline demo, firewall), the widget
 /// degrades to the painted city canvas so the Radar never breaks.
+/// Map position for an event. Minor-protected events use the generalized
+/// coordinates, so their exact location never reaches the map.
+LatLng _mapPoint(RadarEvent e) {
+  final p = generalizeForMinor(e.latitude, e.longitude,
+      isMinor: e.isMinorProtected);
+  return LatLng(p.lat, p.lon);
+}
+
 class LiveEventMap extends StatefulWidget {
   const LiveEventMap({
     super.key,
@@ -67,7 +76,7 @@ class _LiveEventMapState extends State<LiveEventMap> {
       for (final e in events)
         if (e.latitude != 0 || e.longitude != 0)
           Marker(
-            point: LatLng(e.latitude, e.longitude),
+            point: _mapPoint(e),
             width: 46,
             height: 46,
             alignment: Alignment.topCenter,
@@ -88,7 +97,7 @@ class _LiveEventMapState extends State<LiveEventMap> {
         ...widget.liveEvents,
         ...widget.scheduledEvents,
       ])
-        if (e.latitude != 0 || e.longitude != 0) LatLng(e.latitude, e.longitude),
+        if (e.latitude != 0 || e.longitude != 0) _mapPoint(e),
     ];
 
     final center = allPoints.isNotEmpty
@@ -161,7 +170,7 @@ class _LiveEventMapState extends State<LiveEventMap> {
                 for (final e in widget.protectedEvents)
                   if (e.latitude != 0 || e.longitude != 0)
                     Marker(
-                      point: LatLng(e.latitude, e.longitude),
+                      point: _mapPoint(e),
                       width: 40,
                       height: 40,
                       child: const _MapPin(

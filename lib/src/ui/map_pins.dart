@@ -3,6 +3,7 @@ import 'dart:ui' show Color, Offset;
 
 import '../models/radar_event.dart';
 import '../models/stream_bounty.dart';
+import '../state/age_verification.dart';
 import 'radar_theme.dart';
 
 /// One interactive pin on the live scouting map — either a radar event or
@@ -57,8 +58,14 @@ class MapPin {
           : 'Scheduled · ${e.safeLocationLabel()}',
       color: color,
       kind: kind,
-      latitude: e.latitude,
-      longitude: e.longitude,
+      // Minor-protected events are drawn at a generalized position (about a
+      // 5-6 km radius), never the exact coordinates.
+      latitude: generalizeForMinor(e.latitude, e.longitude,
+              isMinor: e.isMinorProtected)
+          .lat,
+      longitude: generalizeForMinor(e.latitude, e.longitude,
+              isMinor: e.isMinorProtected)
+          .lon,
       isMinorProtected: e.isMinorProtected,
       isBoosted: e.isBoosted,
       event: e,
