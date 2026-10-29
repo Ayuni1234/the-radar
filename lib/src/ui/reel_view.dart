@@ -85,7 +85,9 @@ class ReelView extends StatelessWidget {
           top: 10,
           left: RadarSpace.md,
           right: RadarSpace.md,
-          child: _LiveCameraStrip(post: post),
+          // No camera feed is connected yet, so this is null and shows DEMO
+          // MODE. Pass real LiveCameraTelemetry here once a websocket exists.
+          child: _LiveCameraStrip(post: post, telemetry: null),
         ),
         Positioned(
           left: RadarSpace.md,
@@ -136,17 +138,32 @@ class ReelView extends StatelessWidget {
   }
 }
 
+/// Real live telemetry for a reel. Null means no feed is connected, so the
+/// strip shows DEMO MODE instead of invented camera, FPS or viewer numbers.
+class LiveCameraTelemetry {
+  const LiveCameraTelemetry({
+    required this.cameraId,
+    required this.fps,
+    required this.viewers,
+  });
+
+  final int cameraId;
+  final int fps;
+  final int viewers;
+}
+
 class _LiveCameraStrip extends StatelessWidget {
-  const _LiveCameraStrip({required this.post});
+  const _LiveCameraStrip({required this.post, this.telemetry});
 
   final FeedPost post;
 
+  /// Real camera feed data (e.g. from a websocket). Null shows DEMO MODE.
+  final LiveCameraTelemetry? telemetry;
+
   @override
   Widget build(BuildContext context) {
-    final seed = post.id.hashCode.abs();
-    final cam = 1 + seed % 8;
-    final fps = 60 + seed % 61;
-    final viewers = 420 + seed % 2400;
+    final t = telemetry;
+    final isDemo = t == null;
     return Row(
       children: [
         Flexible(
@@ -157,7 +174,8 @@ class _LiveCameraStrip extends StatelessWidget {
               borderRadius: BorderRadius.circular(999),
               boxShadow: [
                 BoxShadow(
-                  color: RadarTheme.radar.withValues(alpha: 0.25),
+                  color: (isDemo ? RadarTheme.gold : RadarTheme.radar)
+                      .withValues(alpha: 0.25),
                   blurRadius: 12,
                 ),
               ],
@@ -165,57 +183,65 @@ class _LiveCameraStrip extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const LiveDot(size: 7, animate: false),
+                if (isDemo)
+                  Icon(Icons.science_outlined,
+                      size: 11, color: RadarTheme.gold)
+                else
+                  const LiveDot(size: 7, animate: false),
                 const SizedBox(width: 5),
                 Flexible(
                   child: Text(
-                    'LIVE PITCH CAM #$cam',
+                    isDemo ? 'DEMO MODE' : 'LIVE PITCH CAM #${t.cameraId}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: RadarType.caps.copyWith(
                       fontSize: 9.5,
-                      color: RadarTheme.radar,
+                      color: isDemo ? RadarTheme.gold : RadarTheme.radar,
                       letterSpacing: 0.7,
                     ),
                   ),
                 ),
-                const SizedBox(width: 6),
+                if (!isDemo) ...[
+                  const SizedBox(width: 6),
+                  Text(
+                    '${t.fps} FPS',
+                    style: RadarType.caps.copyWith(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w500,
+                      color: RadarTheme.textDim,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        if (!isDemo) ...[
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: RadarTheme.panelLowest.withValues(alpha: 0.70),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.visibility_outlined,
+                    size: 14, color: RadarTheme.cyanDeep),
+                const SizedBox(width: 4),
                 Text(
-                  '$fps FPS',
-                  style: RadarType.caps.copyWith(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w500,
-                    color: RadarTheme.textDim,
+                  _compactCount(t.viewers),
+                  style: RadarType.metricMd.copyWith(
+                    fontSize: 12,
+                    color: RadarTheme.cyanDeep,
+                    height: 1,
                   ),
                 ),
               ],
             ),
           ),
-        ),
-        const SizedBox(width: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: RadarTheme.panelLowest.withValues(alpha: 0.70),
-            borderRadius: BorderRadius.circular(999),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.visibility_outlined,
-                  size: 14, color: RadarTheme.cyanDeep),
-              const SizedBox(width: 4),
-              Text(
-                _compactCount(viewers),
-                style: RadarType.metricMd.copyWith(
-                  fontSize: 12,
-                  color: RadarTheme.cyanDeep,
-                  height: 1,
-                ),
-              ),
-            ],
-          ),
-        ),
+        ],
       ],
     );
   }
